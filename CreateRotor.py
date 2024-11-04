@@ -1,6 +1,10 @@
 import time
 import numpy as np
 
+project_name = "SynRM_test"
+design_name = "Design01"
+path = "d:\DATA\Software\PyAnsys"
+
 # Define constants
 AEDT_VERSION = "2024.1"
 NUM_CORES = 4
@@ -29,7 +33,8 @@ setup_name = "Setup1"
 from ansys.aedt.core import Desktop, Maxwell2d
 
 desktop = Desktop(specified_version=AEDT_VERSION, new_desktop=False, close_on_exit=False)
-desktop.load_project(r"d:\DATA\Software\PyAnsys\SynRM_test.aedt")
+file_path = f"{path}\\{project_name}.aedt"
+desktop.load_project(file_path)
 m2d=Maxwell2d()
 m2d.set_active_design("Design01")
 modeler = m2d.modeler

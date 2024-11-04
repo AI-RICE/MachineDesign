@@ -1,3 +1,5 @@
+# opens the existing project with prepared design. Creates rotor geometry, calculates torque, delete rotor, and close project
+
 import time
 import numpy as np
 

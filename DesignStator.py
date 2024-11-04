@@ -1,10 +1,10 @@
-# import csv
-# import os.path
-# import tempfile
+#creates project, design, and prepares calcualtion and geometry except for the rotor
+
 import time
 
-from cookiecutter.vcs import clone
-from scipy.stats import variation
+project_name = "SynRM_test"
+design_name = "Design01"
+path = "d:\DATA\Software\PyAnsys"
 
 # Define constants
 AEDT_VERSION = "2024.1"
@@ -69,12 +69,11 @@ oper_params = {
 
 from ansys.aedt.core import Maxwell2d
 
-project_name = "SynRM_test"
-design_name = "Design01"
 m2d = Maxwell2d(project=project_name, design=design_name, specified_version=AEDT_VERSION,
                 non_graphical=NG_MODE, new_desktop_session=False,
                 close_on_exit=CLS_EXIT, student_version=False, solution_type="TransientXY", )
-m2d.save_project("d:\DATA\Software\PyAnsys\SynRM_test.aedt")
+file_path = f"{path}\\{project_name}.aedt"
+m2d.save_project(file_path)
 
 modeler = m2d.modeler
 

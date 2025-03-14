@@ -22,4 +22,7 @@ m2d.save_project(file_path)
 
 design = Design()
 design.create_stator(m2d)
-design.create_rotor(m2d, NUM_CORES)
+Tor = design.create_rotor(m2d, NUM_CORES)
+design.analyze_results(Tor)
+design.delete_rotor(m2d)
+design.close_session(m2d)

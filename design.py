@@ -431,6 +431,7 @@ class Design:
         rotor_id = modeler.create_polyline(
             points=rot_points, segment_type=[ "Arc","Line", "Arc"], cover_surface=True, name="Rotor"
         )
+        self.rotor_id = rotor_id
         #Rotor properties
         rotor_id.material_name = self.Fe
         rotor_id.color = (192, 192, 192)  # rgb
@@ -468,7 +469,16 @@ class Design:
         solutions = m2d.post.get_solution_data(
             expressions="Moving1.Torque", primary_sweep_variable="Time"
         )
-        Tor = solutions.data_magnitude()
+        return solutions.data_magnitude()
+    
+    def delete_rotor(self, m2d):
+        m2d.modeler.delete(self.rotor_id)
+
+    def close_session(self, m2d):
+        m2d.save_project()
+        m2d.close_desktop()
+
+    def analyze_results(self, Tor):
         TorAvg = np.mean(Tor[:-1])
         TorAvgAC = np.mean(np.abs(Tor[:-1]-TorAvg))
         TorRmsAC = np.sqrt(np.mean(np.square(Tor[:-1]-TorAvg)))
@@ -480,10 +490,3 @@ class Design:
         print("\nTorque ripple rms value: {:.2f} Nm".format(TorRmsAC))
         # print("\nTorque ripple relative value: {:.2f} %".format(TorRippleAvg))
         print("\nTorque ripple relative value: {:.2f} %\n".format(TorRippleRms))
-
-        modeler.delete(rotor_id)
-
-        m2d.save_project()
-        m2d.close_desktop()
-
-

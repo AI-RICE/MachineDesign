@@ -56,6 +56,14 @@ class Design:
                     "", #number of included periods
             "PointPer": "101" #number of time points per period
         }
+        self.rot_points = [
+            ["DiaShaft/2*cos(360deg/SymmetryFactor)", "DiaShaft/2*sin(360deg/SymmetryFactor)", "0mm"],
+            ["DiaShaft/2*cos(360deg/(2*SymmetryFactor))", "DiaShaft/2*sin(360deg/(2*SymmetryFactor))", "0mm"],
+            ["DiaShaft/2", "0mm", "0mm"],
+            ["DiaStatorGap/2-Airgap", "0mm", "0mm"],
+            ["(DiaStatorGap/2-Airgap)*cos(360deg/(2*SymmetryFactor))", "(DiaStatorGap/2-Airgap)*sin(360deg/(2*SymmetryFactor))", "0mm"],
+            ["(DiaStatorGap/2-Airgap)*cos(360deg/SymmetryFactor)", "(DiaStatorGap/2-Airgap)*sin(360deg/SymmetryFactor)", "0mm"],
+        ]
         self.setup_name = "Setup1"
         self.m2d = m2d
 
@@ -420,19 +428,9 @@ class Design:
         m2d = self.m2d
         modeler = m2d.modeler
 
-        # Rotor quarter
-        rot_points = [
-            ["DiaShaft/2*cos(360deg/SymmetryFactor)", "DiaShaft/2*sin(360deg/SymmetryFactor)", "0mm"],
-            ["DiaShaft/2*cos(360deg/(2*SymmetryFactor))", "DiaShaft/2*sin(360deg/(2*SymmetryFactor))", "0mm"],
-            ["DiaShaft/2", "0mm", "0mm"],
-            ["DiaStatorGap/2-Airgap", "0mm", "0mm"],
-            ["(DiaStatorGap/2-Airgap)*cos(360deg/(2*SymmetryFactor))", "(DiaStatorGap/2-Airgap)*sin(360deg/(2*SymmetryFactor))", "0mm"],
-            ["(DiaStatorGap/2-Airgap)*cos(360deg/SymmetryFactor)", "(DiaStatorGap/2-Airgap)*sin(360deg/SymmetryFactor)", "0mm"],
-        ]
-
         # Create Rotor
         rotor_id = modeler.create_polyline(
-            points=rot_points, segment_type=[ "Arc","Line", "Arc"], cover_surface=True, name="Rotor"
+            points=self.rot_points, segment_type=[ "Arc","Line", "Arc"], cover_surface=True, name="Rotor"
         )
         self.rotor_id = rotor_id
         #Rotor properties

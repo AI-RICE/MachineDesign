@@ -21,13 +21,13 @@ m2d = Maxwell2d(project=project_name, design=design_name, version=AEDT_VERSION,
 m2d.save_project(f"{path}/{project_name}.aedt")
 
 barrier_points = [
-    ["14", "14", "0"],
-    ["34","2","0"],
-    ["36","2","0"],
-    ["20","20","0"],
-    ["2", "36", "0"],
-    ["2", "34", "0"],
-    ["14", "14", "0"],
+    [14, 14, 0],
+    [34, 2, 0],
+    [36, 2, 0],
+    [20, 20, 0],
+    [2, 36, 0],
+    [2, 34, 0],
+    [14, 14, 0],
 ]
 
 design = Design(m2d)

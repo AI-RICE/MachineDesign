@@ -364,8 +364,6 @@ class Design:
         setup.update()
         m2d.validate_simple()
 
-        model = m2d.plot(show=False, output_file='qwe.png')
-
         #ooutput variables
         output_vars = {
             "pos": "(Moving1.Position -InitPos) * Poles/2",
@@ -437,6 +435,7 @@ class Design:
         m2d = self.m2d
         modeler = m2d.modeler
 
+        barrier_points = [[str(y) for y in x] for x in barrier_points]
         barrier_id = modeler.create_polyline(
             points=barrier_points, segment_type=modeler.polyline_segment("Spline", num_points=7), cover_surface=True, name="Barrier"
         )
@@ -445,7 +444,7 @@ class Design:
 
     def compute(self, NUM_CORES=1):
         m2d = self.m2d
-        
+
         m2d.mesh.assign_length_mesh(
             assignment=self.rotor_id,
             inside_selection=True,

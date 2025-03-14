@@ -483,6 +483,9 @@ class Design:
         TorRippleAvg = TorAvgAC/TorAvg*100
         TorRippleRms = TorRmsAC/TorAvg*100
 
+        return TorAvg, TorRmsAC, TorRippleRms
+    
+    def print_results(self, TorAvg, TorRmsAC, TorRippleRms):
         print("\nTorque mean value: {:.2f} Nm".format(TorAvg))
         # print("\nTorque ripple mean value: {:.2f} Nm".format(TorAvgAC))
         print("\nTorque ripple rms value: {:.2f} Nm".format(TorRmsAC))

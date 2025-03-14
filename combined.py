@@ -7,7 +7,7 @@ project_name = "SynRM_test"
 design_name = "Design01"
 path = os.path.join(os.getcwd(), 'data')
 os.makedirs(path, exist_ok=True)
-file_design = 'results/desing.png'
+file_design = 'results/design.png'
 
 # Define constants
 AEDT_VERSION = "2024.2"
@@ -20,10 +20,22 @@ m2d = Maxwell2d(project=project_name, design=design_name, version=AEDT_VERSION,
                 close_on_exit=CLS_EXIT, student_version=False, solution_type="TransientXY", )
 m2d.save_project(f"{path}/{project_name}.aedt")
 
+barrier_points = [
+    ["14", "14", "0"],
+    ["34","2","0"],
+    ["36","2","0"],
+    ["20","20","0"],
+    ["2", "36", "0"],
+    ["2", "34", "0"],
+    ["14", "14", "0"],
+]
+
 design = Design(m2d)
 design.create_stator()
-Tor = design.create_rotor(NUM_CORES)
-design.analyze_results(Tor)
+design.add_rotor()
+design.add_rotor_holes(barrier_points)
 design.save_design(file_design)
+Tor = design.compute(NUM_CORES)
+design.analyze_results(Tor)
 design.delete_rotor()
 design.close_session()

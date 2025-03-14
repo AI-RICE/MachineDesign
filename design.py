@@ -424,37 +424,30 @@ class Design:
                 plot_name=v,
             )
 
-    def create_rotor(self, NUM_CORES=1):
-        m2d = self.m2d
-        modeler = m2d.modeler
-
-        # Create Rotor
-        rotor_id = modeler.create_polyline(
+    def add_rotor(self):
+        rotor_id = self.m2d.modeler.create_polyline(
             points=self.rot_points, segment_type=[ "Arc","Line", "Arc"], cover_surface=True, name="Rotor"
         )
         self.rotor_id = rotor_id
-        #Rotor properties
         rotor_id.material_name = self.Fe
         rotor_id.color = (192, 192, 192)  # rgb
         rotor_id.transparency = 0.0
-        #Rotor geometry modification
-        barrier_points = [
-            ["14", "14", "0"],
-            ["34","2","0"],
-            ["36","2","0"],
-            ["20","20","0"],
-            ["2", "36", "0"],
-            ["2", "34", "0"],
-            ["14", "14", "0"],
-        ]
+
+    def add_rotor_holes(self, barrier_points):
+        m2d = self.m2d
+        modeler = m2d.modeler
+
         barrier_id = modeler.create_polyline(
             points=barrier_points, segment_type=modeler.polyline_segment("Spline", num_points=7), cover_surface=True, name="Barrier"
         )
-        barr_subtr = rotor_id.subtract(barrier_id)
+        barr_subtr = self.rotor_id.subtract(barrier_id)
         modeler.delete(barrier_id)
 
+    def compute(self, NUM_CORES=1):
+        m2d = self.m2d
+        
         m2d.mesh.assign_length_mesh(
-            assignment=rotor_id,
+            assignment=self.rotor_id,
             inside_selection=True,
             maximum_length=3,
             maximum_elements=None,

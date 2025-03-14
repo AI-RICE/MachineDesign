@@ -7,6 +7,7 @@ project_name = "SynRM_test"
 design_name = "Design01"
 path = os.path.join(os.getcwd(), 'data')
 os.makedirs(path, exist_ok=True)
+file_design = 'results/desing.png'
 
 # Define constants
 AEDT_VERSION = "2024.2"
@@ -17,12 +18,12 @@ CLS_EXIT = True #close on exit
 m2d = Maxwell2d(project=project_name, design=design_name, version=AEDT_VERSION,
                 non_graphical=NG_MODE, new_desktop=False,
                 close_on_exit=CLS_EXIT, student_version=False, solution_type="TransientXY", )
-file_path = f"{path}\\{project_name}.aedt"
-m2d.save_project(file_path)
+m2d.save_project(f"{path}/{project_name}.aedt")
 
-design = Design()
-design.create_stator(m2d)
-Tor = design.create_rotor(m2d, NUM_CORES)
+design = Design(m2d)
+design.create_stator()
+Tor = design.create_rotor(NUM_CORES)
 design.analyze_results(Tor)
-design.delete_rotor(m2d)
-design.close_session(m2d)
+design.save_design(file_design)
+design.delete_rotor()
+design.close_session()

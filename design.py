@@ -1,7 +1,7 @@
 import numpy as np
 
 class Design:
-    def __init__(self):
+    def __init__(self, m2d):
         #materials
         self.Fe = "Cogent Power - M350-50A, B-H at 50Hz"
 
@@ -57,8 +57,10 @@ class Design:
             "PointPer": "101" #number of time points per period
         }
         self.setup_name = "Setup1"
+        self.m2d = m2d
 
-    def create_stator(self, m2d):
+    def create_stator(self):
+        m2d = self.m2d
         modeler = m2d.modeler
 
         # Define design variables from the created dictionaries.
@@ -414,7 +416,8 @@ class Design:
                 plot_name=v,
             )
 
-    def create_rotor(self, m2d, NUM_CORES):
+    def create_rotor(self, NUM_CORES=1):
+        m2d = self.m2d
         modeler = m2d.modeler
 
         # Rotor quarter
@@ -471,12 +474,17 @@ class Design:
         )
         return solutions.data_magnitude()
     
-    def delete_rotor(self, m2d):
-        m2d.modeler.delete(self.rotor_id)
+    def delete_rotor(self):
+        self.m2d.modeler.delete(self.rotor_id)
 
-    def close_session(self, m2d):
-        m2d.save_project()
-        m2d.close_desktop()
+    def save_design(self, file_name, **kwargs):
+        show = kwargs.pop('show', False)
+        view = kwargs.pop('view', 'xy')
+        self.m2d.plot(show=show, output_file=file_name, view=view)
+
+    def close_session(self):
+        self.m2d.save_project()
+        self.m2d.close_desktop()
 
     def analyze_results(self, Tor):
         TorAvg = np.mean(Tor[:-1])

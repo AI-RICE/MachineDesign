@@ -1,7 +1,14 @@
+import os
 import numpy as np
+from ansys.aedt.core import Desktop, Maxwell2d
 
 class Design:
-    def __init__(self, m2d):
+    def __init__(self, m2d=None):
+        self.set_parameters()
+        if m2d is not None:
+            self.m2d = m2d
+
+    def set_parameters(self):
         #materials
         self.Fe = "Cogent Power - M350-50A, B-H at 50Hz"
 
@@ -65,6 +72,12 @@ class Design:
             ["(DiaStatorGap/2-Airgap)*cos(360deg/SymmetryFactor)", "(DiaStatorGap/2-Airgap)*sin(360deg/SymmetryFactor)", "0mm"],
         ]
         self.setup_name = "Setup1"
+
+    def load_stator(self, file_name, **kwargs):
+        desktop = Desktop(**kwargs)
+        desktop.load_project(file_name)
+        m2d = Maxwell2d()
+        m2d.set_active_design("Design01")
         self.m2d = m2d
 
     def create_stator(self):
@@ -459,7 +472,6 @@ class Design:
         m2d.set_core_losses("Rotor", core_loss_on_field=False)
 
         # Analyze
-        m2d.save_project()
         m2d.analyze_setup(self.setup_name, use_auto_settings=False, cores=NUM_CORES)
 
         solutions = m2d.post.get_solution_data(
@@ -475,8 +487,13 @@ class Design:
         view = kwargs.pop('view', 'xy')
         self.m2d.plot(show=show, output_file=file_name, view=view)
 
-    def close_session(self):
-        self.m2d.save_project()
+    def save_project(self, file_name=None):
+        if file_name is None:
+            self.m2d.save_project()
+        else:
+            self.m2d.save_project(file_name)
+    
+    def close_project(self):
         self.m2d.close_desktop()
 
     def analyze_results(self, Tor):

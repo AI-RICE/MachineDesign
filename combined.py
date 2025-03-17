@@ -8,6 +8,7 @@ design_name = "Design01"
 path = os.path.join(os.getcwd(), 'data')
 os.makedirs(path, exist_ok=True)
 file_design = 'results/design.png'
+os.makedirs('results', exist_ok=True)
 
 # Define constants
 AEDT_VERSION = "2024.2"

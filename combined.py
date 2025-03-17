@@ -6,7 +6,7 @@ project_name = "SynRM_test"
 design_name = "Design01"
 path = os.path.join(os.getcwd(), 'data')
 os.makedirs(path, exist_ok=True)
-file_name_aedt = f'{path}/SynRM_test.aedt'
+file_name_aedt = f'{path}/{project_name}.aedt'
 
 # Define constants
 AEDT_VERSION = "2024.2"
@@ -29,9 +29,8 @@ if not os.path.exists(file_name_aedt):
         non_graphical=NG_MODE, new_desktop=False,
         close_on_exit=CLS_EXIT, student_version=False, solution_type="TransientXY")
     design = Design(m2d)
-    design.save_project(file_name_aedt)
     design.create_stator()
-    design.save_project()
+    design.save_project(file_name_aedt)
 else:
     design = Design()
     design.load_stator(file_name_aedt, version=AEDT_VERSION, non_graphical=NG_MODE,

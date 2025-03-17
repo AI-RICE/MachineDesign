@@ -435,6 +435,9 @@ class Design:
         m2d = self.m2d
         modeler = m2d.modeler
 
+        barrier_points = np.array(barrier_points)
+        if barrier_points.shape[1] == 2:
+            barrier_points = np.hstack((barrier_points, np.zeros((len(barrier_points),1))))
         barrier_points = [[str(y) for y in x] for x in barrier_points]
         barrier_id = modeler.create_polyline(
             points=barrier_points, segment_type=modeler.polyline_segment("Spline", num_points=7), cover_surface=True, name="Barrier"

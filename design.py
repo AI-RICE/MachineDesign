@@ -446,7 +446,7 @@ class Design:
         rotor_id.color = (192, 192, 192)  # rgb
         rotor_id.transparency = 0.0
 
-    def add_rotor_holes(self, barrier_points, n=1):
+    def add_rotor_holes(self, barrier_points, n=1, segment_type=None):
         m2d = self.m2d
         modeler = m2d.modeler
 
@@ -465,8 +465,7 @@ class Design:
 
             qwe = [[str(y) for y in x] for x in barrier_points_new]
             barrier_id = modeler.create_polyline(
-                #points=qwe, segment_type=modeler.polyline_segment("Spline", num_points=7), cover_surface=True, name="Barrier"
-                points=qwe, segment_type=None, cover_surface=True, name="Barrier"
+                points=qwe, segment_type=segment_type, cover_surface=True, name="Barrier"
             )
             self.rotor_id.subtract(barrier_id)
             modeler.delete(barrier_id)

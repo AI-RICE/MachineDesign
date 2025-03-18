@@ -72,6 +72,8 @@ class Design:
             ["(DiaStatorGap/2-Airgap)*cos(360deg/SymmetryFactor)", "(DiaStatorGap/2-Airgap)*sin(360deg/SymmetryFactor)", "0mm"],
         ]
         self.setup_name = "Setup1"
+        self.rotor_r_min = self.mm_to_str('geom_params', 'DiaShaft')/2
+        self.rotor_r_max = self.mm_to_str('geom_params', 'DiaStatorGap')/2 - self.mm_to_str('geom_params', 'Airgap')
 
     def load_stator(self, file_name, **kwargs):
         desktop = Desktop(**kwargs)
@@ -504,6 +506,12 @@ class Design:
         TorRippleRms = TorRmsAC/TorAvg*100
 
         return TorAvg, TorRmsAC, TorRippleRms
+    
+    def mm_to_str(self, var, field):
+        val = getattr(self, var)[field]
+        if not val.endswith('mm'):
+            raise Exception('val must end with mm')
+        return float(val[:-2])
     
     def print_results(self, TorAvg, TorRmsAC, TorRippleRms):
         print("\nTorque mean value: {:.2f} Nm".format(TorAvg))

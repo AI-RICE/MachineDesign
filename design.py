@@ -446,11 +446,19 @@ class Design:
         rotor_id.color = (192, 192, 192)  # rgb
         rotor_id.transparency = 0.0
 
-    def add_rotor_holes(self, barrier_points, n=1, segment_type=None):
+    def add_rotor_barriers(self, barrier_points, n=1, segment_type=None, tol=1e-10):
         m2d = self.m2d
         modeler = m2d.modeler
 
         barrier_points = np.array(barrier_points)
+        if np.array_equal(barrier_points[0], barrier_points[-1]):
+            if np.linalg.norm(barrier_points[0] - barrier_points[-1]) < tol:
+                mid = 0.5*(barrier_points[0]+barrier_points[-1])
+                barrier_points[0] = mid
+                barrier_points[-1] = mid
+            else:
+                raise Exception('First and last points are not equal')
+        barrier_points = np.round(barrier_points, 6)  
         if barrier_points.shape[1] == 2:
             barrier_points = np.hstack((barrier_points, np.zeros((len(barrier_points),1))))
 

@@ -1,14 +1,15 @@
 import os
 import numpy as np
 from ansys.aedt.core import Desktop, Maxwell2d
+from ansys.aedt.core.modeler.modeler_2d import Modeler2D
 
 class Design:
-    def __init__(self, m2d):
+    def __init__(self, m2d: Maxwell2d) -> None:
         self.set_parameters()
         self.m2d = m2d
 
     @classmethod
-    def create(cls, project_name, design_name, file_name, **kwargs):
+    def create(cls, project_name: str, design_name: str, file_name: str, **kwargs) -> "Design":
         m2d = Maxwell2d(
             project=project_name,
             design=design_name,
@@ -21,7 +22,7 @@ class Design:
         return obj
 
     @classmethod
-    def load(cls, file_name, **kwargs):
+    def load(cls, file_name: str, **kwargs) -> "Design":
         desktop = Desktop(**kwargs)
         desktop.load_project(file_name)
 
@@ -30,7 +31,7 @@ class Design:
 
         return cls(m2d)
     
-    def set_parameters(self):
+    def set_parameters(self) -> None:
         #materials
         self.Fe = "Cogent Power - M350-50A, B-H at 50Hz"
 
@@ -97,9 +98,10 @@ class Design:
         self.rotor_r_min = self.mm_to_str('geom_params', 'DiaShaft')/2
         self.rotor_r_max = self.mm_to_str('geom_params', 'DiaStatorGap')/2 - self.mm_to_str('geom_params', 'Airgap')
 
-    def create_stator(self):
+    def create_stator(self) -> None:
         m2d = self.m2d
         modeler = m2d.modeler
+        assert isinstance(modeler, Modeler2D)
 
         # Define design variables from the created dictionaries.
         modeler.model_units = "mm"
@@ -452,8 +454,11 @@ class Design:
                 plot_name=v,
             )
 
-    def add_rotor(self):
-        rotor_id = self.m2d.modeler.create_polyline(
+    def add_rotor(self) -> None:
+        modeler = self.m2d.modeler
+        assert isinstance(modeler, Modeler2D)
+
+        rotor_id = modeler.create_polyline(
             points=self.rot_points, segment_type=[ "Arc","Line", "Arc"], cover_surface=True, name="Rotor"
         )
         self.rotor_id = rotor_id
@@ -461,9 +466,9 @@ class Design:
         rotor_id.color = (192, 192, 192)  # rgb
         rotor_id.transparency = 0.0
 
-    def add_rotor_barriers(self, barrier_points, n=1, segment_type=None, tol=1e-10):
-        m2d = self.m2d
-        modeler = m2d.modeler
+    def add_rotor_barriers(self, barrier_points, n: int = 1, segment_type=None, tol: float = 1e-10) -> None:
+        modeler = self.m2d.modeler
+        assert isinstance(modeler, Modeler2D)
 
         barrier_points = np.array(barrier_points)
         if np.array_equal(barrier_points[0], barrier_points[-1]):
@@ -493,7 +498,7 @@ class Design:
             self.rotor_id.subtract(barrier_id)
             modeler.delete(barrier_id)
 
-    def compute(self, NUM_CORES=1):
+    def compute(self, NUM_CORES: int = 1):
         m2d = self.m2d
 
         m2d.mesh.assign_length_mesh(
@@ -514,24 +519,25 @@ class Design:
         )
         return solutions.data_magnitude()
     
-    def delete_rotor(self):
+    def delete_rotor(self) -> None:
+        assert isinstance(self.m2d.modeler, Modeler2D)
         self.m2d.modeler.delete(self.rotor_id)
 
-    def save_design(self, file_name, **kwargs):
+    def save_design(self, file_name: str, **kwargs) -> None:
         show = kwargs.pop('show', False)
         view = kwargs.pop('view', 'xy')
         self.m2d.plot(show=show, output_file=file_name, view=view)
 
-    def save_project(self, file_name=None):
+    def save_project(self, file_name: str | None = None) -> None:
         if file_name is None:
             self.m2d.save_project()
         else:
             self.m2d.save_project(file_name)
     
-    def close_project(self):
+    def close_project(self) -> None:
         self.m2d.close_desktop()
 
-    def analyze_results(self, Tor):
+    def analyze_results(self, Tor: np.ndarray) -> tuple[float, float, float]:
         TorAvg = np.mean(Tor[:-1])
         TorAvgAC = np.mean(np.abs(Tor[:-1]-TorAvg))
         TorRmsAC = np.sqrt(np.mean(np.square(Tor[:-1]-TorAvg)))
@@ -540,13 +546,13 @@ class Design:
 
         return TorAvg, TorRmsAC, TorRippleRms
     
-    def mm_to_str(self, var, field):
+    def mm_to_str(self, var, field) -> float:
         val = getattr(self, var)[field]
         if not val.endswith('mm'):
             raise Exception('val must end with mm')
         return float(val[:-2])
     
-    def print_results(self, TorAvg, TorRmsAC, TorRippleRms):
+    def print_results(self, TorAvg: float, TorRmsAC: float, TorRippleRms: float) -> None:
         print("\nTorque mean value: {:.2f} Nm".format(TorAvg))
         # print("\nTorque ripple mean value: {:.2f} Nm".format(TorAvgAC))
         print("\nTorque ripple rms value: {:.2f} Nm".format(TorRmsAC))

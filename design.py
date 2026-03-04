@@ -527,25 +527,9 @@ class Design:
     
     def close_project(self) -> None:
         self.m2d.close_desktop()
-
-    def analyze_results(self, Tor: np.ndarray) -> tuple[float, float, float]:
-        TorAvg = np.mean(Tor[:-1])
-        TorAvgAC = np.mean(np.abs(Tor[:-1]-TorAvg))
-        TorRmsAC = np.sqrt(np.mean(np.square(Tor[:-1]-TorAvg)))
-        TorRippleAvg = TorAvgAC/TorAvg*100
-        TorRippleRms = TorRmsAC/TorAvg*100
-
-        return TorAvg, TorRmsAC, TorRippleRms
     
     def mm_to_str(self, var, field) -> float:
         val = getattr(self, var)[field]
         if not val.endswith('mm'):
             raise Exception('val must end with mm')
         return float(val[:-2])
-    
-    def print_results(self, TorAvg: float, TorRmsAC: float, TorRippleRms: float) -> None:
-        print("\nTorque mean value: {:.2f} Nm".format(TorAvg))
-        # print("\nTorque ripple mean value: {:.2f} Nm".format(TorAvgAC))
-        print("\nTorque ripple rms value: {:.2f} Nm".format(TorRmsAC))
-        # print("\nTorque ripple relative value: {:.2f} %".format(TorRippleAvg))
-        print("\nTorque ripple relative value: {:.2f} %\n".format(TorRippleRms))

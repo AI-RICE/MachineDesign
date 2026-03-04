@@ -91,8 +91,8 @@ class FourStupid(BarrierGenerator):
     def save_barriers(self, file_name: str):
         np.savez(file_name,
              y_mins=self.y_mins,
-             w_mins=w_mins,
-             y_mids=y_mids,
-             w_mids=w_mids,
-             thetas=thetas,
-             w_maxs=w_maxs)
+             w_mins=self.w_mins,
+             y_mids=self.y_mids,
+             w_mids=self.w_mids,
+             thetas=self.thetas,
+             w_maxs=self.w_maxs)

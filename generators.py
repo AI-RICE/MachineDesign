@@ -121,31 +121,31 @@ class HacklGenerator(BarrierGenerator):
 
     def get_arc(self, start_deg, end_deg, num_points=15):
         angles = np.linspace(np.radians(start_deg), np.radians(end_deg), num_points)
-        return [np.array([self.R * np.cos(a), self.R * np.sin(a)]) for a in angles]
+
+        x = self.R * np.cos(angles)
+        y = self.R * np.sin(angles)
+
+        return np.column_stack((x, y))
 
     def get_bezier_curve(self, phi_deg, num_points=30):
         phi_rad = np.radians(phi_deg)
-        x0 = self.R * np.cos(phi_rad)
-        y0 = self.R * np.sin(phi_rad)
-        r0 = np.array([x0, y0])
-        
-        # Formula: r_{k,1} = [[lam, 1-lam], [0, 1]] * r_{k,0}
-        x1 = self.lam * x0 + (1 - self.lam) * y0
-        y1 = y0
-        r1 = np.array([x1, y1])
-        
-        # Formula: r_{k,3} and r_{k,2} (mirrored across the y=x diagonal)
-        r3 = np.array([y0, x0])
-        r2 = np.array([y1, x1])
-        
+        x_end = self.R * np.cos(phi_rad)
+        y_end = self.R * np.sin(phi_rad)
+        x_bezier = self.lam * x_end + (1 - self.lam) * y_end
+
+        r0 = np.array([x_end, y_end])
+        r1 = np.array([x_bezier, y_end])
+        r2 = np.array([y_end, x_bezier])
+        r3 = np.array([y_end, x_end])
+
         # Formula 33: Polynomial expansion to generate continuous points
-        z_vals = np.linspace(0, 1, num_points)
-        curve_pts = []
-        for z in z_vals:
-            pt = (1-z)**3 * r0 + 3*(1-z)**2 * z * r1 + 3*(1-z) * z**2 * r2 + z**3 * r3
-            curve_pts.append(pt)
-            
-        return curve_pts
+        z_vals = np.linspace(0, 1, num_points)[:, None]
+        return (
+            (1 - z_vals)**3 * r0
+            + 3 * (1 - z_vals)**2 * z_vals * r1
+            + 3 * (1 - z_vals) * z_vals**2 * r2
+            + z_vals**3 * r3
+        )
 
     def random_barriers(self) -> list[np.ndarray]:
         # Generate internal parameters
@@ -163,8 +163,8 @@ class HacklGenerator(BarrierGenerator):
             arc_bottom = self.get_arc(phi_inner, phi_outer)
             
             # Merge them together
-            closed_loop_pts = pts_outer + arc_top[1:] + pts_inner[::-1][1:] + arc_bottom[1:-1]
-            barriers.append(np.asarray(closed_loop_pts))
+            barrier = np.concat((pts_outer, arc_top[1:-1], pts_inner[::-1], arc_bottom[1:]))
+            barriers.append(barrier)
         return barriers
 
     def save_barriers(self, file_name: str):

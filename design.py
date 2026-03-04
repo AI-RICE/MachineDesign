@@ -466,40 +466,31 @@ class Design:
         rotor_id.color = (192, 192, 192)  # rgb
         rotor_id.transparency = 0.0
 
-    def add_rotor_barriers(self, barrier_points, n: int = 1, segment_type=None, tol: float = 1e-10) -> None:
+    def add_rotor_barrier(self, barrier_points, segment_type=None) -> None:
         modeler = self.m2d.modeler
         assert isinstance(modeler, Modeler2D)
 
-        barrier_points = np.array(barrier_points)
-        if np.array_equal(barrier_points[0], barrier_points[-1]):
-            if np.linalg.norm(barrier_points[0] - barrier_points[-1]) < tol:
-                mid = 0.5*(barrier_points[0]+barrier_points[-1])
-                barrier_points[0] = mid
-                barrier_points[-1] = mid
-            else:
-                raise Exception('First and last points are not equal')
-        barrier_points = np.round(barrier_points, 6)  
+        # Round it for Ansys
+        barrier_points = np.round(barrier_points, 6)
+
+        # Potentially add the z axis  
         if barrier_points.shape[1] == 2:
             barrier_points = np.hstack((barrier_points, np.zeros((len(barrier_points),1))))
+        
+        # Convert them into a string format and interpolate
+        points_str = [[str(y) for y in x] for x in barrier_points]
+        barrier_id = modeler.create_polyline(
+            points=points_str, segment_type=segment_type, cover_surface=True, name="Barrier"
+        )
 
-        for i in range(n):
-            r = np.linalg.norm(barrier_points, axis=1)
-            r_proportion = (r - self.rotor_r_min) / (self.rotor_r_max - self.rotor_r_min)
-            r_min_new = i/n
-            r_max_new = (i+1)/n
-            r_proportion_new = r_min_new + (r_max_new - r_min_new) * r_proportion
-            r_new = self.rotor_r_min + (self.rotor_r_max - self.rotor_r_min) * r_proportion_new
-            barrier_points_new = barrier_points / np.reshape(r / r_new, (-1, 1))
-
-            qwe = [[str(y) for y in x] for x in barrier_points_new]
-            barrier_id = modeler.create_polyline(
-                points=qwe, segment_type=segment_type, cover_surface=True, name="Barrier"
-            )
-            self.rotor_id.subtract(barrier_id)
-            modeler.delete(barrier_id)
+        # Remove the barrier
+        self.rotor_id.subtract(barrier_id)
+        modeler.delete(barrier_id)
 
     def compute(self, NUM_CORES: int = 1):
         m2d = self.m2d
+        assert m2d.mesh is not None
+        assert m2d.post is not None
 
         m2d.mesh.assign_length_mesh(
             assignment=self.rotor_id,

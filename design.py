@@ -3,11 +3,33 @@ import numpy as np
 from ansys.aedt.core import Desktop, Maxwell2d
 
 class Design:
-    def __init__(self, m2d=None):
+    def __init__(self, m2d):
         self.set_parameters()
-        if m2d is not None:
-            self.m2d = m2d
+        self.m2d = m2d
 
+    @classmethod
+    def create(cls, project_name, design_name, file_name, **kwargs):
+        m2d = Maxwell2d(
+            project=project_name,
+            design=design_name,
+            solution_type="TransientXY",
+            **kwargs
+        )
+        obj = cls(m2d)
+        obj.create_stator()
+        obj.save_project(file_name)
+        return obj
+
+    @classmethod
+    def load(cls, file_name, **kwargs):
+        desktop = Desktop(**kwargs)
+        desktop.load_project(file_name)
+
+        m2d = Maxwell2d()
+        m2d.set_active_design("Design01")
+
+        return cls(m2d)
+    
     def set_parameters(self):
         #materials
         self.Fe = "Cogent Power - M350-50A, B-H at 50Hz"
@@ -74,13 +96,6 @@ class Design:
         self.setup_name = "Setup1"
         self.rotor_r_min = self.mm_to_str('geom_params', 'DiaShaft')/2
         self.rotor_r_max = self.mm_to_str('geom_params', 'DiaStatorGap')/2 - self.mm_to_str('geom_params', 'Airgap')
-
-    def load_stator(self, file_name, **kwargs):
-        desktop = Desktop(**kwargs)
-        desktop.load_project(file_name)
-        m2d = Maxwell2d()
-        m2d.set_active_design("Design01")
-        self.m2d = m2d
 
     def create_stator(self):
         m2d = self.m2d

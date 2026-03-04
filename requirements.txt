@@ -1,4 +1,4 @@
-pyaedt
+pyaedt==0.11.2
 pyvista[jupyter]
 trame
 matplotlib

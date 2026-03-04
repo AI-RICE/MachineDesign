@@ -96,3 +96,79 @@ class FourStupid(BarrierGenerator):
              w_mids=self.w_mids,
              thetas=self.thetas,
              w_maxs=self.w_maxs)
+        
+
+class HacklGenerator(BarrierGenerator):
+    def __init__(self, design):
+        dia_stator_gap = design.mm_to_str("geom_params", "DiaStatorGap")
+        airgap = design.mm_to_str("geom_params", "Airgap")
+        self.R = (dia_stator_gap / 2.0) - airgap - 0.7
+        self.phis_inner_min = np.asarray([2., 16., 28.])
+        self.phis_inner_max = np.asarray([6., 20., 32.])
+        self.phis_outer_min = np.asarray([8., 22., 34.])
+        self.phis_outer_max = np.asarray([12., 26., 38.])
+        self.n_barriers = len(self.phis_inner_min)
+
+    def generate_parameters(self):
+        self.lam = 0.25
+        self.phis_inner = self.phis_inner_min + (self.phis_inner_max-self.phis_inner_min)*np.random.rand(self.n_barriers)
+        self.phis_outer = self.phis_outer_min + (self.phis_outer_max-self.phis_outer_min)*np.random.rand(self.n_barriers)
+
+    def generate_parameters_representative(self):
+        self.lam = 0.25
+        self.phis_inner = [4.0, 17.3, 30.6]
+        self.phis_outer = [10.6, 24.0, 37.3]
+
+    def get_arc(self, start_deg, end_deg, num_points=15):
+        angles = np.linspace(np.radians(start_deg), np.radians(end_deg), num_points)
+        return [np.array([self.R * np.cos(a), self.R * np.sin(a)]) for a in angles]
+
+    def get_bezier_curve(self, phi_deg, num_points=30):
+        phi_rad = np.radians(phi_deg)
+        x0 = self.R * np.cos(phi_rad)
+        y0 = self.R * np.sin(phi_rad)
+        r0 = np.array([x0, y0])
+        
+        # Formula: r_{k,1} = [[lam, 1-lam], [0, 1]] * r_{k,0}
+        x1 = self.lam * x0 + (1 - self.lam) * y0
+        y1 = y0
+        r1 = np.array([x1, y1])
+        
+        # Formula: r_{k,3} and r_{k,2} (mirrored across the y=x diagonal)
+        r3 = np.array([y0, x0])
+        r2 = np.array([y1, x1])
+        
+        # Formula 33: Polynomial expansion to generate continuous points
+        z_vals = np.linspace(0, 1, num_points)
+        curve_pts = []
+        for z in z_vals:
+            pt = (1-z)**3 * r0 + 3*(1-z)**2 * z * r1 + 3*(1-z) * z**2 * r2 + z**3 * r3
+            curve_pts.append(pt)
+            
+        return curve_pts
+
+    def random_barriers(self) -> list[np.ndarray]:
+        # Generate internal parameters
+        self.generate_parameters()
+
+        # Create the barriers        
+        barriers = []
+        for phi_inner, phi_outer in zip(self.phis_inner, self.phis_outer):
+            # Generate the longer part of the barrier
+            pts_outer = self.get_bezier_curve(phi_outer)
+            pts_inner = self.get_bezier_curve(phi_inner)
+            
+            # Generate the arcs at the end
+            arc_top = self.get_arc(90 - phi_outer, 90 - phi_inner)
+            arc_bottom = self.get_arc(phi_inner, phi_outer)
+            
+            # Merge them together
+            closed_loop_pts = pts_outer + arc_top[1:] + pts_inner[::-1][1:] + arc_bottom[1:-1]
+            barriers.append(np.asarray(closed_loop_pts))
+        return barriers
+
+    def save_barriers(self, file_name: str):
+        np.savez(file_name,
+            phis_inner=self.phis_inner,
+            phis_outer=self.phis_outer,
+            lam=self.lam)

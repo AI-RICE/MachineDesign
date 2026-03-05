@@ -161,15 +161,17 @@ class HacklGenerator(BarrierGenerator):
         dia_stator_gap = design.mm_to_str("geom_params", "DiaStatorGap")
         airgap = design.mm_to_str("geom_params", "Airgap")
         self.R = (dia_stator_gap / 2.0) - airgap - 0.7
-        self.phis_inner_min = np.asarray([2., 16., 28.])
-        self.phis_inner_max = np.asarray([6., 20., 32.])
-        self.phis_outer_min = np.asarray([8., 22., 34.])
-        self.phis_outer_max = np.asarray([12., 26., 38.])
+        self.phis_inner_min = np.asarray([4., 17.3, 30.6])
+        self.phis_inner_max = np.asarray([10.2, 23.5, 36.8])
+        self.phis_outer_min = np.asarray([10.6, 24., 37.3])
+        self.phis_outer_max = np.asarray([16.8, 30.2, 34.])
+        self.lam_min = 0.25
+        self.lam_max = 0.45
         self.n_barriers = len(self.phis_inner_min)
         super().__init__(**kwargs)
 
     def generate_parameters(self):
-        self.lam = 0.25
+        self.lam = self.lam_min + (self.lam_max-self.lam_min)*np.random.rand(1)[0]
         self.phis_inner = self.phis_inner_min + (self.phis_inner_max-self.phis_inner_min)*np.random.rand(self.n_barriers)
         self.phis_outer = self.phis_outer_min + (self.phis_outer_max-self.phis_outer_min)*np.random.rand(self.n_barriers)
 
@@ -194,7 +196,7 @@ class HacklGenerator(BarrierGenerator):
             arc_bottom = self.get_arc(phi_inner, phi_outer)
             
             # Merge them together
-            barrier = np.concat((pts_outer, arc_top[1:-1], pts_inner[::-1], arc_bottom[1:]))
+            barrier = np.concatenate((pts_outer, arc_top[1:-1], pts_inner[::-1], arc_bottom[1:]))
             barriers.append(barrier)
         return barriers
 

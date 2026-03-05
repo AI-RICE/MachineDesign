@@ -59,28 +59,26 @@ class BarrierGenerator(ABC):
         for a, b, c in zip([1., -1.], [-1., 1.], [-self.offset, -self.offset]):
             f = signed_distance(barrier, a, b, c)
             f_is_positive = f > 0
-            # TODO: add a better interpolation to the boundary
-            if f_is_positive[0]:
-                mask_negative = np.where(~f_is_positive)[0]
-                idx_min = np.min(mask_negative)
-                idx_max = np.max(mask_negative)
-                if len(np.unique(f_is_positive[idx_min:idx_max])) != 1:
-                    raise ValueError("The function crosses the center line too many times.")
-                barrier_part1 = barrier[:idx_min-1]
-                barrier_part2 = (1-lam)*barrier[idx_min-1] + lam*barrier[idx_max+1]
-                barrier_part3 = barrier[idx_max+2:]
-                barrier_new = np.concatenate((barrier_part1, barrier_part2, barrier_part3))
-            else:
-                mask_positive = np.where(f_is_positive)[0]
-                idx_min = np.min(mask_positive)
-                idx_max = np.max(mask_positive)
-                if len(np.unique(f_is_positive[idx_min:idx_max])) != 1:
-                    raise ValueError("The function crosses the center line too many times.")
-                barrier_part1 = barrier[idx_min:idx_max]
-                barrier_part2 = (1-lam)*barrier[idx_max] + lam*barrier[idx_min]
-                barrier_new = np.concatenate((barrier_part1, barrier_part2))
-            check_barrier(barrier_new)
-            barriers.append(barrier_new)
+            mask_positive = np.where(f_is_positive)[0]
+
+            barrier_new = [barrier[mask_positive[0]]]
+            for i in range(len(mask_positive) - 1):
+                i1 = mask_positive[i]
+                i2 = mask_positive[i+1]
+
+                if i2 - i1 == 1:
+                    barrier_new.append(barrier[i2])
+                else:
+                    interp = (1 - lam) * barrier[i1] + lam * barrier[i2]
+                    barrier_new.extend(interp[1:])
+            if not np.array_equal(barrier_new[-1], barrier_new[0]):
+                interp = (1 - lam) * barrier_new[-1] + lam * barrier_new[0]
+                barrier_new.extend(interp[1:])
+
+            if len(barrier_new) > 1:
+                barrier_new = np.array(barrier_new)
+                check_barrier(barrier_new)
+                barriers.append(barrier_new)
         return barriers
 
     def split_barriers(self, barriers: list[np.ndarray]) -> list[np.ndarray]:
@@ -172,7 +170,7 @@ class HacklGenerator(BarrierGenerator):
         self.phis_inner_min = np.asarray([4., 17.3, 30.6])
         self.phis_inner_max = np.asarray([10.2, 23.5, 36.8])
         self.phis_outer_min = np.asarray([10.6, 24., 37.3])
-        self.phis_outer_max = np.asarray([16.8, 30.2, 34.])
+        self.phis_outer_max = np.asarray([16.8, 30.2, 44.])
         self.lam_min = 0.25
         self.lam_max = 0.45
         self.n_barriers = len(self.phis_inner_min)

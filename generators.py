@@ -1,24 +1,25 @@
 from abc import ABC, abstractmethod
 import numpy as np
 from scipy.interpolate import CubicSpline
+from design import Design
 from geometry import rotate
 
 
-def signed_distance(P, a, b, c):
+def signed_distance(P: np.ndarray, a: float, b: float, c: float) -> np.ndarray:
     return a * P[:,0] + b * P[:,1] + c
 
 def check_barrier(barrier: np.ndarray) -> None:
     if not np.array_equal(barrier[0], barrier[-1]):
         raise ValueError("Barrier must start and end at the same point")
 
-def compute_r_max(design, r_stator_end: float) -> float:
+def compute_r_max(design: Design, r_stator_end: float) -> float:
     dia_stator_gap = design.mm_to_str("geom_params", "DiaStatorGap")
     airgap = design.mm_to_str("geom_params", "Airgap")
     return (dia_stator_gap / 2.0) - airgap - r_stator_end
 
 
 class BarrierGenerator(ABC):
-    def __init__(self, offset: float | None = None) -> None:
+    def __init__(self, offset: float) -> None:
         self.offset = offset
     
     @abstractmethod
@@ -47,7 +48,7 @@ class BarrierGenerator(ABC):
 
         lam = np.linspace(0, 1, n_points)[:, None]
         barriers = []
-        for a, b, c in zip([1, -1], [-1, 1], [-self.offset, -self.offset]):
+        for a, b, c in zip([1., -1.], [-1., 1.], [-self.offset, -self.offset]):
             f = signed_distance(barrier, a, b, c)
             f_is_positive = f > 0
             # TODO: add a better interpolation to the boundary
@@ -75,10 +76,7 @@ class BarrierGenerator(ABC):
         return barriers
 
     def split_barriers(self, barriers: list[np.ndarray]) -> list[np.ndarray]:
-        if self.offset is None:
-            return barriers
-        else:
-            return [x for barrier in barriers for x in self.split_barrier(barrier)]
+        return [x for barrier in barriers for x in self.split_barrier(barrier)]
 
 class FourStupid(BarrierGenerator):
     def __init__(self, design, r_stator_end, n=300, der1=1., der2=1., symmetric=True, **kwargs) -> None:

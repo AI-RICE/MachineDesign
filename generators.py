@@ -13,6 +13,10 @@ class BarrierGenerator(ABC):
     def save_barriers(self, file_name: str) -> None:
         pass
 
+    @property
+    def name(self) -> str:
+        return self.__class__.__name__
+
 
 class FourStupid(BarrierGenerator):
     def __init__(self, design, n=100, c=0.98, der1=1., der2=1., symmetric=True) -> None:

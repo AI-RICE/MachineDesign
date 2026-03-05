@@ -5,6 +5,14 @@ from design import Design
 from geometry import rotate
 
 
+def get_arc(R: float, start_deg: float, end_deg: float, num_points: int = 15) -> np.ndarray:
+    angles = np.linspace(np.radians(start_deg), np.radians(end_deg), num_points)
+
+    x = R * np.cos(angles)
+    y = R * np.sin(angles)
+
+    return np.column_stack((x, y))
+
 def signed_distance(P: np.ndarray, a: float, b: float, c: float) -> np.ndarray:
     return a * P[:,0] + b * P[:,1] + c
 
@@ -89,7 +97,7 @@ class FourStupid(BarrierGenerator):
         self.symmetric = symmetric
         super().__init__(**kwargs)
 
-    def create_barrier(
+    def _create_barrier(
             self,
             y_min,
             w_min,
@@ -116,6 +124,7 @@ class FourStupid(BarrierGenerator):
         y2 = [y_min+w_min, y1[1]+s, y_max2]
         f2 = CubicSpline(x2, y2, bc_type=((1, 0), (1,self.der2)))
 
+        # TODO: use get_arc
         x_interp1 = np.linspace(x1[0], x1[-1], self.n)
         x_interp2 = np.linspace(x2[0], x2[-1], self.n)
         x_all = np.concatenate((x_interp1, x_interp2[::-1]))
@@ -142,7 +151,7 @@ class FourStupid(BarrierGenerator):
     def generate_barriers(self) -> list[np.ndarray]:
         barriers = []
         for args in zip(self.y_mins, self.w_mins, self.y_mids, self.w_mids, self.thetas, self.w_maxs):
-            x_all, y_all = self.create_barrier(*args)
+            x_all, y_all = self._create_barrier(*args)
             xy_all = np.vstack((x_all, y_all)).T
             barriers.append(xy_all)
         return barriers
@@ -180,34 +189,22 @@ class HacklGenerator(BarrierGenerator):
         self.phis_outer = [10.6, 24.0, 37.3]
 
     def generate_barriers(self) -> list[np.ndarray]:
-        # Generate internal parameters
-        self.generate_parameters()
-
-        # Create the barriers        
         barriers = []
         for phi_inner, phi_outer in zip(self.phis_inner, self.phis_outer):
             # Generate the longer part of the barrier
-            pts_outer = self.get_bezier_curve(phi_outer)
-            pts_inner = self.get_bezier_curve(phi_inner)
+            pts_outer = self._get_bezier_curve(phi_outer)
+            pts_inner = self._get_bezier_curve(phi_inner)
             
             # Generate the arcs at the end
-            arc_top = self.get_arc(90 - phi_outer, 90 - phi_inner)
-            arc_bottom = self.get_arc(phi_inner, phi_outer)
+            arc_top = get_arc(self.R, 90 - phi_outer, 90 - phi_inner)
+            arc_bottom = get_arc(self.R, phi_inner, phi_outer)
             
             # Merge them together
             barrier = np.concatenate((pts_outer, arc_top[1:-1], pts_inner[::-1], arc_bottom[1:]))
             barriers.append(barrier)
         return barriers
 
-    def get_arc(self, start_deg, end_deg, num_points=15):
-        angles = np.linspace(np.radians(start_deg), np.radians(end_deg), num_points)
-
-        x = self.R * np.cos(angles)
-        y = self.R * np.sin(angles)
-
-        return np.column_stack((x, y))
-
-    def get_bezier_curve(self, phi_deg, num_points=300):
+    def _get_bezier_curve(self, phi_deg, num_points=300):
         phi_rad = np.radians(phi_deg)
         x_end = self.R * np.cos(phi_rad)
         y_end = self.R * np.sin(phi_rad)

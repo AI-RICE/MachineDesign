@@ -19,6 +19,7 @@ def plot_barriers(barriers, design, title=None, file_name=None):
         plt.plot(r*np.cos(alphas), r*np.sin(alphas))
     for barrier in barriers:
         plt.plot(barrier[:,0], barrier[:,1])
+    plt.axis("equal")
     if title is not None:
         plt.title(title)
     if file_name is not None:

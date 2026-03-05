@@ -11,6 +11,11 @@ def check_barrier(barrier: np.ndarray) -> None:
     if not np.array_equal(barrier[0], barrier[-1]):
         raise ValueError("Barrier must start and end at the same point")
 
+def compute_r_max(design, r_stator_end: float) -> float:
+    dia_stator_gap = design.mm_to_str("geom_params", "DiaStatorGap")
+    airgap = design.mm_to_str("geom_params", "Airgap")
+    return (dia_stator_gap / 2.0) - airgap - r_stator_end
+
 
 class BarrierGenerator(ABC):
     def __init__(self, offset: float | None = None) -> None:
@@ -76,10 +81,10 @@ class BarrierGenerator(ABC):
             return [x for barrier in barriers for x in self.split_barrier(barrier)]
 
 class FourStupid(BarrierGenerator):
-    def __init__(self, design, n=300, c=0.98, der1=1., der2=1., symmetric=True, **kwargs) -> None:
+    def __init__(self, design, r_stator_end, n=300, der1=1., der2=1., symmetric=True, **kwargs) -> None:
+        self.R = compute_r_max(design, r_stator_end)
         self.design = design
         self.n = n
-        self.c = c
         self.der1 = der1
         self.der2 = der2
         self.w_mins_base = np.array([3, 2.5, 2.5, 2]) - 1.0
@@ -96,19 +101,17 @@ class FourStupid(BarrierGenerator):
             w_max,
             ):
         
-        rotor_r_max = self.design.rotor_r_max
-
         theta1 = (theta+45) / 180*np.pi
-        x_max1 = self.c*rotor_r_max*np.cos(theta1)
-        y_max1 = self.c*rotor_r_max*np.sin(theta1)
+        x_max1 = self.R*np.cos(theta1)
+        y_max1 = self.R*np.sin(theta1)
 
         x1 = [0, x_max1/2, x_max1]
         y1 = [y_min, y_mid, y_max1]
         f1 = CubicSpline(x1, y1, bc_type=((1, 0), (1,self.der1)))
 
-        theta2 = theta1 + w_max / (2*np.pi*rotor_r_max) * 2*np.pi
-        x_max2 = self.c*rotor_r_max*np.cos(theta2)
-        y_max2 = self.c*rotor_r_max*np.sin(theta2)
+        theta2 = theta1 + w_max / self.design.rotor_r_max
+        x_max2 = self.R*np.cos(theta2)
+        y_max2 = self.R*np.sin(theta2)
 
         s = w_mid / np.sqrt(1 + self.der1**2/4)
         x2 = [0, x1[1]-s*self.der1/2, x_max2]
@@ -157,10 +160,8 @@ class FourStupid(BarrierGenerator):
         
 
 class HacklGenerator(BarrierGenerator):
-    def __init__(self, design, **kwargs):
-        dia_stator_gap = design.mm_to_str("geom_params", "DiaStatorGap")
-        airgap = design.mm_to_str("geom_params", "Airgap")
-        self.R = (dia_stator_gap / 2.0) - airgap - 0.7
+    def __init__(self, design, r_stator_end, **kwargs):
+        self.R = compute_r_max(design, r_stator_end)
         self.phis_inner_min = np.asarray([4., 17.3, 30.6])
         self.phis_inner_max = np.asarray([10.2, 23.5, 36.8])
         self.phis_outer_min = np.asarray([10.6, 24., 37.3])

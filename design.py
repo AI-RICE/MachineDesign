@@ -508,7 +508,10 @@ class Design:
         solutions = m2d.post.get_solution_data(
             expressions="Moving1.Torque", primary_sweep_variable="Time"
         )
-        return solutions.data_magnitude()
+        try:
+            return solutions.data_magnitude()
+        except AttributeError:
+            return None
     
     def delete_rotor(self) -> None:
         assert isinstance(self.m2d.modeler, Modeler2D)

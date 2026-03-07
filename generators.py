@@ -164,34 +164,34 @@ class FourStupid(BarrierGenerator):
              w_maxs=self.w_maxs)
         
 
-class HacklGenerator(BarrierGenerator):
+class AbstractHacklGenerator(BarrierGenerator):
     def __init__(self, design, r_stator_end, **kwargs):
         self.R = compute_r_max(design, r_stator_end)
         self.phis_inner_min = np.asarray([4., 17.3, 30.6])
         self.phis_inner_max = np.asarray([10.2, 23.5, 36.8])
         self.phis_outer_min = np.asarray([10.6, 24., 37.3])
         self.phis_outer_max = np.asarray([16.8, 30.2, 44.])
-        self.lam_min = 0.25
-        self.lam_max = 0.45
         self.n_barriers = len(self.phis_inner_min)
         super().__init__(**kwargs)
 
-    def generate_parameters(self):
-        self.lam = self.lam_min + (self.lam_max-self.lam_min)*np.random.rand(1)[0]
+    @abstractmethod
+    def _inner_bezier_point(self, x: float, y: float) -> tuple[float, float]:
+        pass
+
+    @abstractmethod
+    def _outer_bezier_point(self, x: float, y: float) -> tuple[float, float]:
+        pass
+
+    def generate_parameters(self) -> None:
         self.phis_inner = self.phis_inner_min + (self.phis_inner_max-self.phis_inner_min)*np.random.rand(self.n_barriers)
         self.phis_outer = self.phis_outer_min + (self.phis_outer_max-self.phis_outer_min)*np.random.rand(self.n_barriers)
-
-    def generate_parameters_representative(self):
-        self.lam = 0.25
-        self.phis_inner = [4.0, 17.3, 30.6]
-        self.phis_outer = [10.6, 24.0, 37.3]
 
     def generate_barriers(self) -> list[np.ndarray]:
         barriers = []
         for phi_inner, phi_outer in zip(self.phis_inner, self.phis_outer):
             # Generate the longer part of the barrier
-            pts_outer = self._get_bezier_curve(phi_outer)
-            pts_inner = self._get_bezier_curve(phi_inner)
+            pts_outer = self._get_bezier_curve(phi_outer, False)
+            pts_inner = self._get_bezier_curve(phi_inner, True)
             
             # Generate the arcs at the end
             arc_top = get_arc(self.R, 90 - phi_outer, 90 - phi_inner)
@@ -202,15 +202,16 @@ class HacklGenerator(BarrierGenerator):
             barriers.append(barrier)
         return barriers
 
-    def _get_bezier_curve(self, phi_deg, num_points=300):
+    def _get_bezier_curve(self, phi_deg, is_inner, num_points=300):
         phi_rad = np.radians(phi_deg)
         x_end = self.R * np.cos(phi_rad)
         y_end = self.R * np.sin(phi_rad)
-        x_bezier = self.lam * x_end + (1 - self.lam) * y_end
+        f_bezier = self._inner_bezier_point if is_inner else self._outer_bezier_point
+        x_bezier, y_bezier = f_bezier(x_end, y_end)
 
         r0 = np.array([x_end, y_end])
-        r1 = np.array([x_bezier, y_end])
-        r2 = np.array([y_end, x_bezier])
+        r1 = np.array([x_bezier, y_bezier])
+        r2 = np.array([y_bezier, x_bezier])
         r3 = np.array([y_end, x_end])
 
         # Formula 33: Polynomial expansion to generate continuous points
@@ -221,6 +222,23 @@ class HacklGenerator(BarrierGenerator):
             + 3 * (1 - z_vals) * z_vals**2 * r2
             + z_vals**3 * r3
         )
+
+
+class HacklGenerator_OneLambda(AbstractHacklGenerator):
+    def __init__(self, design, r_stator_end, **kwargs):
+        self.lam_min = 0.25
+        self.lam_max = 0.45
+        super().__init__(design, r_stator_end, **kwargs)
+
+    def generate_parameters(self):
+        self.lam = self.lam_min + (self.lam_max-self.lam_min)*np.random.rand(1)[0]
+        super().generate_parameters()
+
+    def _inner_bezier_point(self, x: float, y: float) -> tuple[float, float]:
+        return self.lam * x + (1 - self.lam) * y, y
+
+    def _outer_bezier_point(self, x: float, y: float) -> tuple[float, float]:
+        return self.lam * x + (1 - self.lam) * y, y
 
     def save_barriers(self, file_name: str):
         np.savez(file_name,

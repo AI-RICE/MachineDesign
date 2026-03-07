@@ -176,11 +176,7 @@ class AbstractHacklGenerator(BarrierGenerator):
         super().__init__(**kwargs)
 
     @abstractmethod
-    def _inner_bezier_point(self, x: float, y: float) -> tuple[float, float]:
-        pass
-
-    @abstractmethod
-    def _outer_bezier_point(self, x: float, y: float) -> tuple[float, float]:
+    def _bezier_point(self, x: float, y: float, is_inner: bool, order: int) -> tuple[float, float]:
         pass
 
     def generate_parameters(self) -> None:
@@ -189,10 +185,10 @@ class AbstractHacklGenerator(BarrierGenerator):
 
     def generate_barriers(self) -> list[np.ndarray]:
         barriers = []
-        for phi_inner, phi_outer in zip(self.phis_inner, self.phis_outer):
+        for i, (phi_inner, phi_outer) in enumerate(zip(self.phis_inner, self.phis_outer)):
             # Generate the longer part of the barrier
-            pts_outer = self._get_bezier_curve(phi_outer, False)
-            pts_inner = self._get_bezier_curve(phi_inner, True)
+            pts_outer = self._get_bezier_curve(phi_outer, False, i)
+            pts_inner = self._get_bezier_curve(phi_inner, True, i)
             
             # Generate the arcs at the end
             arc_top = get_arc(self.R, 90 - phi_outer, 90 - phi_inner, self.n_flat)
@@ -203,12 +199,11 @@ class AbstractHacklGenerator(BarrierGenerator):
             barriers.append(barrier)
         return barriers
 
-    def _get_bezier_curve(self, phi_deg, is_inner):
+    def _get_bezier_curve(self, phi_deg, is_inner, i):
         phi_rad = np.radians(phi_deg)
         x_end = self.R * np.cos(phi_rad)
         y_end = self.R * np.sin(phi_rad)
-        f_bezier = self._inner_bezier_point if is_inner else self._outer_bezier_point
-        x_bezier, y_bezier = f_bezier(x_end, y_end)
+        x_bezier, y_bezier = self._bezier_point(x_end, y_end, is_inner, i)
 
         r0 = np.array([x_end, y_end])
         r1 = np.array([x_bezier, y_bezier])
@@ -235,11 +230,8 @@ class HacklGenerator_OneLambda(AbstractHacklGenerator):
         self.lam = self.lam_min + (self.lam_max-self.lam_min)*np.random.rand(1)[0]
         super().generate_parameters()
 
-    def _inner_bezier_point(self, x: float, y: float) -> tuple[float, float]:
+    def _bezier_point(self, x: float, y: float, is_inner: bool, order: int) -> tuple[float, float]:
         return self.lam * x + (1 - self.lam) * y, y
-
-    def _outer_bezier_point(self, x: float, y: float) -> tuple[float, float]:
-        return self._inner_bezier_point(x, y)
 
     def save_barriers(self, file_name: str):
         np.savez(file_name,
@@ -259,19 +251,19 @@ class HacklGenerator_OneLambdaTheta(HacklGenerator_OneLambda):
         self.theta = self.theta_min + (self.theta_max-self.theta_min)*np.random.rand(1)[0]
         super().generate_parameters()
 
-    def _inner_bezier_point(self, x: float, y: float) -> tuple[float, float]:
-        x, y = super()._inner_bezier_point(x, y)
-        xx, yy = rotate(x, y, self.theta)
-        return xx[0], yy[0]
-
-    def _outer_bezier_point(self, x: float, y: float) -> tuple[float, float]:
-        return self._inner_bezier_point(x, y)
+    def _bezier_point(self, x: float, y: float, is_inner: bool, order: int) -> tuple[float, float]:
+        x, y = super()._bezier_point(x, y, is_inner, order)
+        if order < 2:
+            xx, yy = rotate(x, y, self.theta)
+            return xx[0], yy[0]
+        return x, y
 
     def save_barriers(self, file_name: str):
         np.savez(file_name,
             phis_inner=self.phis_inner,
             phis_outer=self.phis_outer,
-            lam=self.lam)
+            lam=self.lam,
+            theta=self.theta)
 
 
 class HacklGenerator_TwoLambdas(AbstractHacklGenerator):
@@ -287,11 +279,9 @@ class HacklGenerator_TwoLambdas(AbstractHacklGenerator):
         self.lam_outer = self.lam_outer_min + (self.lam_outer_max-self.lam_outer_min)*np.random.rand(1)[0]
         super().generate_parameters()
 
-    def _inner_bezier_point(self, x: float, y: float) -> tuple[float, float]:
-        return self.lam_inner * x + (1 - self.lam_inner) * y, y
-
-    def _outer_bezier_point(self, x: float, y: float) -> tuple[float, float]:
-        return self.lam_outer * x + (1 - self.lam_outer) * y, y
+    def _bezier_point(self, x: float, y: float, is_inner: bool, order: int) -> tuple[float, float]:
+        lam = self.lam_inner if is_inner else self.lam_outer
+        return lam * x + (1 - lam) * y, y
 
     def save_barriers(self, file_name: str):
         np.savez(file_name,

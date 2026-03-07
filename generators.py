@@ -5,8 +5,8 @@ from design import Design
 from geometry import rotate
 
 
-def get_arc(R: float, start_deg: float, end_deg: float, num_points: int = 15) -> np.ndarray:
-    angles = np.linspace(np.radians(start_deg), np.radians(end_deg), num_points)
+def get_arc(R: float, start_deg: float, end_deg: float, n_points: int) -> np.ndarray:
+    angles = np.linspace(np.radians(start_deg), np.radians(end_deg), n_points)
 
     x = R * np.cos(angles)
     y = R * np.sin(angles)
@@ -27,8 +27,10 @@ def compute_r_max(design: Design, r_stator_end: float) -> float:
 
 
 class BarrierGenerator(ABC):
-    def __init__(self, offset: float) -> None:
+    def __init__(self, offset: float, n_curve: int = 500, n_flat: int = 20) -> None:
         self.offset = offset
+        self.n_curve = n_curve
+        self.n_flat = n_flat
     
     @abstractmethod
     def generate_barriers(self) -> list[np.ndarray]:
@@ -50,11 +52,11 @@ class BarrierGenerator(ABC):
         self.generate_parameters()
         return self.generate_barriers()
 
-    def split_barrier(self, barrier: np.ndarray, n_points: int = 20) -> list[np.ndarray]:
+    def split_barrier(self, barrier: np.ndarray) -> list[np.ndarray]:
         assert self.offset is not None
         check_barrier(barrier)
 
-        lam = np.linspace(0, 1, n_points)[:, None]
+        lam = np.linspace(0, 1, self.n_flat)[:, None]
         barriers = []
         for a, b, c in zip([1., -1.], [-1., 1.], [-self.offset, -self.offset]):
             f = signed_distance(barrier, a, b, c)
@@ -85,10 +87,9 @@ class BarrierGenerator(ABC):
         return [x for barrier in barriers for x in self.split_barrier(barrier)]
 
 class FourStupid(BarrierGenerator):
-    def __init__(self, design, r_stator_end, n=300, der1=1., der2=1., symmetric=True, **kwargs) -> None:
+    def __init__(self, design, r_stator_end, der1=1., der2=1., symmetric=True, **kwargs) -> None:
         self.R = compute_r_max(design, r_stator_end)
         self.design = design
-        self.n = n
         self.der1 = der1
         self.der2 = der2
         self.w_mins_base = np.array([3, 2.5, 2.5, 2]) - 1.0
@@ -122,9 +123,9 @@ class FourStupid(BarrierGenerator):
         y2 = [y_min+w_min, y1[1]+s, y_max2]
         f2 = CubicSpline(x2, y2, bc_type=((1, 0), (1,self.der2)))
 
-        # TODO: use get_arc
-        x_interp1 = np.linspace(x1[0], x1[-1], self.n)
-        x_interp2 = np.linspace(x2[0], x2[-1], self.n)
+        x_interp1 = np.linspace(x1[0], x1[-1], self.n_curve)
+        x_interp2 = np.linspace(x2[0], x2[-1], self.n_curve)
+        # TODO: use more points for connecting?
         x_all = np.concatenate((x_interp1, x_interp2[::-1]))
         y_all = np.concatenate((f1(x_interp1), f2(x_interp2)[::-1]))
         if self.symmetric:
@@ -194,15 +195,15 @@ class AbstractHacklGenerator(BarrierGenerator):
             pts_inner = self._get_bezier_curve(phi_inner, True)
             
             # Generate the arcs at the end
-            arc_top = get_arc(self.R, 90 - phi_outer, 90 - phi_inner)
-            arc_bottom = get_arc(self.R, phi_inner, phi_outer)
+            arc_top = get_arc(self.R, 90 - phi_outer, 90 - phi_inner, self.n_flat)
+            arc_bottom = get_arc(self.R, phi_inner, phi_outer, self.n_flat)
             
             # Merge them together
             barrier = np.concatenate((pts_outer, arc_top[1:-1], pts_inner[::-1], arc_bottom[1:]))
             barriers.append(barrier)
         return barriers
 
-    def _get_bezier_curve(self, phi_deg, is_inner, num_points=300):
+    def _get_bezier_curve(self, phi_deg, is_inner):
         phi_rad = np.radians(phi_deg)
         x_end = self.R * np.cos(phi_rad)
         y_end = self.R * np.sin(phi_rad)
@@ -215,7 +216,7 @@ class AbstractHacklGenerator(BarrierGenerator):
         r3 = np.array([y_end, x_end])
 
         # Formula 33: Polynomial expansion to generate continuous points
-        z_vals = np.linspace(0, 1, num_points)[:, None]
+        z_vals = np.linspace(0, 1, self.n_curve)[:, None]
         return (
             (1 - z_vals)**3 * r0
             + 3 * (1 - z_vals)**2 * z_vals * r1

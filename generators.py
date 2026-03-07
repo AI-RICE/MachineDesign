@@ -239,10 +239,63 @@ class HacklGenerator_OneLambda(AbstractHacklGenerator):
         return self.lam * x + (1 - self.lam) * y, y
 
     def _outer_bezier_point(self, x: float, y: float) -> tuple[float, float]:
-        return self.lam * x + (1 - self.lam) * y, y
+        return self._inner_bezier_point(x, y)
 
     def save_barriers(self, file_name: str):
         np.savez(file_name,
             phis_inner=self.phis_inner,
             phis_outer=self.phis_outer,
             lam=self.lam)
+
+
+
+class HacklGenerator_OneLambdaTheta(HacklGenerator_OneLambda):
+    def __init__(self, design, r_stator_end, **kwargs):
+        self.theta_min = -20
+        self.theta_max = 20
+        super().__init__(design, r_stator_end, **kwargs)
+
+    def generate_parameters(self):
+        self.theta = self.theta_min + (self.theta_max-self.theta_min)*np.random.rand(1)[0]
+        super().generate_parameters()
+
+    def _inner_bezier_point(self, x: float, y: float) -> tuple[float, float]:
+        x, y = super()._inner_bezier_point(x, y)
+        xx, yy = rotate(x, y, self.theta)
+        return xx[0], yy[0]
+
+    def _outer_bezier_point(self, x: float, y: float) -> tuple[float, float]:
+        return self._inner_bezier_point(x, y)
+
+    def save_barriers(self, file_name: str):
+        np.savez(file_name,
+            phis_inner=self.phis_inner,
+            phis_outer=self.phis_outer,
+            lam=self.lam)
+
+
+class HacklGenerator_TwoLambdas(AbstractHacklGenerator):
+    def __init__(self, design, r_stator_end, **kwargs):
+        self.lam_inner_min = 0.25
+        self.lam_inner_max = 0.45
+        self.lam_outer_min = 0.25
+        self.lam_outer_max = 0.45
+        super().__init__(design, r_stator_end, **kwargs)
+
+    def generate_parameters(self):
+        self.lam_inner = self.lam_inner_min + (self.lam_inner_max-self.lam_inner_min)*np.random.rand(1)[0]
+        self.lam_outer = self.lam_outer_min + (self.lam_outer_max-self.lam_outer_min)*np.random.rand(1)[0]
+        super().generate_parameters()
+
+    def _inner_bezier_point(self, x: float, y: float) -> tuple[float, float]:
+        return self.lam_inner * x + (1 - self.lam_inner) * y, y
+
+    def _outer_bezier_point(self, x: float, y: float) -> tuple[float, float]:
+        return self.lam_outer * x + (1 - self.lam_outer) * y, y
+
+    def save_barriers(self, file_name: str):
+        np.savez(file_name,
+            phis_inner=self.phis_inner,
+            phis_outer=self.phis_outer,
+            lam_inner=self.lam_inner,
+            lam_outer=self.lam_outer)

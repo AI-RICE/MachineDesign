@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 from scipy.interpolate import CubicSpline
+import pickle
 from design import Design
 from geometry import rotate
 from typing import Any
@@ -26,6 +27,10 @@ def compute_r_max(design: Design, r_stator_end: float) -> float:
     airgap = design.mm_to_str("geom_params", "Airgap")
     return (dia_stator_gap / 2.0) - airgap - r_stator_end
 
+def save_params(params, file_name: str) -> None:
+    with open(file_name, 'wb') as handle:
+        pickle.dump(params, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 
 class BarrierGenerator(ABC):
     def __init__(self, offset: float, n_curve: int = 500, n_flat: int = 20) -> None:
@@ -45,18 +50,9 @@ class BarrierGenerator(ABC):
     def set_parameters(self, params) -> None:
         pass
 
-    @abstractmethod
-    def save_barriers(self, file_name: str) -> None:
-        pass
-
     @property
     def name(self) -> str:
         return self.__class__.__name__
-
-    def random_barriers(self) -> list[np.ndarray]:
-        pars = self.random_parameters()
-        self.set_parameters(pars)
-        return self.generate_barriers()
 
     def split_barrier(self, barrier: np.ndarray) -> list[np.ndarray]:
         assert self.offset is not None
@@ -173,15 +169,6 @@ class FourStupid(BarrierGenerator):
             xy_all = np.vstack((x_all, y_all)).T
             barriers.append(xy_all)
         return barriers
-
-    def save_barriers(self, file_name: str) -> None:
-        np.savez(file_name,
-             y_mins=self.y_mins,
-             w_mins=self.w_mins,
-             y_mids=self.y_mids,
-             w_mids=self.w_mids,
-             thetas=self.thetas,
-             w_maxs=self.w_maxs)
         
 
 class AbstractHacklGenerator(BarrierGenerator):
@@ -270,13 +257,6 @@ class HacklGenerator_OneLambda(AbstractHacklGenerator):
     def _bezier_point(self, x: float, y: float, is_inner: bool, order: int) -> tuple[float, float]:
         return self.lam * x + (1 - self.lam) * y, y
 
-    def save_barriers(self, file_name: str):
-        np.savez(file_name,
-            phis_inner=self.phis_inner,
-            phis_outer=self.phis_outer,
-            lam=self.lam)
-
-
 
 class HacklGenerator_OneLambdaTheta(HacklGenerator_OneLambda):
     def __init__(self, design, r_stator_end, **kwargs):
@@ -300,13 +280,6 @@ class HacklGenerator_OneLambdaTheta(HacklGenerator_OneLambda):
             xx, yy = rotate(x, y, self.theta)
             return xx[0], yy[0]
         return x, y
-
-    def save_barriers(self, file_name: str):
-        np.savez(file_name,
-            phis_inner=self.phis_inner,
-            phis_outer=self.phis_outer,
-            lam=self.lam,
-            theta=self.theta)
 
 
 class HacklGenerator_TwoLambdas(AbstractHacklGenerator):
@@ -332,10 +305,3 @@ class HacklGenerator_TwoLambdas(AbstractHacklGenerator):
     def _bezier_point(self, x: float, y: float, is_inner: bool, order: int) -> tuple[float, float]:
         lam = self.lam_inner if is_inner else self.lam_outer
         return lam * x + (1 - lam) * y, y
-
-    def save_barriers(self, file_name: str):
-        np.savez(file_name,
-            phis_inner=self.phis_inner,
-            phis_outer=self.phis_outer,
-            lam_inner=self.lam_inner,
-            lam_outer=self.lam_outer)

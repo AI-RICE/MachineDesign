@@ -226,6 +226,12 @@ class HacklGenerator_OneLambda(AbstractHacklGenerator):
         self.lam_max = 0.45
         super().__init__(design, r_stator_end, **kwargs)
 
+    @property
+    def bounds(self) -> tuple[np.ndarray, np.ndarray]:
+        lb = np.concatenate((self.phis_inner_min, [self.lam_min]))
+        ub = np.concatenate((self.phis_inner_max, [self.lam_max]))
+        return lb, ub
+    
     def generate_parameters(self):
         self.lam = self.lam_min + (self.lam_max-self.lam_min)*np.random.rand(1)[0]
         super().generate_parameters()

@@ -247,8 +247,8 @@ class HacklGenerator_OneLambda(AbstractHacklGenerator):
 
     @property
     def bounds(self) -> tuple[np.ndarray, np.ndarray]:
-        lb = np.concatenate((self.phis_inner_min, [self.lam_min]))
-        ub = np.concatenate((self.phis_inner_max, [self.lam_max]))
+        lb = np.concatenate((self.phis_inner_min, self.phis_outer_min, [self.lam_min]))
+        ub = np.concatenate((self.phis_inner_max, self.phis_outer_max, [self.lam_max]))
         return lb, ub
     
     def random_parameters(self):

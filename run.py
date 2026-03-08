@@ -4,7 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 from design import Design
-from generators import FourStupid, HacklGenerator_OneLambda, HacklGenerator_TwoLambdas, HacklGenerator_OneLambdaTheta
+from generators import FourStupid, HacklGenerator_OneLambda, HacklGenerator_TwoLambdas, HacklGenerator_OneLambdaTheta, save_params
 from geometry import analyze_results, plot_barriers
 
 project_name = "SynRM_test"
@@ -51,7 +51,9 @@ generators = [generator_stupid, generator_hackl1, generator_hackl2, generator_ha
 metadata = pd.DataFrame()
 for i in range(0, n_designs):
     for generator in generators:
-        barriers = generator.random_barriers()
+        params = generator.random_parameters()
+        generator.set_parameters(params)
+        barriers = generator.generate_barriers()
         barriers = generator.split_barriers(barriers)
 
         design.add_rotor()
@@ -74,7 +76,7 @@ for i in range(0, n_designs):
             title = f'Torque mean value: {np.round(TorAvg,2)} Nm, ripple relative value: {np.round(TorRippleRms,2)} %'
             file_name = f'{path_results}/design_{generator.name}_{i}'
             plot_barriers(barriers, design, title=title, file_name = f"{file_name}.png")
-            generator.save_barriers(f"{file_name}.npz")
+            save_params(params, f"{file_name}.pkl")
 
         metadata_new = {
             'method': generator.name,

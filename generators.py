@@ -140,6 +140,12 @@ class FourStupid(BarrierGenerator):
         x_all, y_all = rotate(x_all, y_all, -45)
         return x_all, y_all
 
+    @property
+    def bounds(self) -> tuple[np.ndarray, np.ndarray]:
+        lb = np.array([0, 0, 0, 0, 2, 2, 2])
+        ub = np.array([0.5, 0.5, 0.5, 0.5, 5, 5, 4])
+        return lb, ub
+
     def random_parameters(self):
         rand1 = 0.5*np.random.random(4)
         rand2 = 2+3*np.random.random()

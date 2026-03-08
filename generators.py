@@ -262,7 +262,7 @@ class HacklGenerator_OneLambda(AbstractHacklGenerator):
         self.lam = lam
 
     def X_to_params(self, X: np.ndarray):
-        return X[:3], X[:6], X[6]
+        return X[:3], X[3:6], X[6]
     
     def _bezier_point(self, x: float, y: float, is_inner: bool, order: int) -> tuple[float, float]:
         return self.lam * x + (1 - self.lam) * y, y
@@ -285,7 +285,7 @@ class HacklGenerator_OneLambdaTheta(HacklGenerator_OneLambda):
         self.theta = theta
 
     def X_to_params(self, X: np.ndarray):
-        return X[:3], X[:6], X[6], X[7]
+        return X[:3], X[3:6], X[6], X[7]
     
     def _bezier_point(self, x: float, y: float, is_inner: bool, order: int) -> tuple[float, float]:
         x, y = super()._bezier_point(x, y, is_inner, order)
@@ -316,7 +316,7 @@ class HacklGenerator_TwoLambdas(AbstractHacklGenerator):
         self.lam_outer = lam_outer
 
     def X_to_params(self, X: np.ndarray):
-        return X[:3], X[:6], X[6], X[7]
+        return X[:3], X[3:6], X[6], X[7]
 
     def _bezier_point(self, x: float, y: float, is_inner: bool, order: int) -> tuple[float, float]:
         lam = self.lam_inner if is_inner else self.lam_outer

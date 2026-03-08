@@ -50,6 +50,10 @@ class BarrierGenerator(ABC):
     def set_parameters(self, params) -> None:
         pass
 
+    @abstractmethod
+    def X_to_params(self, X: np.ndarray) -> tuple[Any, ...]:
+        pass
+
     @property
     def name(self) -> str:
         return self.__class__.__name__
@@ -162,6 +166,9 @@ class FourStupid(BarrierGenerator):
         self.thetas = [1, 8, 15, 21]
         self.w_maxs = self.w_mins - np.array([0.5, 0.5, 0.5, 0])
 
+    def X_to_params(self, X: np.ndarray):
+        return X[:4], X[4], X[5], X[6]
+
     def generate_barriers(self) -> list[np.ndarray]:
         barriers = []
         for args in zip(self.y_mins, self.w_mins, self.y_mids, self.w_mids, self.thetas, self.w_maxs):
@@ -254,6 +261,9 @@ class HacklGenerator_OneLambda(AbstractHacklGenerator):
         super().set_parameters((phis_inner, phis_outer))
         self.lam = lam
 
+    def X_to_params(self, X: np.ndarray):
+        return X[:3], X[:6], X[6]
+    
     def _bezier_point(self, x: float, y: float, is_inner: bool, order: int) -> tuple[float, float]:
         return self.lam * x + (1 - self.lam) * y, y
 
@@ -274,6 +284,9 @@ class HacklGenerator_OneLambdaTheta(HacklGenerator_OneLambda):
         super().set_parameters((phis_inner, phis_outer, lam))
         self.theta = theta
 
+    def X_to_params(self, X: np.ndarray):
+        return X[:3], X[:6], X[6], X[7]
+    
     def _bezier_point(self, x: float, y: float, is_inner: bool, order: int) -> tuple[float, float]:
         x, y = super()._bezier_point(x, y, is_inner, order)
         if order < 2:
@@ -301,6 +314,9 @@ class HacklGenerator_TwoLambdas(AbstractHacklGenerator):
         super().set_parameters((phis_inner, phis_outer))
         self.lam_inner = lam_inner
         self.lam_outer = lam_outer
+
+    def X_to_params(self, X: np.ndarray):
+        return X[:3], X[:6], X[6], X[7]
 
     def _bezier_point(self, x: float, y: float, is_inner: bool, order: int) -> tuple[float, float]:
         lam = self.lam_inner if is_inner else self.lam_outer

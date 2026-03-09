@@ -4,28 +4,36 @@ import os
 import numpy as np
 import pandas as pd
 from design import Design
-from generators import FourStupid, HacklGenerator_OneLambda, HacklGenerator_TwoLambdas, HacklGenerator_OneLambdaTheta, save_params
+from generators import (
+    FourStupid,
+    HacklGenerator_OneLambda,
+    HacklGenerator_TwoLambdas,
+    HacklGenerator_OneLambdaTheta,
+    save_params,
+)
 from geometry import analyze_results, plot_barriers
 
 project_name = "SynRM_test"
 design_name = "Design01"
-path_data = os.path.join(os.getcwd(), 'data')
-path_results = 'results'
+path_data = os.path.join(os.getcwd(), "data")
+path_results = "results"
 for path in [path_data, path_results]:
     os.makedirs(path, exist_ok=True)
-file_name_aedt = f'{path_data}/{project_name}.aedt'
+file_name_aedt = f"{path_data}/{project_name}.aedt"
 plot_design = True
 n_designs = 20
 
 # Define constants
 AEDT_VERSION = "2024.1"
 NUM_CORES = 4
-NG_MODE = True  #non-graphical mode
-CLS_EXIT = True #close on exit
+NG_MODE = True  # non-graphical mode
+CLS_EXIT = True  # close on exit
 
 if not os.path.exists(file_name_aedt):
     design = Design.create(
-        project_name, design_name, file_name_aedt,
+        project_name,
+        design_name,
+        file_name_aedt,
         version=AEDT_VERSION,
         non_graphical=NG_MODE,
         new_desktop=False,
@@ -65,7 +73,7 @@ for i in range(0, n_designs):
         Tor = design.compute(NUM_CORES)
         if Tor is None:
             TorAvg, TorRippleRms = np.nan, np.nan
-        else: 
+        else:
             TorAvg, _, TorRippleRms = analyze_results(Tor)
 
         # Delete the rotor
@@ -73,18 +81,20 @@ for i in range(0, n_designs):
 
         # Potentially save the design
         if plot_design:
-            title = f'Torque mean value: {np.round(TorAvg,2)} Nm, ripple relative value: {np.round(TorRippleRms,2)} %'
-            file_name = f'{path_results}/design_{generator.name}_{i}'
-            plot_barriers(barriers, design, title=title, file_name = f"{file_name}.png")
+            title = f"Torque mean value: {np.round(TorAvg, 2)} Nm, ripple relative value: {np.round(TorRippleRms, 2)} %"
+            file_name = f"{path_results}/design_{generator.name}_{i}"
+            plot_barriers(barriers, design, title=title, file_name=f"{file_name}.png")
             save_params(params, f"{file_name}.pkl")
 
         metadata_new = {
-            'method': generator.name,
-            'design': i,
-            'T': TorAvg,
-            'ripple': TorRippleRms,
+            "method": generator.name,
+            "design": i,
+            "T": TorAvg,
+            "ripple": TorRippleRms,
         }
-        metadata = pd.concat((metadata, pd.DataFrame([metadata_new])), ignore_index=True)
+        metadata = pd.concat(
+            (metadata, pd.DataFrame([metadata_new])), ignore_index=True
+        )
         metadata.to_csv(f"{path_results}/metadata.csv", index=False)
 
 design.close_project()

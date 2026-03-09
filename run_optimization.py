@@ -6,9 +6,12 @@ import numpy as np
 import pandas as pd
 import pickle
 from design import Design
-from generators import FourStupid, HacklGenerator_OneLambda, HacklGenerator_TwoLambdas, HacklGenerator_OneLambdaTheta
-from geometry import analyze_results, plot_barriers
+from generators import (
+    FourStupid,
+)
+from geometry import analyze_results
 import torch
+
 torch.set_default_dtype(torch.float64)
 from torch import Tensor
 from botorch.utils.transforms import normalize, unnormalize
@@ -23,15 +26,18 @@ from botorch.utils.multi_objective.box_decompositions import NondominatedPartiti
 from botorch.utils.multi_objective.pareto import is_non_dominated
 from botorch.optim import optimize_acqf
 
+
 def objective_transform(TorAvg, TorRippleRms):
     if pd.isnull(TorAvg):
         return -99999, -99999
     else:
-        return TorAvg, -TorRippleRms/100
+        return TorAvg, -TorRippleRms / 100
+
 
 def objective(Xs: Tensor, *args) -> Tensor:
     vals = [objective_single(X, *args) for X in Xs]
     return torch.stack(vals, dim=0)
+
 
 def objective_single(X: Tensor, design, generator, bounds, NUM_CORES) -> Tensor:
     X = unnormalize(X, bounds)
@@ -50,7 +56,7 @@ def objective_single(X: Tensor, design, generator, bounds, NUM_CORES) -> Tensor:
     Tor = design.compute(NUM_CORES)
     if Tor is None:
         TorAvg, TorRippleRms = np.nan, np.nan
-    else: 
+    else:
         TorAvg, _, TorRippleRms = analyze_results(Tor)
 
     # Delete the rotor
@@ -59,17 +65,21 @@ def objective_single(X: Tensor, design, generator, bounds, NUM_CORES) -> Tensor:
     f1, f2 = objective_transform(TorAvg, TorRippleRms)
     return torch.tensor([f1, f2])
 
+
 def init_points(root, method):
     results = pd.read_csv(f"{root}/metadata.csv")
     results = results[~results["T"].isnull()]
     results = results[results["method"] == method]
-    results["path"] = [f"results/design_{row['method']}_{row['design']}.pkl" for _, row in results.iterrows()]
+    results["path"] = [
+        f"results/design_{row['method']}_{row['design']}.pkl"
+        for _, row in results.iterrows()
+    ]
 
     Xs, Ys = [], []
     for _, r in results.iterrows():
-        with open(r["path"], 'rb') as f:
+        with open(r["path"], "rb") as f:
             params = pickle.load(f)
-        
+
         X = []
         for x in params:
             if isinstance(x, Iterable):
@@ -84,21 +94,24 @@ def init_points(root, method):
 
     return torch.stack(Xs), torch.stack(Ys)
 
+
 project_name = "SynRM_test"
 design_name = "Design01"
-path_data = os.path.join(os.getcwd(), 'data')
+path_data = os.path.join(os.getcwd(), "data")
 os.makedirs(path_data, exist_ok=True)
-file_name_aedt = f'{path_data}/{project_name}.aedt'
+file_name_aedt = f"{path_data}/{project_name}.aedt"
 
 # Define constants
 AEDT_VERSION = "2024.1"
 NUM_CORES = 4
-NG_MODE = True  #non-graphical mode
-CLS_EXIT = True #close on exit
+NG_MODE = True  # non-graphical mode
+CLS_EXIT = True  # close on exit
 
 if not os.path.exists(file_name_aedt):
     design = Design.create(
-        project_name, design_name, file_name_aedt,
+        project_name,
+        design_name,
+        file_name_aedt,
         version=AEDT_VERSION,
         non_graphical=NG_MODE,
         new_desktop=False,
@@ -126,10 +139,12 @@ method = generator.__class__.__name__
 train_X, train_Y = init_points(root_init, method)
 train_X = normalize(train_X, bounds)
 bounds_normalized = normalize(bounds, bounds)
-ref_point = torch.tensor([3.8,-0.3])
+ref_point = torch.tensor([3.8, -0.3])
+
 
 def objective_lambda(Xs):
     return objective(Xs, design, generator, bounds, NUM_CORES)
+
 
 for _ in range(n_iters):
     # Fit surrogate
@@ -139,10 +154,7 @@ for _ in range(n_iters):
 
     # Compute Pareto front
     pareto_Y = train_Y[is_non_dominated(train_Y)]
-    partitioning = NondominatedPartitioning(
-        ref_point=ref_point,
-        Y=pareto_Y
-    )
+    partitioning = NondominatedPartitioning(ref_point=ref_point, Y=pareto_Y)
 
     # Optimize acquisition function to select candidate points
     acq = qLogExpectedHypervolumeImprovement(
@@ -162,6 +174,8 @@ for _ in range(n_iters):
     new_Y = objective_lambda(candidates)
     train_X = torch.cat([train_X, candidates])
     train_Y = torch.cat([train_Y, new_Y])
-    np.savez(f"results_{method}.npz", train_X=unnormalize(train_X, bounds), train_Y=train_Y)
+    np.savez(
+        f"results_{method}.npz", train_X=unnormalize(train_X, bounds), train_Y=train_Y
+    )
 
 design.close_project()

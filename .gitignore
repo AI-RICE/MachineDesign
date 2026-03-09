@@ -1,5 +1,6 @@
 data/
 results*/
+results_*.npz
 nohup.out
 .vscode/settings.json
 

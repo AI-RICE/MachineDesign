@@ -142,24 +142,25 @@ class FourStupid(BarrierGenerator):
 
     @property
     def bounds(self) -> tuple[np.ndarray, np.ndarray]:
-        lb = np.array([0, 0, 0, 0, 2, 2, 2])
-        ub = np.array([0.5, 0.5, 0.5, 0.5, 5, 5, 4])
+        lb = np.array([0, 0, 0, 0, 13, 2, 2, 2])
+        ub = np.array([0.5, 0.5, 0.5, 0.5, 17, 5, 5, 4])
         return lb, ub
 
     def random_parameters(self):
         rand1 = 0.5*np.random.random(4)
-        rand2 = 2+3*np.random.random()
+        rand2 = 13+4*np.random.random()
         rand3 = 2+3*np.random.random()
-        rand4 = 2+2*np.random.random()
-        return rand1, rand2, rand3, rand4
+        rand4 = 2+3*np.random.random()
+        rand5 = 2+2*np.random.random()
+        return rand1, rand2, rand3, rand4, rand5
 
     def set_parameters(self, params) -> None:
-        rand1, rand2, rand3, rand4 = params
+        rand1, rand2, rand3, rand4, rand5 = params
         self.w_mins = self.w_mins_base + rand1
-        y_min0 = 13+4*np.random.random()
-        y_min1 = y_min0+self.w_mins[0] + rand2
-        y_min2 = y_min1+self.w_mins[1] + rand3
-        y_min3 = y_min2+self.w_mins[2] + rand4
+        y_min0 = rand2
+        y_min1 = y_min0+self.w_mins[0] + rand3
+        y_min2 = y_min1+self.w_mins[1] + rand4
+        y_min3 = y_min2+self.w_mins[2] + rand5
         self.w_mids = self.w_mins
         self.y_mins = np.array([y_min0, y_min1, y_min2, y_min3])
         self.y_mids = self.y_mins + np.array([2, 1.5, 1, 0.5])
@@ -167,7 +168,7 @@ class FourStupid(BarrierGenerator):
         self.w_maxs = self.w_mins - np.array([0.5, 0.5, 0.5, 0])
 
     def X_to_params(self, X: np.ndarray):
-        return X[:4], X[4], X[5], X[6]
+        return X[:4], X[4], X[5], X[6], X[7]
 
     def generate_barriers(self) -> list[np.ndarray]:
         barriers = []

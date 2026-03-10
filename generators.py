@@ -275,6 +275,12 @@ class HacklGenerator_OneLambdaTheta(HacklGenerator_OneLambda):
         self.theta_max = 20
         super().__init__(design, r_stator_end, **kwargs)
 
+    @property
+    def bounds(self) -> tuple[np.ndarray, np.ndarray]:
+        lb = np.concatenate((self.phis_inner_min, self.phis_outer_min, [self.lam_min, self.theta_min]))
+        ub = np.concatenate((self.phis_inner_max, self.phis_outer_max, [self.lam_max, self.theta_max]))
+        return lb, ub
+
     def random_parameters(self):
         pars = super().random_parameters()
         theta = self.theta_min + (self.theta_max-self.theta_min)*np.random.rand(1)[0]
@@ -303,6 +309,12 @@ class HacklGenerator_TwoLambdas(AbstractHacklGenerator):
         self.lam_outer_min = 0.25
         self.lam_outer_max = 0.45
         super().__init__(design, r_stator_end, **kwargs)
+
+    @property
+    def bounds(self) -> tuple[np.ndarray, np.ndarray]:
+        lb = np.concatenate((self.phis_inner_min, self.phis_outer_min, [self.lam_inner_min, self.lam_outer_min]))
+        ub = np.concatenate((self.phis_inner_max, self.phis_outer_max, [self.lam_inner_max, self.lam_outer_max]))
+        return lb, ub
 
     def random_parameters(self):
         pars = super().random_parameters()

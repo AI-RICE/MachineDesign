@@ -23,19 +23,17 @@ def check_barrier(barrier: np.ndarray) -> None:
     if not np.array_equal(barrier[0], barrier[-1]):
         raise ValueError("Barrier must start and end at the same point")
 
-def compute_r_max(design: Design, r_stator_end: float) -> float:
-    return design.rotor_r_max - r_stator_end
-
-def compute_r_min(design: Design) -> float:
-    return design.rotor_r_min
-
 def save_params(params, file_name: str) -> None:
     with open(file_name, 'wb') as handle:
         pickle.dump(params, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 class BarrierGenerator(ABC):
-    def __init__(self, offset: float, n_curve: int = 500, n_flat: int = 20) -> None:
+    # TODO: rename offset
+    def __init__(self, design: Design, r_stator_end: float, offset: None | float = None, n_curve: int = 500, n_flat: int = 20) -> None:
+        self.r_max = design.rotor_r_max
+        self.r_min = design.rotor_r_min
+        self.R = self.r_max - r_stator_end
         self.offset = offset
         self.n_curve = n_curve
         self.n_flat = n_flat
@@ -112,13 +110,11 @@ class BarrierGenerator(ABC):
 
 class FourStupid(BarrierGenerator):
     def __init__(self, design, r_stator_end, der1=1., der2=1., symmetric=True, **kwargs) -> None:
-        self.R = compute_r_max(design, r_stator_end)
-        self.design = design
         self.der1 = der1
         self.der2 = der2
         self.w_mins_base = np.array([3, 2.5, 2.5, 2]) - 1.0
         self.symmetric = symmetric
-        super().__init__(**kwargs)
+        super().__init__(design, r_stator_end, **kwargs)
 
     def _create_barrier(
             self,
@@ -138,7 +134,7 @@ class FourStupid(BarrierGenerator):
         y1 = [y_min, y_mid, y_max1]
         f1 = CubicSpline(x1, y1, bc_type=((1, 0), (1,self.der1)))
 
-        theta2 = theta1 + w_max / self.design.rotor_r_max
+        theta2 = theta1 + w_max / self.r_max
         x_max2 = self.R*np.cos(theta2)
         y_max2 = self.R*np.sin(theta2)
 
@@ -199,13 +195,12 @@ class FourStupid(BarrierGenerator):
 
 class AbstractHacklGenerator(BarrierGenerator):
     def __init__(self, design, r_stator_end, **kwargs):
-        self.R = compute_r_max(design, r_stator_end)
         self.phis_inner_min = np.asarray([4., 17.3, 30.6])
         self.phis_inner_max = np.asarray([10.2, 23.5, 36.8])
         self.phis_outer_min = np.asarray([10.6, 24., 37.3])
         self.phis_outer_max = np.asarray([16.8, 30.2, 44.])
         self.n_barriers = len(self.phis_inner_min)
-        super().__init__(**kwargs)
+        super().__init__(design, r_stator_end, **kwargs)
 
     @abstractmethod
     def _bezier_point(self, x: float, y: float, is_inner: bool, order: int) -> tuple[float, float]:

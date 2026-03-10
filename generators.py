@@ -58,7 +58,13 @@ class BarrierGenerator(ABC):
     def name(self) -> str:
         return self.__class__.__name__
 
-    def feasible_barriers(self, barriers: list[np.ndarray]) -> bool:
+    def feasible_barriers(self, barriers: list[np.ndarray], tol: float = 1e-8) -> bool:
+        # Check whether the barriers are within bounds
+        for barrier in barriers:
+            norm_points = np.linalg.norm(barrier, axis=1)
+            if any(norm_points > self.R + tol) or any(norm_points < self.r_min - tol):
+                return False
+
         n = len(barriers)
         curves = [LineString(barrier) for barrier in barriers]
 

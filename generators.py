@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 from scipy.interpolate import CubicSpline
 import pickle
+from shapely.geometry import LineString
 from design import Design
 from geometry import rotate
 from typing import Any
@@ -23,9 +24,10 @@ def check_barrier(barrier: np.ndarray) -> None:
         raise ValueError("Barrier must start and end at the same point")
 
 def compute_r_max(design: Design, r_stator_end: float) -> float:
-    dia_stator_gap = design.mm_to_str("geom_params", "DiaStatorGap")
-    airgap = design.mm_to_str("geom_params", "Airgap")
-    return (dia_stator_gap / 2.0) - airgap - r_stator_end
+    return design.rotor_r_max - r_stator_end
+
+def compute_r_min(design: Design) -> float:
+    return design.rotor_r_min
 
 def save_params(params, file_name: str) -> None:
     with open(file_name, 'wb') as handle:
@@ -57,6 +59,22 @@ class BarrierGenerator(ABC):
     @property
     def name(self) -> str:
         return self.__class__.__name__
+
+    def feasible_barriers(self, barriers: list[np.ndarray]) -> bool:
+        n = len(barriers)
+        curves = [LineString(barrier) for barrier in barriers]
+
+        # Check if curve intersects itself
+        for curve in curves:
+            if not curve.is_simple:
+                return False
+        
+        # Check if two curves intersect themselves
+        for i in range(n):
+            for j in range(i+1,n):
+                if curves[i].intersects(curves[j]):
+                    return False
+        return True
 
     def split_barrier(self, barrier: np.ndarray) -> list[np.ndarray]:
         assert self.offset is not None

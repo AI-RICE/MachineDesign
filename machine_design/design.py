@@ -1,7 +1,7 @@
-import os
 import numpy as np
 from ansys.aedt.core import Desktop, Maxwell2d
 from ansys.aedt.core.modeler.modeler_2d import Modeler2D
+
 
 class Design:
     def __init__(self, m2d: Maxwell2d) -> None:
@@ -10,12 +10,7 @@ class Design:
 
     @classmethod
     def create(cls, project_name: str, design_name: str, file_name: str, **kwargs) -> "Design":
-        m2d = Maxwell2d(
-            project=project_name,
-            design=design_name,
-            solution_type="TransientXY",
-            **kwargs
-        )
+        m2d = Maxwell2d(project=project_name, design=design_name, solution_type="TransientXY", **kwargs)
         obj = cls(m2d)
         obj.create_stator()
         obj.save_project(file_name)
@@ -30,9 +25,9 @@ class Design:
         m2d.set_active_design("Design01")
 
         return cls(m2d)
-    
+
     def set_parameters(self) -> None:
-        #materials
+        # materials
         self.Fe = "Cogent Power - M350-50A, B-H at 50Hz"
 
         # main definitions
@@ -43,7 +38,7 @@ class Design:
             "SlotNumber": "36",
             "SlotType": "3",
             "DiaShaft": "25mm",
-            "StackLength": "85mm"
+            "StackLength": "85mm",
         }
         # stator slot
         self.slot_params = {
@@ -63,40 +58,47 @@ class Design:
             "CoilPitch": "9",  # coil pitch in slots
             "SlotLiner": "0.3mm",
             "SpaceLayers": "0.2mm",
-            "Nc": "68" # turns per coil
+            "Nc": "68",  # turns per coil
         }
         # model parameters
         PolePairs = 2
-        f = 50 #[Hz]
-        RotSpeed = 60*f/PolePairs #[rpm]
+        f = 50  # [Hz]
+        RotSpeed = 60 * f / PolePairs  # [rpm]
         self.mod_params = {
             "Poles": f"2*{PolePairs}",
             "ModelLength": "85mm",
             "SymmetryFactor": "Poles",
             "StatorSkewAngle": "0deg",
         }
-        #operation parameters
+        # operation parameters
         self.oper_params = {
             "Im": "1.5*sqrt(2)A",
-            "epsI": "pi/4", #current angle
+            "epsI": "pi/4",  # current angle
             "InitPos": "-30deg",
             "f": f"{f}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
-            "Nper": "1/6"
-                    "", #number of included periods
-            "PointPer": "101" #number of time points per period
+            "Nper": "1/6",  # number of included periods
+            "PointPer": "101",  # number of time points per period
         }
         self.rot_points = [
             ["DiaShaft/2*cos(360deg/SymmetryFactor)", "DiaShaft/2*sin(360deg/SymmetryFactor)", "0mm"],
             ["DiaShaft/2*cos(360deg/(2*SymmetryFactor))", "DiaShaft/2*sin(360deg/(2*SymmetryFactor))", "0mm"],
             ["DiaShaft/2", "0mm", "0mm"],
             ["DiaStatorGap/2-Airgap", "0mm", "0mm"],
-            ["(DiaStatorGap/2-Airgap)*cos(360deg/(2*SymmetryFactor))", "(DiaStatorGap/2-Airgap)*sin(360deg/(2*SymmetryFactor))", "0mm"],
-            ["(DiaStatorGap/2-Airgap)*cos(360deg/SymmetryFactor)", "(DiaStatorGap/2-Airgap)*sin(360deg/SymmetryFactor)", "0mm"],
+            [
+                "(DiaStatorGap/2-Airgap)*cos(360deg/(2*SymmetryFactor))",
+                "(DiaStatorGap/2-Airgap)*sin(360deg/(2*SymmetryFactor))",
+                "0mm",
+            ],
+            [
+                "(DiaStatorGap/2-Airgap)*cos(360deg/SymmetryFactor)",
+                "(DiaStatorGap/2-Airgap)*sin(360deg/SymmetryFactor)",
+                "0mm",
+            ],
         ]
         self.setup_name = "Setup1"
-        self.rotor_r_min = self.mm_to_str('geom_params', 'DiaShaft')/2
-        self.rotor_r_max = self.mm_to_str('geom_params', 'DiaStatorGap')/2 - self.mm_to_str('geom_params', 'Airgap')
+        self.rotor_r_min = self.mm_to_str("geom_params", "DiaShaft") / 2
+        self.rotor_r_max = self.mm_to_str("geom_params", "DiaStatorGap") / 2 - self.mm_to_str("geom_params", "Airgap")
 
     def create_stator(self) -> None:
         m2d = self.m2d
@@ -141,7 +143,7 @@ class Design:
             name="Shaft",
         )
 
-        #motion setup
+        # motion setup
         m2d.assign_rotate_motion(
             assignment="Band",
             coordinate_system="Global",
@@ -199,7 +201,7 @@ class Design:
         stator_id.color = (192, 192, 192)  # rgb
         stator_id.transparency = 0.0
 
-        #Winding
+        # Winding
         coil_id = modeler.create_rectangle(
             origin=["DiaStatorGap/2+Hs0+Hs1+SlotLiner", "-(Bs1/2-SlotLiner)", 0],
             sizes=["(Hs2+Rs/2-2*SlotLiner)/Layers-(Layers-1)*SpaceLayers/2", "Bs1-2*SlotLiner", 0],
@@ -209,9 +211,7 @@ class Design:
         coil_id.color = (255, 128, 0)
         coil_id.transparency = 0.0
         modeler.rotate(assignment=coil_id, axis="Z", angle="360deg/SlotNumber/2")
-        coil_id.duplicate_around_axis(
-            axis="Z", angle="360deg/SlotNumber", clones="CoilPitch", create_new_objects=True
-        )
+        coil_id.duplicate_around_axis(axis="Z", angle="360deg/SlotNumber", clones="CoilPitch", create_new_objects=True)
         id_coils = modeler.get_objects_w_string(string_name="Coil", case_sensitive=True)
 
         # Create section of machine
@@ -231,9 +231,7 @@ class Design:
 
         # Symmetrical boundary conditions
         pos_1 = "DiaStatorGap/4"
-        id_bc_1 = modeler.get_edgeid_from_position(
-            position=[pos_1, 0, 0], assignment="Region"
-        )
+        id_bc_1 = modeler.get_edgeid_from_position(position=[pos_1, 0, 0], assignment="Region")
         id_bc_2 = modeler.get_edgeid_from_position(
             position=[
                 pos_1 + "*cos((360deg/SymmetryFactor))",
@@ -260,16 +258,14 @@ class Design:
             ],
             assignment="Region",
         )
-        m2d.assign_vector_potential(
-            assignment=id_bc_az, vector_value=0, boundary="A0"
-        )
+        m2d.assign_vector_potential(assignment=id_bc_az, vector_value=0, boundary="A0")
 
         # Excitations
         I_A = "Im * cos(2*pi*f*time+epsI)"
         I_B = "Im * cos(2*pi*f*time-120deg+epsI)"
         I_C = "Im * cos(2*pi*f*time-240deg+epsI)"
 
-        #Define phase windings
+        # Define phase windings
         m2d.assign_coil(
             assignment=["Coil"],
             conductors_number="Nc",
@@ -296,9 +292,7 @@ class Design:
             parallel_branches="ParallelPaths",
             name="PhaseA",
         )
-        m2d.add_winding_coils(
-            assignment="PhaseA", coils=["CS1", "CS2", "CS3"]
-        )
+        m2d.add_winding_coils(assignment="PhaseA", coils=["CS1", "CS2", "CS3"])
         m2d.assign_coil(
             assignment=["Coil_6"],
             conductors_number="Nc",
@@ -325,9 +319,7 @@ class Design:
             parallel_branches="ParallelPaths",
             name="PhaseB",
         )
-        m2d.add_winding_coils(
-            assignment="PhaseB", coils=["CS7", "CS8", "CS9"]
-        )
+        m2d.add_winding_coils(assignment="PhaseB", coils=["CS7", "CS8", "CS9"])
         m2d.assign_coil(
             assignment=["Coil_3"],
             conductors_number="Nc",
@@ -354,9 +346,7 @@ class Design:
             parallel_branches="ParallelPaths",
             name="PhaseC",
         )
-        m2d.add_winding_coils(
-            assignment="PhaseC", coils=["CS4", "CS5", "CS6"]
-        )
+        m2d.add_winding_coils(assignment="PhaseC", coils=["CS4", "CS5", "CS6"])
 
         # Mesh operation
         m2d.mesh.assign_length_mesh(
@@ -374,18 +364,16 @@ class Design:
             name="stator",
         )
 
-        #core loss
+        # core loss
         m2d.set_core_losses("Stator", core_loss_on_field=False)
 
-        #inductance calculation
-        m2d.change_inductance_computation(
-            compute_transient_inductance=True, incremental_matrix=False
-        )
-        #model depth
+        # inductance calculation
+        m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=False)
+        # model depth
         m2d.model_depth = "StackLength"
-        #symmetry
+        # symmetry
         m2d.change_symmetry_multiplier("SymmetryFactor")
-        # Calculation setup        
+        # Calculation setup
         setup = m2d.create_setup(name=self.setup_name)
         setup.props["StopTime"] = "Nper/f"
         setup.props["TimeStep"] = "1/(f*(PointPer-1))"
@@ -396,7 +384,7 @@ class Design:
         setup.update()
         m2d.validate_simple()
 
-        #ooutput variables
+        # ooutput variables
         output_vars = {
             "pos": "(Moving1.Position -InitPos) * Poles/2",
             "cos0": "cos(pos)",
@@ -424,22 +412,25 @@ class Design:
         for k, v in output_vars.items():
             m2d.create_output_variable(k, v)
 
-        #Definitions for plots
+        # Definitions for plots
         post_params = {  # reports
-            ("InducedVoltage(PhaseA)","InducedVoltage(PhaseB)","InducedVoltage(PhaseC)"): "InducedVoltage",
+            ("InducedVoltage(PhaseA)", "InducedVoltage(PhaseB)", "InducedVoltage(PhaseC)"): "InducedVoltage",
             ("Moving1.Torque"): "Torque",
-            ("InputCurrent(PhaseA)","InputCurrent(PhaseB)","InputCurrent(PhaseC)"): "Current",
-            ("FluxLinkage(PhaseA)","FluxLinkage(PhaseB)","FluxLinkage(PhaseC)",): "FluxLinkage",
+            ("InputCurrent(PhaseA)", "InputCurrent(PhaseB)", "InputCurrent(PhaseC)"): "Current",
+            (
+                "FluxLinkage(PhaseA)",
+                "FluxLinkage(PhaseB)",
+                "FluxLinkage(PhaseC)",
+            ): "FluxLinkage",
             ("I_d", "I_q"): "Current_dq",
             ("Flux_d", "Flux_q"): "FluxLinkage_dq",
             ("Ui_d", "Ui_q"): "InducedVoltage_dq",
             ("L_d", "L_q"): "Inductance_dq",
-
         }
-        #Create Report
+        # Create Report
         for k, v in post_params.items():
-            expressions = list(k) if isinstance(k, tuple) else [k] #if multiple report, use list(k). Else, use k
-            report = m2d.post.create_report(
+            expressions = list(k) if isinstance(k, tuple) else [k]  # if multiple report, use list(k). Else, use k
+            m2d.post.create_report(
                 expressions=expressions,
                 setup_sweep_name="",
                 domain="Sweep",
@@ -459,7 +450,7 @@ class Design:
         assert isinstance(modeler, Modeler2D)
 
         rotor_id = modeler.create_polyline(
-            points=self.rot_points, segment_type=[ "Arc","Line", "Arc"], cover_surface=True, name="Rotor"
+            points=self.rot_points, segment_type=["Arc", "Line", "Arc"], cover_surface=True, name="Rotor"
         )
         self.rotor_id = rotor_id
         rotor_id.material_name = self.Fe
@@ -473,10 +464,10 @@ class Design:
         # Round it for Ansys
         barrier_points = np.round(barrier_points, 6)
 
-        # Potentially add the z axis  
+        # Potentially add the z axis
         if barrier_points.shape[1] == 2:
-            barrier_points = np.hstack((barrier_points, np.zeros((len(barrier_points),1))))
-        
+            barrier_points = np.hstack((barrier_points, np.zeros((len(barrier_points), 1))))
+
         # Convert them into a string format and interpolate
         points_str = [[str(y) for y in x] for x in barrier_points]
         barrier_id = modeler.create_polyline(
@@ -499,27 +490,25 @@ class Design:
             maximum_elements=None,
             name="rotor",
         )
-        #core loss rotor
+        # core loss rotor
         m2d.set_core_losses("Rotor", core_loss_on_field=False)
 
         # Analyze
         m2d.analyze_setup(self.setup_name, use_auto_settings=False, cores=NUM_CORES)
 
-        solutions = m2d.post.get_solution_data(
-            expressions="Moving1.Torque", primary_sweep_variable="Time"
-        )
+        solutions = m2d.post.get_solution_data(expressions="Moving1.Torque", primary_sweep_variable="Time")
         try:
             return solutions.data_magnitude()
         except AttributeError:
             return None
-    
+
     def delete_rotor(self) -> None:
         assert isinstance(self.m2d.modeler, Modeler2D)
         self.m2d.modeler.delete(self.rotor_id)
 
     def save_design(self, file_name: str, **kwargs) -> None:
-        show = kwargs.pop('show', False)
-        view = kwargs.pop('view', 'xy')
+        show = kwargs.pop("show", False)
+        view = kwargs.pop("view", "xy")
         self.m2d.plot(show=show, output_file=file_name, view=view)
 
     def save_project(self, file_name: str | None = None) -> None:
@@ -527,12 +516,12 @@ class Design:
             self.m2d.save_project()
         else:
             self.m2d.save_project(file_name)
-    
+
     def close_project(self) -> None:
         self.m2d.close_desktop()
-    
+
     def mm_to_str(self, var, field) -> float:
         val = getattr(self, var)[field]
-        if not val.endswith('mm'):
-            raise Exception('val must end with mm')
+        if not val.endswith("mm"):
+            raise Exception("val must end with mm")
         return float(val[:-2])

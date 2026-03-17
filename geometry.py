@@ -31,10 +31,3 @@ def analyze_results(Tor: np.ndarray) -> tuple[float, float, float]:
     TorRmsAC = np.sqrt(np.mean(np.square(Tor[:-1]-TorAvg)))
     TorRippleRms = TorRmsAC/TorAvg*100    
     return TorAvg, TorRmsAC, TorRippleRms
-    
-def print_results(TorAvg: float, TorRmsAC: float, TorRippleRms: float) -> None:
-    print("\nTorque mean value: {:.2f} Nm".format(TorAvg))
-    # print("\nTorque ripple mean value: {:.2f} Nm".format(TorAvgAC))
-    print("\nTorque ripple rms value: {:.2f} Nm".format(TorRmsAC))
-    # print("\nTorque ripple relative value: {:.2f} %".format(TorRippleAvg))
-    print("\nTorque ripple relative value: {:.2f} %\n".format(TorRippleRms))

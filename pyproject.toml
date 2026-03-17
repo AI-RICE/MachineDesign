@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "machine-design"
+version = "0.0.1"
+authors = [
+  { name="Lukáš Adam", email="lukas.adam.cr@gmail.com" },
+]
+maintainers = [
+  { name="Lukáš Adam", email="lukas.adam.cr@gmail.com" },
+]
+description = "Library for designing barriers in electrical machines"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+keywords = [
+    "design",
+    "optimisation",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies=[
+    'pyaedt==0.11.2',
+    'pyvista[jupyter]',
+    'trame',
+    'matplotlib',
+    'botorch',
+]
+
+[tool.setuptools]
+packages = [
+  "machine_design",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501", "F403", "F405"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]

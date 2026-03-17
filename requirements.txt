@@ -1,4 +1,0 @@
-pyaedt
-pyvista[jupyter]
-trame
-matplotlib

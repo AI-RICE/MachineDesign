@@ -323,10 +323,10 @@ class HacklGenerator_OneLambdaTheta(HacklGenerator_OneLambda):
 
 class HacklGenerator_TwoLambdas(AbstractHacklGenerator):
     def __init__(self, design, r_stator_end, **kwargs):
-        self.lam_inner_min = 0.25
-        self.lam_inner_max = 0.45
-        self.lam_outer_min = 0.25
-        self.lam_outer_max = 0.45
+        self.lam_inner_min = 0.2
+        self.lam_inner_max = 0.5
+        self.lam_outer_min = 0.2
+        self.lam_outer_max = 0.5
         super().__init__(design, r_stator_end, **kwargs)
 
     @property

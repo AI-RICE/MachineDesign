@@ -3,9 +3,8 @@
 import os
 import numpy as np
 import pandas as pd
-from design import Design
-from generators import FourStupid, HacklGenerator_OneLambda, HacklGenerator_TwoLambdas, HacklGenerator_OneLambdaTheta, save_params
-from geometry import analyze_results, plot_barriers
+from machine_design import Design, analyze_results, plot_barriers
+from machine_design import FourStupid, HacklGenerator_OneLambda, HacklGenerator_TwoLambdas, HacklGenerator_OneLambdaTheta, save_params
 
 project_name = "SynRM_test"
 design_name = "Design01"

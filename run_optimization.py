@@ -5,9 +5,8 @@ import os
 import numpy as np
 import pandas as pd
 import pickle
-from design import Design
-from generators import FourStupid, HacklGenerator_OneLambda, HacklGenerator_TwoLambdas, HacklGenerator_OneLambdaTheta
-from geometry import analyze_results, plot_barriers
+from machine_design import Design, analyze_results, plot_barriers
+from machine_design import FourStupid, HacklGenerator_OneLambda, HacklGenerator_TwoLambdas, HacklGenerator_OneLambdaTheta
 import torch
 torch.set_default_dtype(torch.float64)
 from torch import Tensor

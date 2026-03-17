@@ -113,12 +113,14 @@ else:
         close_on_exit=CLS_EXIT,
     )
 
+max_ripple = 0.1
 n_iters = 40
 batch_size = 4
 r_stator_end = 0.7
 offset = 0.7 / 2
-# generator = HacklGenerator_OneLambda(design, r_stator_end, offset=offset)
-generator = FourStupid(design, r_stator_end, offset=offset)
+generator = HacklGenerator_OneLambda(design, r_stator_end, offset=offset)
+# generator = FourStupid(design, r_stator_end, offset=offset)
+# generator = HacklGenerator_TwoLambdas(design, r_stator_end, offset=offset)
 bounds = torch.from_numpy(np.vstack(generator.bounds))
 
 root_init = "results"
@@ -126,10 +128,14 @@ method = generator.__class__.__name__
 train_X, train_Y = init_points(root_init, method)
 train_X = normalize(train_X, bounds)
 bounds_normalized = normalize(bounds, bounds)
-ref_point = torch.tensor([3.8,-0.3])
+ref_point = torch.tensor([3.8,-max_ripple])
 
 def objective_lambda(Xs):
     return objective(Xs, design, generator, bounds, NUM_CORES)
+
+def ripple_constraint(Y):
+    ripple = -Y[...,1]
+    return ripple - max_ripple
 
 for _ in range(n_iters):
     # Fit surrogate
@@ -144,19 +150,39 @@ for _ in range(n_iters):
         Y=pareto_Y
     )
 
-    # Optimize acquisition function to select candidate points
+    # Define acquisition function
     acq = qLogExpectedHypervolumeImprovement(
         model=model,
         ref_point=ref_point.tolist(),
         partitioning=partitioning,
+        constraints=[ripple_constraint],        
     )
-    candidates, _ = optimize_acqf(
-        acq_function=acq,
-        bounds=bounds_normalized,
-        q=batch_size,
-        num_restarts=10,
-        raw_samples=128,
-    )
+
+    # Optimize acquisition function to select candidate points. Reject unfeasible points
+    candidates_feasible = []
+    while True:
+        candidates, _ = optimize_acqf(
+            acq_function=acq,
+            bounds=bounds_normalized,
+            q=batch_size,
+            num_restarts=10,
+            raw_samples=128,
+        )
+        for candidate in candidates:
+            candidate_normalized = unnormalize(candidate, bounds)
+            params = generator.X_to_params(candidate_normalized.numpy())
+
+            generator.set_parameters(params)
+            barriers = generator.generate_barriers()
+            barriers = generator.split_barriers(barriers)
+            feasible = generator.feasible_barriers(barriers)
+            if feasible:
+                candidates_feasible.append(candidate)
+            if len(candidates_feasible) >= batch_size:
+                break
+        if len(candidates_feasible) >= batch_size:
+            break
+    candidates = torch.stack(candidates_feasible)
 
     # Evaluate candidates
     new_Y = objective_lambda(candidates)

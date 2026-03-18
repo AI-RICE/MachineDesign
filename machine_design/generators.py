@@ -205,6 +205,93 @@ class FourStupid(BarrierGenerator):
             barriers.append(xy_all)
         return barriers
 
+class ThreeStupid(BarrierGenerator):
+    def __init__(self, design, r_stator_end, der1=1.0, der2=1.0, symmetric=True, **kwargs) -> None:
+        self.der1 = der1
+        self.der2 = der2
+        self.w_mins_base = np.array([3, 2.5, 2.5]) - 1.0
+        self.symmetric = symmetric
+        super().__init__(design, r_stator_end, **kwargs)
+
+    def _create_barrier(
+        self,
+        y_min,
+        w_min,
+        y_mid,
+        w_mid,
+        theta,
+        w_max,
+    ):
+        theta1 = (theta + 45) / 180 * np.pi
+        x_max1 = self.R * np.cos(theta1)
+        y_max1 = self.R * np.sin(theta1)
+
+        x1 = [0, x_max1 / 2, x_max1]
+        y1 = [y_min, y_mid, y_max1]
+        f1 = CubicSpline(x1, y1, bc_type=((1, 0), (1, self.der1)))
+
+        theta2 = theta1 + w_max / self.r_max
+        x_max2 = self.R * np.cos(theta2)
+        y_max2 = self.R * np.sin(theta2)
+
+        s = w_mid / np.sqrt(1 + self.der1**2 / 4)
+        x2 = [0, x1[1] - s * self.der1 / 2, x_max2]
+        y2 = [y_min + w_min, y1[1] + s, y_max2]
+        f2 = CubicSpline(x2, y2, bc_type=((1, 0), (1, self.der2)))
+
+        x_interp1 = np.linspace(x1[0], x1[-1], self.n_curve)
+        x_interp2 = np.linspace(x2[0], x2[-1], self.n_curve)
+        x_all = np.concatenate((x_interp1, x_interp2[::-1]))
+        y_all = np.concatenate((f1(x_interp1), f2(x_interp2)[::-1]))
+
+        if self.symmetric:
+            x_all = np.concatenate((x_all, -x_all[::-1][1:]))
+            y_all = np.concatenate((y_all, y_all[::-1][1:]))
+
+        x_all, y_all = rotate(x_all, y_all, -45)
+        return x_all, y_all
+
+    @property
+    def bounds(self) -> tuple[np.ndarray, np.ndarray]:
+        lb = np.array([0, 0, 0, 13, 2, 2])
+        ub = np.array([0.5, 0.5, 0.5, 17, 5, 5])
+        return lb, ub
+
+    def random_parameters(self):
+        rand1 = 0.5 * np.random.random(3)
+        rand2 = 13 + 4 * np.random.random()
+        rand3 = 2 + 3 * np.random.random()
+        rand4 = 2 + 3 * np.random.random()
+        return rand1, rand2, rand3, rand4
+
+    def set_parameters(self, params) -> None:
+        rand1, rand2, rand3, rand4 = params
+        self.w_mins = self.w_mins_base + rand1
+
+        y_min0 = rand2
+        y_min1 = y_min0 + self.w_mins[0] + rand3
+        y_min2 = y_min1 + self.w_mins[1] + rand4
+
+        self.w_mids = self.w_mins
+        self.y_mins = np.array([y_min0, y_min1, y_min2])
+        self.y_mids = self.y_mins + np.array([2, 1.5, 1.0])
+
+        # use the first three theta values, consistent with FourStupid
+        self.thetas = [1, 8, 15]
+
+        # use the same w_max rule as in FourStupid
+        self.w_maxs = self.w_mins - np.array([0.5, 0.5, 0.5])
+
+    def X_to_params(self, X: np.ndarray):
+        return X[:3], X[3], X[4], X[5]
+
+    def generate_barriers(self) -> list[np.ndarray]:
+        barriers = []
+        for args in zip(self.y_mins, self.w_mins, self.y_mids, self.w_mids, self.thetas, self.w_maxs):
+            x_all, y_all = self._create_barrier(*args)
+            xy_all = np.vstack((x_all, y_all)).T
+            barriers.append(xy_all)
+        return barriers
 
 class AbstractHacklGenerator(BarrierGenerator):
     def __init__(self, design, r_stator_end, **kwargs):

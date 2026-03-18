@@ -19,7 +19,10 @@ from torch import Tensor
 
 from machine_design import (
     Design,
+    ThreeStupid,
+    FourStupid,
     HacklGenerator_OneLambda,
+    HacklGenerator_TwoLambdas,
     analyze_results,
 )
 
@@ -128,6 +131,7 @@ batch_size = 4
 r_stator_end = 0.7
 offset = 0.7 / 2
 generator = HacklGenerator_OneLambda(design, r_stator_end, offset=offset)
+# generator = ThreeStupid(design, r_stator_end, offset=offset)
 # generator = FourStupid(design, r_stator_end, offset=offset)
 # generator = HacklGenerator_TwoLambdas(design, r_stator_end, offset=offset)
 bounds = torch.from_numpy(np.vstack(generator.bounds))

@@ -126,12 +126,12 @@ else:
     )
 
 max_ripple = 0.1
-n_iters = 40
+n_iters = 100
 batch_size = 4
 r_stator_end = 0.7
 offset = 0.7 / 2
-generator = HacklGenerator_OneLambda(design, r_stator_end, offset=offset)
-# generator = ThreeStupid(design, r_stator_end, offset=offset)
+# generator = HacklGenerator_OneLambda(design, r_stator_end, offset=offset)
+generator = ThreeStupid(design, r_stator_end, offset=offset)
 # generator = FourStupid(design, r_stator_end, offset=offset)
 # generator = HacklGenerator_TwoLambdas(design, r_stator_end, offset=offset)
 bounds = torch.from_numpy(np.vstack(generator.bounds))

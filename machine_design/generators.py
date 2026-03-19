@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import numpy as np
-from design import Design
-from geometry import rotate
+from .design import Design
+from .geometry import rotate
 from scipy.interpolate import CubicSpline
 from shapely.geometry import LineString
 
@@ -254,14 +254,14 @@ class ThreeStupid(BarrierGenerator):
     @property
     def bounds(self) -> tuple[np.ndarray, np.ndarray]:
         lb = np.array([0, 0, 0, 13, 2, 2])
-        ub = np.array([0.5, 0.5, 0.5, 17, 5, 5])
+        ub = np.array([0.5, 0.5, 0.5, 17, 7, 7])
         return lb, ub
 
     def random_parameters(self):
         rand1 = 0.5 * np.random.random(3)
         rand2 = 13 + 4 * np.random.random()
-        rand3 = 2 + 3 * np.random.random()
-        rand4 = 2 + 3 * np.random.random()
+        rand3 = 2 + 5 * np.random.random()
+        rand4 = 2 + 5 * np.random.random()
         return rand1, rand2, rand3, rand4
 
     def set_parameters(self, params) -> None:
@@ -274,10 +274,10 @@ class ThreeStupid(BarrierGenerator):
 
         self.w_mids = self.w_mins
         self.y_mins = np.array([y_min0, y_min1, y_min2])
-        self.y_mids = self.y_mins + np.array([2, 1.5, 1.0])
+        self.y_mids = self.y_mins + np.array([2, 2.0, 1.5])
 
         # use the first three theta values, consistent with FourStupid
-        self.thetas = [1, 8, 15]
+        self.thetas = [1, 11, 21]
 
         # use the same w_max rule as in FourStupid
         self.w_maxs = self.w_mins - np.array([0.5, 0.5, 0.5])

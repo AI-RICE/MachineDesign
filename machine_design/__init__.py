@@ -6,4 +6,5 @@ from .generators import (
     HacklGenerator_TwoLambdas,
     save_params,
 )
+from .generators import RandomBarrierGenerator
 from .geometry import analyze_results, plot_barriers, rotate

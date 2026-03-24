@@ -3,8 +3,11 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import numpy as np
-from design import Design
-from geometry import rotate
+from sklearn import base
+# from .design import Design
+from machine_design.design import Design
+# from .geometry import rotate
+from machine_design.geometry import rotate
 from scipy.interpolate import CubicSpline
 from shapely.geometry import LineString
 
@@ -360,3 +363,126 @@ class HacklGenerator_TwoLambdas(AbstractHacklGenerator):
     def _bezier_point(self, x: float, y: float, is_inner: bool, order: int) -> tuple[float, float]:
         lam = self.lam_inner if is_inner else self.lam_outer
         return lam * x + (1 - lam) * y, y
+    
+    
+class RandomBarrierGenerator(BarrierGenerator):
+    def __init__(self, design, r_stator_end, der1=1.0, der2=1.0, symmetric=True, **kwargs):
+        self.n_designs = kwargs.get("n_designs", 1)
+        self.der1 = der1
+        self.der2 = der2
+        self.symmetric = symmetric
+        self.n_barriers = kwargs.get("n_barriers", 1)
+        super().__init__(design, r_stator_end, **kwargs)
+
+    def _create_barrier(
+        self,
+        y_min,
+        w_min,
+        y_mid,
+        w_mid,
+        theta,
+        w_max,
+    ):
+
+        theta1 = (theta + 45) / 180 * np.pi
+        x_max1 = self.R * np.cos(theta1)
+        y_max1 = self.R * np.sin(theta1)
+
+        x1 = [0, x_max1 / 2, x_max1]
+        y1 = [y_min, y_mid, y_max1]
+        f1 = CubicSpline(x1, y1, bc_type=((1, 0), (1, self.der1)))
+
+        theta2 = theta1 + w_max / self.r_max
+        x_max2 = self.R * np.cos(theta2)
+        y_max2 = self.R * np.sin(theta2)
+
+        s = w_mid / np.sqrt(1 + self.der1**2 / 4)
+        x2 = [0, x1[1] - s * self.der1 / 2, x_max2]
+        y2 = [y_min + w_min, y1[1] + s, y_max2]
+        f2 = CubicSpline(x2, y2, bc_type=((1, 0), (1, self.der2)))
+
+        x_interp1 = np.linspace(x1[0], x1[-1], self.n_curve)
+        x_interp2 = np.linspace(x2[0], x2[-1], self.n_curve)
+        # TODO: use more points for connecting?
+        x_all = np.concatenate((x_interp1, x_interp2[::-1]))
+        y_all = np.concatenate((f1(x_interp1), f2(x_interp2)[::-1]))
+        if self.symmetric:
+            x_all = np.concatenate((x_all, -x_all[::-1][1:]))
+            y_all = np.concatenate((y_all, y_all[::-1][1:]))
+        x_all, y_all = rotate(x_all, y_all, -45)
+        return x_all, y_all
+    
+    def generate_w_mins_base(self, rotor_r_min, rotor_r_max):
+        n_barriers = self.n_barriers
+        available_height = rotor_r_max - rotor_r_min
+        gap_ratio = 0.5
+        total_dap = available_height*gap_ratio
+        
+        total_height_barrier = available_height - total_dap
+
+        if n_barriers == 1:
+            weights = np.array([1.0])
+        else:
+           weights = np.array([0.99**i for i in range(n_barriers)])
+        
+        weights = weights / np.sum(weights)
+
+        return total_height_barrier * weights
+    
+    def random_parameters(self):
+        w_mins_base = self.generate_w_mins_base(self.r_min, self.r_max)
+
+        w_mins = w_mins_base * np.random.uniform(0.7, 1.0, self.n_barriers)
+        w_mids = w_mins.copy()
+
+        total_height = np.sum(w_mins)
+        available_height = self.r_max - self.r_min
+        remaining_space = available_height - total_height
+
+        if total_height > available_height:
+            w_mins *= available_height / total_height
+
+        random_weights = np.random.rand(self.n_barriers + 1)
+        random_weights /= np.sum(random_weights)
+        
+        gaps = random_weights * remaining_space
+        gaps = np.full(self.n_barriers + 1, remaining_space / (self.n_barriers + 1))
+
+        y_min = np.zeros(self.n_barriers)
+        current_pos = self.r_min + gaps[0]
+        for i in range(self.n_barriers):
+            y_min[i] = current_pos
+            current_pos += w_mins[i] + gaps[i+1]
+        
+        offsets = w_mins * 0.1
+        y_mids = y_min + offsets
+        
+        w_maxs = np.clip(w_mins * 0.7, 0.01, None)
+
+        base = np.linspace(1, 20, self.n_barriers)
+        noise = np.random.uniform(-2, 2, self.n_barriers)
+        thetas = base + noise
+        thetas[0] = 1
+        
+        return y_min, w_mins, y_mids, w_mids, thetas, w_maxs
+    
+    def set_parameters(self, params) -> None:
+        y_min, w_mins, y_mids, w_mids, thetas, w_maxs = params
+        self.y_mins = y_min
+        self.w_mins = w_mins
+        self.y_mids = y_mids
+        self.w_mids = w_mids
+        self.thetas = thetas
+        self.w_maxs = w_maxs
+
+    def X_to_params(self, X: np.ndarray):
+        n = self.n_barriers
+        return X[:n], X[n:2*n], X[2*n:3*n], X[3*n:4*n], X[4*n:5*n], X[5*n:6*n]
+    
+    def generate_barriers(self) -> list[np.ndarray]:
+        barriers = []
+        for args in zip(self.y_mins, self.w_mins, self.y_mids, self.w_mids, self.thetas, self.w_maxs):
+            x_all, y_all = self._create_barrier(*args)
+            xy_all = np.vstack((x_all, y_all)).T
+            barriers.append(xy_all)
+        return barriers

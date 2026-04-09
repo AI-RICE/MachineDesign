@@ -54,18 +54,11 @@ else:
 
 r_stator_end = 0.7
 offset = 0.7 / 2
-# generator_stupid = FourStupid(design, r_stator_end, offset=offset)
-# generator_hackl1 = HacklGenerator_OneLambda(design, r_stator_end, offset=offset)
-# generator_hackl2 = HacklGenerator_TwoLambdas(design, r_stator_end, offset=offset)
-# generator_hackl3 = HacklGenerator_OneLambdaTheta(design, r_stator_end, offset=offset)
-# generator_random = RandomBarrierGenerator(design, r_stator_end, n_designs, offset=offset)
-# generators = [generator_stupid, generator_hackl1, generator_hackl2, generator_hackl3]
-# generators = [generator_random]
 
 metadata = pd.DataFrame()
 for i in range(0, n_designs):
     # for generator in generators:
-    for n in range(1, 2):
+    for n in range(3, 4):
         generator = RandomBarrierGenerator(design, r_stator_end, offset=offset)
         generator.n_barriers = n
         params = generator.random_parameters()
@@ -98,6 +91,7 @@ for i in range(0, n_designs):
         metadata_new = {
             "method": generator.name,
             "design": i,
+            "n_barriers": n,
             "T": TorAvg,
             "ripple": TorRippleRms,
         }

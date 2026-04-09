@@ -417,16 +417,30 @@ class RandomBarrierGenerator(BarrierGenerator):
         n = self.n_barriers
 
         lb = np.concatenate([
-        np.full(n, 0.7), # rand1
-        np.array([12]), # rand2
-        np.full(n-1, 1) #spacings
+        np.zeros(n),      # yw
+        np.full(n, 12),   # theta
+        np.full(n, 1)     # wmax
         ])
 
         ub = np.concatenate([
-            np.full(n, 1.0),
-            np.array([20]),
-            np.full(n-1, 5)
+            np.full(n, 0.5),
+            np.full(n, 20),
+            np.full(n, 5)
         ])
+
+        # lb_yw = np.zeros(n)
+        # ub_yw = np.full(n, 0.5)
+
+        # # lb_theta_wmax = np.array([13, 2, 2, 2][:n])
+        # # ub_theta_wmax = np.array([17, 5, 5, 4][:n])
+
+        # lb_theta = np.random.uniform(12, 15, n)
+        # ub_theta = np.random.uniform(17, 20, n)
+        # lb_wmax = np.random.uniform(1, 3, n)
+        # ub_wmax = np.random.uniform(3, 5, n)
+
+        # lb = np.concatenate([lb_yw, lb_theta, lb_wmax])
+        # ub = np.concatenate([ub_yw, ub_theta, ub_wmax])
 
         return lb, ub
     
@@ -448,72 +462,63 @@ class RandomBarrierGenerator(BarrierGenerator):
         return total_height_barrier * weights
     
     def random_parameters(self):
-
-        rand1 = np.random.uniform(0.7, 1.0, self.n_barriers)
-        rand2 = np.random.uniform(12,20)
-        spacings = np.random.dirichlet(np.ones(self.n_barriers - 1))
-
-        return rand1, rand2, spacings
-    
-    def set_parameters(self, params) -> None:
-        rand1, rand2, spacings = params
-    
         w_mins_base = self.generate_w_mins_base(self.r_min, self.r_max)
 
-        w_mins = w_mins_base * rand1
+        w_mins = w_mins_base * np.random.uniform(0.7, 1.0, self.n_barriers)
         w_mids = w_mins.copy()
 
         total_height = np.sum(w_mins)
-        total_spacing = np.sum(spacings)
+        available_height = self.r_max - self.r_min
+        remaining_space = available_height - total_height
 
-        available_height = self.r_max - rand2
+        if total_height > available_height:
+            w_mins *= available_height / total_height
 
-        eps = 1e-8
-        denom = total_height + total_spacing
-        scale = (available_height)/max(denom, eps)
+        random_weights = np.random.rand(self.n_barriers + 1)
+        random_weights /= np.sum(random_weights)
+        
+        gaps = random_weights * remaining_space
+        gaps = np.full(self.n_barriers + 1, remaining_space / (self.n_barriers + 1))
 
-        if scale < 1.0:
-            w_mins *= scale
-            spacings *= scale
-
-        y_mins = np.zeros(self.n_barriers)
-        y_mins[0] = rand2
-        current_pos = y_mins[0]
-
-        for i in range(1, self.n_barriers):
-            current_pos += w_mins[i-1] + spacings[i-1]
-            y_mins[i] = current_pos
+        y_min = np.zeros(self.n_barriers)
+        current_pos = self.r_min + gaps[0]
+        for i in range(self.n_barriers):
+            y_min[i] = current_pos
+            current_pos += w_mins[i] + gaps[i+1]
         
         offsets = w_mins * 0.1
-        y_mids = y_mins + offsets
+        y_mids = y_min + offsets
         
         w_maxs = np.clip(w_mins * 0.7, 0.01, None)
 
-        w_maxs = np.clip(w_mins * 0.7, 0.01, None)
-        thetas = np.linspace(1, 20, self.n_barriers)
+        base = np.linspace(1, 20, self.n_barriers)
+        noise = np.random.uniform(-2, 2, self.n_barriers)
+        thetas = base + noise
         thetas[0] = 1
-
-        self.y_mins = y_mins
+        
+        return y_min, w_mins, y_mids, w_mids, thetas, w_maxs
+    
+    def set_parameters(self, params) -> None:
+        y_min, w_mins, y_mids, w_mids, thetas, w_maxs = params
+        self.y_mins = y_min
         self.w_mins = w_mins
         self.y_mids = y_mids
         self.w_mids = w_mids
         self.thetas = thetas
         self.w_maxs = w_maxs
 
-        return y_mins, w_mins, y_mids, w_mids, thetas, w_maxs
+    def X_to_params(self, X: np.ndarray):
+        n = self.n_barriers
+    #     return X[:n], X[n:2*n], X[2*n:3*n], X[3*n:4*n], X[4*n:5*n], X[5*n:6*n]
+        return X[:n], X[n], X[n+1], X[n+2], X[n+3]
+    def X_to_params(self, X: np.ndarray):
+        n = self.n_barriers
+        n_params = len(X) // n 
+        if n_params * n != len(X):
+            raise ValueError(f"Délka X ({len(X)}) není dělitelná počtem bariér ({n})")
 
-    def X_to_params(self, X: np.ndarray, barrier=None):
-        # n = int(self.n_barriers if barrier is None else barrier)
-        n = self.n_barriers if barrier is None else barrier
-
-        if len(X) != 2*n:
-            raise ValueError(f"X length {len(X)} does not match expected 2*n={2*n}")
-
-        rand1 = X[:n]
-        rand2 = X[n]
-        spacings = X[n+1:n+1+(n-1)]
-        
-        return rand1, rand2, spacings
+        params = [X[i*n:(i+1)*n] for i in range(n_params)]
+        return tuple(params)   
     
     def generate_barriers(self) -> list[np.ndarray]:
         barriers = []

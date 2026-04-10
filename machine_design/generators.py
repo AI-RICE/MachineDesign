@@ -447,3 +447,73 @@ class HacklGenerator_TwoLambdas(AbstractHacklGenerator):
     def _bezier_point(self, x: float, y: float, is_inner: bool, order: int) -> tuple[float, float]:
         lam = self.lam_inner if is_inner else self.lam_outer
         return lam * x + (1 - lam) * y, y
+
+class HacklGenerator_14Parameters(AbstractHacklGenerator):
+    def __init__(self, design, r_stator_end, **kwargs):
+        super().__init__(design, r_stator_end, **kwargs)
+        
+        # Base lam bounds
+        self.lam_min = 0.25
+        self.lam_max = 0.45
+        self.lam2_min = 0.25
+        self.lam2_max = 0.45
+        
+        # New 14-param bounds
+        self.cut_phi_min = np.asarray([17.0, 31.0, 44.2])
+        self.cut_phi_max = np.asarray([24.0, 38.0, 44.8])
+        self.r_mid_min = np.asarray([0.62, 0.68, 0.74]) * self.R
+        self.r_mid_max = np.asarray([0.76, 0.82, 0.88]) * self.R
+
+    @property
+    def bounds(self) -> tuple[np.ndarray, np.ndarray]:
+        # Define bounds for 14 parameters
+        lb = np.concatenate((
+            self.phis_inner_min, self.phis_outer_min,
+            [self.lam_min, self.lam2_min],
+            self.cut_phi_min, self.r_mid_min
+        ))
+        ub = np.concatenate((
+            self.phis_inner_max, self.phis_outer_max,
+            [self.lam_max, self.lam2_max],
+            self.cut_phi_max, self.r_mid_max
+        ))
+        return lb, ub
+
+    def random_parameters(self):
+        # Inherit first 6 angle params
+        phis_inner, phis_outer = super().random_parameters()
+        
+        # Generate remaining 8 params
+        lam = self.lam_min + (self.lam_max - self.lam_min) * np.random.rand(1)[0]
+        lam2 = self.lam2_min + (self.lam2_max - self.lam2_min) * np.random.rand(1)[0]
+        cut_phi = self.cut_phi_min + (self.cut_phi_max - self.cut_phi_min) * np.random.rand(self.n_barriers)
+        r_mid = self.r_mid_min + (self.r_mid_max - self.r_mid_min) * np.random.rand(self.n_barriers)
+
+        return phis_inner, phis_outer, lam, lam2, cut_phi, r_mid
+
+    def set_parameters(self, params) -> None:
+        # unpack directly into instance attributes
+        phis_inner, phis_outer, lam, lam2, cut_phi, r_mid = params
+        super().set_parameters((phis_inner, phis_outer))
+        self.lam = lam
+        self.lam2 = lam2
+        self.cut_phi = cut_phi
+        self.r_mid = r_mid
+
+    def X_to_params(self, X: np.ndarray):
+        # Parse 1D array X (length 14) into parameter groups
+        return X[0:3], X[3:6], X[6], X[7], X[8:11], X[11:14]
+
+    def _bezier_point(self, x: float, y: float, is_inner: bool, order: int) -> tuple[float, float]:
+        # Map variables based on whether it's an inner or outer barrier
+        if is_inner:
+            val, v_min, v_max = self.r_mid[order], self.r_mid_min[order], self.r_mid_max[order]
+            base_lam, l_min, l_max = self.lam2, self.lam2_min, self.lam2_max
+        else:
+            val, v_min, v_max = self.cut_phi[order], self.cut_phi_min[order], self.cut_phi_max[order]
+            base_lam, l_min, l_max = self.lam, self.lam_min, self.lam_max
+        
+        # calculate normalized value in [-0.5, 0.5] and dynamic lam 
+        norm = (val - v_min) / max(v_max - v_min, 1e-9) - 0.5
+        lam = np.clip(base_lam + 0.06 * norm, l_min, l_max)
+        return lam * x + (1 - lam) * y, y

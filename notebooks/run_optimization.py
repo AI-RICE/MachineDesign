@@ -23,6 +23,7 @@ from machine_design import (
     FourStupid,
     HacklGenerator_OneLambda,
     HacklGenerator_TwoLambdas,
+    HacklGenerator_14Parameters,
     analyze_results,
 )
 
@@ -133,8 +134,9 @@ r_stator_end = 0.7
 offset = 0.7 / 2
 # generator = HacklGenerator_OneLambda(design, r_stator_end, offset=offset)
 # generator = ThreeStupid(design, r_stator_end, offset=offset)
-generator = FourStupid(design, r_stator_end, offset=offset)
+# generator = FourStupid(design, r_stator_end, offset=offset)
 # generator = HacklGenerator_TwoLambdas(design, r_stator_end, offset=offset)
+generator = HacklGenerator_14Parameters(design, r_stator_end, offset=offset)
 bounds = torch.from_numpy(np.vstack(generator.bounds))
 
 root_init = "results"

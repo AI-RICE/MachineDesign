@@ -236,12 +236,7 @@ for _ in range(n_iters):
     train_X = torch.cat([train_X, candidates_all])
     train_Y = torch.cat([train_Y, new_Y_all])        
 
-#    candidates = torch.stack(candidates_feasible)
-
     # Evaluate candidates
-    # new_Y = objective_lambda(candidates)
-    # train_X = torch.cat([train_X, candidates])
-    # train_Y = torch.cat([train_Y, new_Y])
     # with constraints version
     # np.savez(f"results_{method}.npz", train_X=unnormalize(train_X, bounds), train_Y=train_Y)
     # without constraints version

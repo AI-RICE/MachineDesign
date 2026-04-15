@@ -23,7 +23,9 @@ from machine_design import (
     FourStupid,
     HacklGenerator_OneLambda,
     HacklGenerator_TwoLambdas,
+    HacklGenerator_SixLambdas,
     HacklGenerator_14Parameters,
+    HacklGenerator_allBezier,
     analyze_results,
 )
 
@@ -102,7 +104,7 @@ os.makedirs(path_data, exist_ok=True)
 file_name_aedt = f"{path_data}/{project_name}.aedt"
 
 # Define constants
-AEDT_VERSION = "2024.1"
+AEDT_VERSION = "2025.1"
 NUM_CORES = 4
 NG_MODE = True  # non-graphical mode
 CLS_EXIT = True  # close on exit
@@ -126,7 +128,8 @@ else:
         close_on_exit=CLS_EXIT,
     )
 
-# max_ripple = 0.1 # exist for with constraint
+# max_ripple exist for with constraints version
+max_ripple = 0.1 
 n_iters = 100
 batch_size = 4
 max_candidate_tries = 30
@@ -136,7 +139,9 @@ offset = 0.7 / 2
 # generator = ThreeStupid(design, r_stator_end, offset=offset)
 # generator = FourStupid(design, r_stator_end, offset=offset)
 # generator = HacklGenerator_TwoLambdas(design, r_stator_end, offset=offset)
-generator = HacklGenerator_14Parameters(design, r_stator_end, offset=offset)
+generator = HacklGenerator_SixLambdas(design, r_stator_end, offset=offset)
+# generator = HacklGenerator_14Parameters(design, r_stator_end, offset=offset)
+# generator = HacklGenerator_allBezier(design, r_stator_end, offset=offset)
 bounds = torch.from_numpy(np.vstack(generator.bounds))
 
 root_init = "results"
@@ -144,9 +149,10 @@ method = generator.__class__.__name__
 train_X, train_Y = init_points(root_init, method)
 train_X = normalize(train_X, bounds)
 bounds_normalized = normalize(bounds, bounds)
-# ref_point = torch.tensor([3.8, -max_ripple])
+# with constraints version
+ref_point = torch.tensor([3.8, -max_ripple])
 # without constraints version
-ref_point = torch.tensor([3.8, -0.30])
+# ref_point = torch.tensor([3.8, -0.30])
 
 def objective_lambda(Xs):
     return objective(Xs, design, generator, bounds, NUM_CORES)
@@ -158,9 +164,9 @@ def penalty_objective(n_penalty):
     return y.repeat(n_penalty, 1)
 
 # with constraints version
-# def ripple_constraint(Y):
-#    ripple = -Y[..., 1]
-#    return ripple - max_ripple
+def ripple_constraint(Y):
+    ripple = -Y[..., 1]
+    return ripple - max_ripple
 
 
 for _ in range(n_iters):
@@ -174,18 +180,18 @@ for _ in range(n_iters):
     partitioning = NondominatedPartitioning(ref_point=ref_point, Y=pareto_Y)
 
     # Define acquisition function, with constraints if needed
-    # acq = qLogExpectedHypervolumeImprovement(
-    #    model=model,
-    #    ref_point=ref_point.tolist(),
-    #    partitioning=partitioning,
-    #    constraints=[ripple_constraint],
-    # )
-    # without constraints version
     acq = qLogExpectedHypervolumeImprovement(
         model=model,
         ref_point=ref_point.tolist(),
         partitioning=partitioning,
+        constraints=[ripple_constraint],
     )
+    # without constraints version
+    # acq = qLogExpectedHypervolumeImprovement(
+    #    model=model,
+    #    ref_point=ref_point.tolist(),
+    #    partitioning=partitioning,
+    #)
 
     # Optimize acquisition function to select candidate points. Reject unfeasible points
     candidates_feasible = []
@@ -240,8 +246,8 @@ for _ in range(n_iters):
 
     # Evaluate candidates
     # with constraints version
-    # np.savez(f"results_{method}.npz", train_X=unnormalize(train_X, bounds), train_Y=train_Y)
+    np.savez(f"results_{method}.npz", train_X=unnormalize(train_X, bounds), train_Y=train_Y)
     # without constraints version
-    np.savez(f"old_results_{method}.npz", train_X=unnormalize(train_X, bounds), train_Y=train_Y)
+    # np.savez(f"old_results_{method}.npz", train_X=unnormalize(train_X, bounds), train_Y=train_Y)
 
 design.close_project()

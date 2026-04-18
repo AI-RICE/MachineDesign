@@ -25,6 +25,7 @@ from machine_design import (
     HacklGenerator_TwoLambdas,
     HacklGenerator_SixLambdas,
     HacklGenerator_14Parameters,
+    HacklGenerator_3BrokenLines,
     HacklGenerator_allBezier,
     analyze_results,
 )
@@ -139,9 +140,10 @@ offset = 0.7 / 2
 # generator = ThreeStupid(design, r_stator_end, offset=offset)
 # generator = FourStupid(design, r_stator_end, offset=offset)
 # generator = HacklGenerator_TwoLambdas(design, r_stator_end, offset=offset)
-generator = HacklGenerator_SixLambdas(design, r_stator_end, offset=offset)
+# generator = HacklGenerator_SixLambdas(design, r_stator_end, offset=offset)
 # generator = HacklGenerator_14Parameters(design, r_stator_end, offset=offset)
 # generator = HacklGenerator_allBezier(design, r_stator_end, offset=offset)
+generator = HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset)
 bounds = torch.from_numpy(np.vstack(generator.bounds))
 
 root_init = "results"

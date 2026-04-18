@@ -451,43 +451,44 @@ class HacklGenerator_TwoLambdas(AbstractHacklGenerator):
 # 6 angles + 6 lam for each barrier = 12 parameters
 class HacklGenerator_SixLambdas(AbstractHacklGenerator):
     def __init__(self, design, r_stator_end, **kwargs):
-        self.lam_inner_min = 0.2
-        self.lam_inner_max = 0.5
-        self.lam_outer_min = 0.2
-        self.lam_outer_max = 0.5
+        # Tiered bounds to prevent intersection
+        self.lam_inner_min = np.array([0.20, 0.31, 0.41])
+        self.lam_inner_max = np.array([0.25, 0.35, 0.45])
+        
+        self.lam_outer_min = np.array([0.26, 0.36, 0.46])
+        self.lam_outer_max = np.array([0.30, 0.40, 0.50])
+        
         super().__init__(design, r_stator_end, **kwargs)
 
     @property
-    def bounds(self) -> tuple[np.ndarray, np.ndarray]:
-        lb = np.concatenate((self.phis_inner_min,
-            self.phis_outer_min,
-            np.full(self.n_barriers, self.lam_inner_min),
-            np.full(self.n_barriers, self.lam_outer_min),
+    def bounds(self):
+        lb = np.concatenate((
+            self.phis_inner_min, self.phis_outer_min,
+            self.lam_inner_min, self.lam_outer_min
         ))
         ub = np.concatenate((
-            self.phis_inner_max,
-            self.phis_outer_max,
-            np.full(self.n_barriers, self.lam_inner_max),
-            np.full(self.n_barriers, self.lam_outer_max),
+            self.phis_inner_max, self.phis_outer_max,
+            self.lam_inner_max, self.lam_outer_max
         ))
         return lb, ub
 
     def random_parameters(self):
-        phis_inner, phis_outer = super().random_parameters()
-        lam_inner = self.lam_inner_min + (self.lam_inner_max - self.lam_inner_min) * np.random.rand(self.n_barriers)
-        lam_outer = self.lam_outer_min + (self.lam_outer_max - self.lam_outer_min) * np.random.rand(self.n_barriers)
-        return phis_inner, phis_outer, lam_inner, lam_outer
+        phis_in, phis_out = super().random_parameters()
+        lam_in = np.random.uniform(self.lam_inner_min, self.lam_inner_max)
+        lam_out = np.random.uniform(self.lam_outer_min, self.lam_outer_max)
+        return phis_in, phis_out, lam_in, lam_out
 
-    def set_parameters(self, params) -> None:
-        phis_inner, phis_outer, lam_inner, lam_outer = params
-        super().set_parameters((phis_inner, phis_outer))
-        self.lam_inner = np.asarray(lam_inner)
-        self.lam_outer = np.asarray(lam_outer)
+    def set_parameters(self, params):
+        phis_in, phis_out, lam_in, lam_out = params
+        super().set_parameters((phis_in, phis_out))
+        self.lam_inner = np.asarray(lam_in)
+        self.lam_outer = np.asarray(lam_out)
 
-    def X_to_params(self, X: np.ndarray):
+    def X_to_params(self, X):
+        # 12 params: phis_in(3), phis_out(3), lam_in(3), lam_out(3)
         return X[:3], X[3:6], X[6:9], X[9:12]
 
-    def _bezier_point(self, x: float, y: float, is_inner: bool, order: int) -> tuple[float, float]:
+    def _bezier_point(self, x, y, is_inner, order):
         lam = self.lam_inner[order] if is_inner else self.lam_outer[order]
         return lam * x + (1 - lam) * y, y
 
@@ -567,12 +568,17 @@ class HacklGenerator_allBezier(AbstractHacklGenerator):
 class HacklGenerator_14Parameters(AbstractHacklGenerator):
     def __init__(self, design, r_stator_end, **kwargs):
         super().__init__(design, r_stator_end, **kwargs)
-        self.lam_min, self.lam_max = 0.25, 0.45
-        self.lam2_min, self.lam2_max = 0.25, 0.45
+        # Global skeleton weights (lam2_min=0.28 to protect shaft)
+        self.lam_min, self.lam_max = 0.25, 0.45   # outer line
+        self.lam2_min, self.lam2_max = 0.20, 0.45 # inner line
+        
+        # cut angles
         self.cut_phi_min = np.array([17.0, 30.0, 40.0])
         self.cut_phi_max = np.array([22.0, 35.0, 43.0])
-        self.r_mid_min = np.array([0.1, 0.1, 0.1])
-        self.r_mid_max = np.array([0.8, 0.8, 0.8])
+        
+        # Tiered r_mid limits (absolute mm) to avoid collisions/distortion
+        self.r_mid_min = np.array([-1.5, -1.5, -1.2])
+        self.r_mid_max = np.array([1.5, 1.5, 1.2]) 
 
     @property
     def bounds(self):
@@ -583,63 +589,122 @@ class HacklGenerator_14Parameters(AbstractHacklGenerator):
         return lb, ub
 
     def random_parameters(self):
-        phis_in, phis_out = super().random_parameters()
+        phi_in, phi_out = super().random_parameters()
         lam = np.random.uniform(self.lam_min, self.lam_max)
         lam2 = np.random.uniform(self.lam2_min, self.lam2_max)
         cut_phi = np.random.uniform(self.cut_phi_min, self.cut_phi_max)
         r_mid = np.random.uniform(self.r_mid_min, self.r_mid_max)
-        return phis_in, phis_out, lam, lam2, cut_phi, r_mid
+        return phi_in, phi_out, lam, lam2, cut_phi, r_mid
 
     def set_parameters(self, params):
-        phis_in, phis_out, self.lam, self.lam2, cut_phi, r_mid = params
-        super().set_parameters((phis_in, phis_out))
-        self.cut_phi = np.asarray(cut_phi)
-        self.r_mid = np.asarray(r_mid)
+        phi_in, phi_out, self.lam, self.lam2, cut_phi, r_mid = params
+        super().set_parameters((phi_in, phi_out))
+        self.cut_phi, self.r_mid = np.asarray(cut_phi), np.asarray(r_mid)
 
     def X_to_params(self, X):
+        # 14 params: phis_in(3), phis_out(3), lam, lam2, cut_phi(3), r_mid(3)
         return X[:3], X[3:6], X[6], X[7], X[8:11], X[11:14]
 
     def _bezier_point(self, x, y, is_inner, order):
-        lam = self.lam2 if is_inner else self.lam
-        return lam * x + (1 - lam) * y, y
+        return (self.lam2 if is_inner else self.lam) * x + (1 - (self.lam2 if is_inner else self.lam)) * y, y
 
     def _get_bezier_curve(self, phi_deg, is_inner, i):
         # 1. Base smooth Bezier curve
         phi_rad = np.radians(phi_deg)
         x_end, y_end = self.R * np.cos(phi_rad), self.R * np.sin(phi_rad)
         lam = self.lam2 if is_inner else self.lam
-
         x_bez, y_bez = lam * x_end + (1 - lam) * y_end, y_end
         
-        r0 = np.array([x_end, y_end])
-        r1 = np.array([x_bez, y_bez])
-        r2 = np.array([y_bez, x_bez])  # y=x symmetry
-        r3 = np.array([y_end, x_end])
+        r0, r1, r2, r3 = np.array([x_end, y_end]), np.array([x_bez, y_bez]), \
+                         np.array([y_bez, x_bez]), np.array([y_end, x_end])
 
         z = np.linspace(0, 1, self.n_curve)[:, None]
         base = (1-z)**3 * r0 + 3*(1-z)**2 * z * r1 + 3*(1-z)*z**2 * r2 + z**3 * r3
 
-        if is_inner:
-            return base
-
-        # 2. Outer curve bump deformation
+        # 2. Slice the middle segment
         cut = np.clip(self.cut_phi[i], phi_deg + 1e-3, 45.0 - 1e-3)
         angles = np.degrees(np.arctan2(base[:, 1], base[:, 0]))
-        
-        i1 = np.searchsorted(angles, cut)
-        i2 = np.searchsorted(angles, 90.0 - cut)
+        i1, i2 = np.searchsorted(angles, cut), np.searchsorted(angles, 90.0 - cut)
 
-        # Fallback to base curve if indices are invalid
-        if i1 <= 0 or i2 >= len(base) - 1 or i1 >= i2:
-            return base
-
+        if i1 <= 0 or i2 >= len(base) - 1 or i1 >= i2: return base
         seg1, seg2, seg3 = base[:i1], base[i1:i2+1], base[i2+1:]
 
-        # Apply C1 continuous bump field
+        # 3. Symmetric C1 Bump: Outer pushes up (+1), Inner pushes down (-1)
         s = np.linspace(0, 1, len(seg2))[:, None]
         bump = 16.0 * (s**2) * ((1.0 - s)**2)
         e_diag = np.array([1.0, 1.0]) / np.sqrt(2.0)
         
-        seg2_fat = seg2 + self.r_mid[i] * bump * e_diag
+        # Each side takes 50% of the total r_mid deformation
+        direction = -1.0 if is_inner else 1.0
+        seg2_fat = seg2 + direction * (self.r_mid[i] * 0.5) * bump * e_diag
 
         return np.concatenate((seg1, seg2_fat[1:-1], seg3))
+
+
+class HacklGenerator_3BrokenLines(AbstractHacklGenerator):
+    def __init__(self, design, r_stator_end, **kwargs):
+        super().__init__(design, r_stator_end, **kwargs)
+        
+        # Inner Bezier weight (lam)
+        self.lam_min, self.lam_max = 0.30, 0.45
+        
+        # Outer broken line controls: r (radial distance), L (straight length)
+        self.r_min = np.array([22.5, 30.5, 36.5])
+        self.r_max = np.array([24.5, 32.5, 38.0])
+        
+        self.L_min = np.array([2.0, 2.0, 0.0])
+        self.L_max = np.array([18.0, 12.0, 1.5])
+
+    @property
+    def bounds(self):
+        # 13 params: phis_in(3), phis_out(3), lam(1), r(3), L(3)
+        lb = np.concatenate((self.phis_inner_min, self.phis_outer_min, 
+                             [self.lam_min], self.r_min, self.L_min))
+        ub = np.concatenate((self.phis_inner_max, self.phis_outer_max, 
+                             [self.lam_max], self.r_max, self.L_max))
+        return lb, ub
+
+    def random_parameters(self):
+        phi_in, phi_out = super().random_parameters()
+        lam = np.random.uniform(self.lam_min, self.lam_max)
+        r_vals = np.random.uniform(self.r_min, self.r_max)
+        L_vals = np.random.uniform(self.L_min, self.L_max)
+        return phi_in, phi_out, lam, r_vals, L_vals
+
+    def set_parameters(self, params):
+        phi_in, phi_out, self.lam, r_vals, L_vals = params
+        super().set_parameters((phi_in, phi_out))
+        self.r_vals = np.asarray(r_vals)
+        self.L_vals = np.asarray(L_vals)
+
+    def X_to_params(self, X):
+        return X[:3], X[3:6], X[6], X[7:10], X[10:13]
+
+    def _bezier_point(self, x, y, is_inner, order):
+        return self.lam * x + (1 - self.lam) * y, y
+
+    def _get_bezier_curve(self, phi_deg, is_inner, i):
+        if is_inner:
+            # Inner: Use parent's smooth Bezier logic
+            return super()._get_bezier_curve(phi_deg, is_inner, i)
+            
+        # Outer: 3-segment broken line logic
+        phi_rad = np.radians(phi_deg)
+        p_start = np.array([self.R * np.cos(phi_rad), self.R * np.sin(phi_rad)])
+        p_end = np.array([p_start[1], p_start[0]]) 
+        # y=x symmetry
+        
+        # Compute vertices
+        r, L = self.r_vals[i], self.L_vals[i]
+        v1 = np.array([r + L/2, r - L/2]) / np.sqrt(2.0)
+        v2 = np.array([r - L/2, r + L/2]) / np.sqrt(2.0)
+        
+        # Discretize into dense points for compatibility
+        z = np.linspace(0, 1, self.n_curve // 3)[:, None]
+        
+        seg1 = (1-z) * p_start + z * v1
+        seg2 = (1-z) * v1 + z * v2
+        seg3 = (1-z) * v2 + z * p_end
+        
+        # Stack segments and drop duplicate joint points
+        return np.vstack((seg1, seg2[1:], seg3[1:]))

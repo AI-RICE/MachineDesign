@@ -649,8 +649,8 @@ class HacklGenerator_3BrokenLines(AbstractHacklGenerator):
         self.lam_min, self.lam_max = 0.30, 0.45
         
         # Outer broken line controls: r (radial distance), L (straight length)
-        self.r_min = np.array([22.5, 30.5, 36.5])
-        self.r_max = np.array([24.5, 32.5, 38.0])
+        self.r_ctrl_min = np.array([22.5, 30.5, 36.5])
+        self.r_ctrl_max = np.array([24.5, 32.5, 38.0])
         
         self.L_min = np.array([2.0, 2.0, 0.0])
         self.L_max = np.array([18.0, 12.0, 1.5])
@@ -659,15 +659,15 @@ class HacklGenerator_3BrokenLines(AbstractHacklGenerator):
     def bounds(self):
         # 13 params: phis_in(3), phis_out(3), lam(1), r(3), L(3)
         lb = np.concatenate((self.phis_inner_min, self.phis_outer_min, 
-                             [self.lam_min], self.r_min, self.L_min))
+                             [self.lam_min], self.r_ctrl_min, self.L_min))
         ub = np.concatenate((self.phis_inner_max, self.phis_outer_max, 
-                             [self.lam_max], self.r_max, self.L_max))
+                             [self.lam_max], self.r_ctrl_max, self.L_max))
         return lb, ub
 
     def random_parameters(self):
         phi_in, phi_out = super().random_parameters()
         lam = np.random.uniform(self.lam_min, self.lam_max)
-        r_vals = np.random.uniform(self.r_min, self.r_max)
+        r_vals = np.random.uniform(self.r_ctrl_min, self.r_ctrl_max)
         L_vals = np.random.uniform(self.L_min, self.L_max)
         return phi_in, phi_out, lam, r_vals, L_vals
 

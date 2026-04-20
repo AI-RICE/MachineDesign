@@ -29,7 +29,7 @@ for path in [path_data, path_results]:
     os.makedirs(path, exist_ok=True)
 file_name_aedt = f"{path_data}/{project_name}.aedt"
 plot_design = True
-n_designs =10
+n_designs =50
 
 # Define constants
 AEDT_VERSION = "2025.1"

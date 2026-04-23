@@ -354,16 +354,16 @@ class HacklGenerator_SixLambdas(AbstractHacklGenerator):
         return lb, ub
 
     def random_parameters(self):
-        phis_in, phis_out = super().random_parameters()
-        lam_in = np.random.uniform(self.lam_inner_min, self.lam_inner_max)
-        lam_out = np.random.uniform(self.lam_outer_min, self.lam_outer_max)
-        return phis_in, phis_out, lam_in, lam_out
+        phis_inner, phis_outer = super().random_parameters()
+        lam_inner = np.random.uniform(self.lam_inner_min, self.lam_inner_max)
+        lam_outer = np.random.uniform(self.lam_outer_min, self.lam_outer_max)
+        return phis_inner, phis_outer, lam_inner, lam_outer
 
     def set_parameters(self, params):
-        phis_in, phis_out, lam_in, lam_out = params
-        super().set_parameters((phis_in, phis_out))
-        self.lam_inner = np.asarray(lam_in)
-        self.lam_outer = np.asarray(lam_out)
+        phis_inner, phis_outer, lam_inner, lam_outer = params
+        super().set_parameters((phis_inner, phis_outer))
+        self.lam_inner = np.asarray(lam_inner)
+        self.lam_outer = np.asarray(lam_outer)
 
     def X_to_params(self, X):
         # 12 params: phis_in(3), phis_out(3), lam_in(3), lam_out(3)
@@ -398,15 +398,15 @@ class HacklGenerator_3BrokenLines(AbstractHacklGenerator):
         return lb, ub
 
     def random_parameters(self):
-        phi_in, phi_out = super().random_parameters()
+        phi_inner, phi_outer = super().random_parameters()
         lam = np.random.uniform(self.lam_min, self.lam_max)
         r_vals = np.random.uniform(self.r_ctrl_min, self.r_ctrl_max)
         L_vals = np.random.uniform(self.L_min, self.L_max)
-        return phi_in, phi_out, lam, r_vals, L_vals
+        return phi_inner, phi_outer, lam, r_vals, L_vals
 
     def set_parameters(self, params):
-        phi_in, phi_out, self.lam, r_vals, L_vals = params
-        super().set_parameters((phi_in, phi_out))
+        phi_inner, phi_outer, self.lam, r_vals, L_vals = params
+        super().set_parameters((phi_inner, phi_outer))
         self.r_vals = np.asarray(r_vals)
         self.L_vals = np.asarray(L_vals)
 

@@ -19,23 +19,22 @@ from torch import Tensor
 
 from machine_design import (
     Design,
-    ThreeStupid,
-    FourStupid,
     HacklGenerator_OneLambda,
-    HacklGenerator_TwoLambdas,
     HacklGenerator_SixLambdas,
-    HacklGenerator_14Parameters,
     HacklGenerator_3BrokenLines,
-    HacklGenerator_allBezier,
     analyze_results,
 )
 
 torch.set_default_dtype(torch.float64)
 
 
+PENALTY_TORAVG = 1.
+PENALTY_RIPPLE = 40.
+
+
 def objective_transform(TorAvg, TorRippleRms):
     if pd.isnull(TorAvg):
-        return -99999, -99999
+        return objective_transform(PENALTY_TORAVG, PENALTY_RIPPLE)
     else:
         return TorAvg, -TorRippleRms / 100
 
@@ -105,7 +104,7 @@ os.makedirs(path_data, exist_ok=True)
 file_name_aedt = f"{path_data}/{project_name}.aedt"
 
 # Define constants
-AEDT_VERSION = "2025.1"
+AEDT_VERSION = "2024.1"
 NUM_CORES = 4
 NG_MODE = True  # non-graphical mode
 CLS_EXIT = True  # close on exit
@@ -136,6 +135,7 @@ batch_size = 4
 max_candidate_tries = 30
 r_stator_end = 0.7
 offset = 0.7 / 2
+use_contraints = True
 # generator = HacklGenerator_OneLambda(design, r_stator_end, offset=offset)
 # generator = ThreeStupid(design, r_stator_end, offset=offset)
 # generator = FourStupid(design, r_stator_end, offset=offset)
@@ -151,17 +151,11 @@ method = generator.__class__.__name__
 train_X, train_Y = init_points(root_init, method)
 train_X = normalize(train_X, bounds)
 bounds_normalized = normalize(bounds, bounds)
-# with constraints version
-ref_point = torch.tensor([3.8, -max_ripple])
-# without constraints version
-# ref_point = torch.tensor([3.8, -0.30])
 
 def objective_lambda(Xs):
     return objective(Xs, design, generator, bounds, NUM_CORES)
 
-def penalty_objective(n_penalty):
-    penalty_TorAvg = 1.0
-    penalty_ripple = 40.0
+def penalty_objective(n_penalty, penalty_TorAvg = PENALTY_TORAVG, penalty_ripple = PENALTY_RIPPLE):
     y = torch.tensor(objective_transform(penalty_TorAvg, penalty_ripple), dtype=torch.float64)
     return y.repeat(n_penalty, 1)
 
@@ -170,6 +164,12 @@ def ripple_constraint(Y):
     ripple = -Y[..., 1]
     return ripple - max_ripple
 
+if use_contraints:
+    constraints = [ripple_constraint]
+    ref_point = torch.tensor([3.8, -max_ripple])
+else:
+    constraints = None
+    ref_point = torch.tensor([3.8, -0.30])
 
 for _ in range(n_iters):
     # Fit surrogate
@@ -181,39 +181,31 @@ for _ in range(n_iters):
     pareto_Y = train_Y[is_non_dominated(train_Y)]
     partitioning = NondominatedPartitioning(ref_point=ref_point, Y=pareto_Y)
 
-    # Define acquisition function, with constraints if needed
+    # Define acquisition function
     acq = qLogExpectedHypervolumeImprovement(
         model=model,
         ref_point=ref_point.tolist(),
         partitioning=partitioning,
-        constraints=[ripple_constraint],
+        constraints=constraints,
     )
-    # without constraints version
-    # acq = qLogExpectedHypervolumeImprovement(
-    #    model=model,
-    #    ref_point=ref_point.tolist(),
-    #    partitioning=partitioning,
-    #)
 
     # Optimize acquisition function to select candidate points. Reject unfeasible points
     candidates_feasible = []
     candidates_infeasible = []
-    tries = 0
-    while len(candidates_feasible) < batch_size and tries < max_candidate_tries:
-        tries += 1
+    while _ in range(max_candidate_tries):
         n_needed = batch_size - len(candidates_feasible)
 
         candidates, _ = optimize_acqf(
             acq_function=acq,
             bounds=bounds_normalized,
-            q=n_needed,
+            q=batch_size,
             num_restarts=10,
             raw_samples=128,
         )
 
         for candidate in candidates:
-            candidate_normalized = unnormalize(candidate, bounds)
-            params = generator.X_to_params(candidate_normalized.numpy())
+            candidate_unnormalized = unnormalize(candidate, bounds)
+            params = generator.X_to_params(candidate_unnormalized.numpy())
 
             generator.set_parameters(params)
             barriers = generator.generate_barriers()
@@ -225,20 +217,19 @@ for _ in range(n_iters):
                 candidates_infeasible.append(candidate)
             if len(candidates_feasible) >= batch_size:
                 break
-    n_feasible = len(candidates_feasible)
+        if len(candidates_feasible) >= batch_size:
+            break
 
     assert len(candidates_feasible) + len(candidates_infeasible) >= batch_size
     n_missing = batch_size - len(candidates_feasible)
 
-    # process feasible candidates safely
+    # Fill missing candidates from infeasible
     if len(candidates_feasible) > 0:
         candidates_all = torch.stack(candidates_feasible)
         new_Y_all = objective_lambda(candidates_all)
     else:
         candidates_all = torch.empty((0, bounds.shape[1]), dtype=torch.float64)
         new_Y_all = torch.empty((0, 2), dtype=torch.float64)
-
-    # fill missing with penalized infeasible candidates
     if n_missing > 0:
         candidates_all = torch.cat([candidates_all, torch.stack(candidates_infeasible[:n_missing])], dim=0)
         new_Y_all = torch.cat([new_Y_all, penalty_objective(n_missing)], dim=0)
@@ -246,10 +237,7 @@ for _ in range(n_iters):
     train_X = torch.cat([train_X, candidates_all])
     train_Y = torch.cat([train_Y, new_Y_all])        
 
-    # Evaluate candidates
-    # with constraints version
-    np.savez(f"results_{method}.npz", train_X=unnormalize(train_X, bounds), train_Y=train_Y)
-    # without constraints version
-    # np.savez(f"old_results_{method}.npz", train_X=unnormalize(train_X, bounds), train_Y=train_Y)
+    # Save candidates
+    np.savez(f"results_{method}_{use_contraints}.npz", train_X=unnormalize(train_X, bounds), train_Y=train_Y)
 
 design.close_project()

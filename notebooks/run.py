@@ -7,7 +7,6 @@ import pandas as pd
 
 from machine_design import (
     Design,
-    FourStupid,
     HacklGenerator_OneLambda,
     HacklGenerator_SixLambdas,
     HacklGenerator_3BrokenLines,
@@ -54,7 +53,6 @@ else:
 r_stator_end = 0.7
 offset = 0.7 / 2
 generators = [
-    FourStupid(design, r_stator_end, offset=offset),
     HacklGenerator_OneLambda(design, r_stator_end, offset=offset),
     HacklGenerator_SixLambdas(design, r_stator_end, offset=offset),
     HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset),

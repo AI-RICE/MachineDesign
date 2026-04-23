@@ -8,14 +8,9 @@ import pandas as pd
 from machine_design import (
     Design,
     FourStupid,
-    ThreeStupid,
     HacklGenerator_OneLambda,
-    HacklGenerator_OneLambdaTheta,
-    HacklGenerator_TwoLambdas,
     HacklGenerator_SixLambdas,
-    HacklGenerator_14Parameters,
     HacklGenerator_3BrokenLines,
-    HacklGenerator_allBezier,
     analyze_results,
     plot_barriers,
     save_params,
@@ -29,10 +24,10 @@ for path in [path_data, path_results]:
     os.makedirs(path, exist_ok=True)
 file_name_aedt = f"{path_data}/{project_name}.aedt"
 plot_design = True
-n_designs =50
+n_designs = 50
 
 # Define constants
-AEDT_VERSION = "2025.1"
+AEDT_VERSION = "2024.1"
 NUM_CORES = 4
 NG_MODE = True  # non-graphical mode
 CLS_EXIT = True  # close on exit
@@ -58,16 +53,12 @@ else:
 
 r_stator_end = 0.7
 offset = 0.7 / 2
-# generator_stupid3 = ThreeStupid(design, r_stator_end, offset=offset)
-# generator_stupid4 = FourStupid(design, r_stator_end, offset=offset)
-# generator_hackl1 = HacklGenerator_OneLambda(design, r_stator_end, offset=offset)
-# generator_hackl2 = HacklGenerator_TwoLambdas(design, r_stator_end, offset=offset)
-# generator_hackl3 = HacklGenerator_OneLambdaTheta(design, r_stator_end, offset=offset)
-# generator_hackl4 = HacklGenerator_SixLambdas(design, r_stator_end, offset=offset)
-# generator_hackl5 = HacklGenerator_14Parameters(design, r_stator_end, offset=offset)
-# generator_hackl6 = HacklGenerator_allBezier(design, r_stator_end, offset=offset)
-generator_hackl7 = HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset)
-generators = [generator_hackl7]
+generators = [
+    FourStupid(design, r_stator_end, offset=offset),
+    HacklGenerator_OneLambda(design, r_stator_end, offset=offset),
+    HacklGenerator_SixLambdas(design, r_stator_end, offset=offset),
+    HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset),
+]
 
 metadata = pd.DataFrame()
 for i in range(0, n_designs):

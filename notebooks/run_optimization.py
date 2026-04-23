@@ -128,7 +128,6 @@ else:
         close_on_exit=CLS_EXIT,
     )
 
-# max_ripple exist for with constraints version
 max_ripple = 0.1 
 n_iters = 100
 batch_size = 4
@@ -136,14 +135,9 @@ max_candidate_tries = 30
 r_stator_end = 0.7
 offset = 0.7 / 2
 use_contraints = True
-# generator = HacklGenerator_OneLambda(design, r_stator_end, offset=offset)
-# generator = ThreeStupid(design, r_stator_end, offset=offset)
-# generator = FourStupid(design, r_stator_end, offset=offset)
-# generator = HacklGenerator_TwoLambdas(design, r_stator_end, offset=offset)
+generator = HacklGenerator_OneLambda(design, r_stator_end, offset=offset)
 # generator = HacklGenerator_SixLambdas(design, r_stator_end, offset=offset)
-# generator = HacklGenerator_14Parameters(design, r_stator_end, offset=offset)
-# generator = HacklGenerator_allBezier(design, r_stator_end, offset=offset)
-generator = HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset)
+# generator = HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset)
 bounds = torch.from_numpy(np.vstack(generator.bounds))
 
 root_init = "results"
@@ -192,7 +186,7 @@ for _ in range(n_iters):
     # Optimize acquisition function to select candidate points. Reject unfeasible points
     candidates_feasible = []
     candidates_infeasible = []
-    while _ in range(max_candidate_tries):
+    for _ in range(max_candidate_tries):
         n_needed = batch_size - len(candidates_feasible)
 
         candidates, _ = optimize_acqf(

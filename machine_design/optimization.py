@@ -20,12 +20,12 @@ def objective_transform(TorAvg, TorRippleRms, objective_fallback=None):
         return TorAvg, -TorRippleRms / 100
 
 
-def objective(Xs: Tensor, *args) -> Tensor:
-    vals = [objective_single(X, *args) for X in Xs]
+def objective(Xs: Tensor, *args, **kwargs) -> Tensor:
+    vals = [objective_single(X, *args, **kwargs) for X in Xs]
     return torch.stack(vals, dim=0)
 
 
-def objective_single(X: Tensor, design, generator, bounds, NUM_CORES, objective_fallback) -> Tensor:
+def objective_single(X: Tensor, design, generator, bounds, NUM_CORES, **kwargs) -> Tensor:
     X = unnormalize(X, bounds)
     params = generator.X_to_params(X.numpy())
 
@@ -48,7 +48,7 @@ def objective_single(X: Tensor, design, generator, bounds, NUM_CORES, objective_
     # Delete the rotor
     design.delete_rotor()
 
-    f1, f2 = objective_transform(TorAvg, TorRippleRms, objective_fallback=objective_fallback)
+    f1, f2 = objective_transform(TorAvg, TorRippleRms, **kwargs)
     return torch.tensor([f1, f2])
 
 

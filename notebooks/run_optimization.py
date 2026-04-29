@@ -53,6 +53,7 @@ generators = [
 
 ref_cons_torque, ref_cons_ripple = objective_transform(ref_cons["torque"], ref_cons["ripple"])
 ref_no_cons_torque, ref_no_cons_ripple = objective_transform(ref_no_cons["torque"], ref_no_cons["ripple"])
+objective_fallback_tuple = (objective_fallback["torque"], objective_fallback["ripple"])
 
 for generator in generators:
     for use_constraints in [True, False]:
@@ -71,10 +72,10 @@ for generator in generators:
         train_X = normalize(train_X, bounds)
 
         def objective_lambda(Xs):
-            return objective(Xs, design, generator, bounds, num_cores, objective_fallback)
+            return objective(Xs, design, generator, bounds, num_cores, objective_fallback=objective_fallback_tuple)
 
         def penalty_objective(n_penalty):
-            obj = objective_transform(None, None, objective_fallback=objective_fallback)
+            obj = objective_transform(None, None, objective_fallback=objective_fallback_tuple)
             y = torch.tensor(obj, dtype=torch.float64)
             return y.repeat(n_penalty, 1)
 

@@ -366,12 +366,11 @@ class HacklGenerator_TwoLambdas(AbstractHacklGenerator):
     
     
 class RandomBarrierGenerator(BarrierGenerator):
-    def __init__(self, design, r_stator_end, der1=1.0, der2=1.0, symmetric=True, **kwargs):
-        self.n_designs = kwargs.get("n_designs", 1)
+    def __init__(self, design, n_barriers, r_stator_end, der1=1.0, der2=1.0, symmetric=True, **kwargs):
         self.der1 = der1
         self.der2 = der2
         self.symmetric = symmetric
-        self.n_barriers = kwargs.get("n_barriers", 1)
+        self.n_barriers = n_barriers
         super().__init__(design, r_stator_end, **kwargs)
 
     def _create_barrier(
@@ -411,25 +410,29 @@ class RandomBarrierGenerator(BarrierGenerator):
             y_all = np.concatenate((y_all, y_all[::-1][1:]))
         x_all, y_all = rotate(x_all, y_all, -45)
         return x_all, y_all
-
+    
     @property
     def bounds(self) -> tuple[np.ndarray, np.ndarray]:
         n = self.n_barriers
 
         lb = np.concatenate([
-        np.full(n, 0.7), # rand1
-        np.array([12]), # rand2
-        np.full(n-1, 1) #spacings
+            np.full(n, 0.1),         # w_mins lower bound
+            np.full(n, self.r_min),  # y_mins lower bound
+            np.full(n, self.r_min),  # y_mids lower bound
+            np.full(n, 0.1),         # w_mids lower bound
+            np.full(n, 1.0),         # thetas lower bound
+            np.full(n, 0.01),        # w_maxs lower bound
         ])
-
         ub = np.concatenate([
-            np.full(n, 1.0),
-            np.array([20]),
-            np.full(n-1, 5)
+            np.full(n, 5.0),         # w_mins upper bound
+            np.full(n, self.r_max),  # y_mins upper bound
+            np.full(n, self.r_max),  # y_mids upper bound
+            np.full(n, 5.0),         # w_mids upper bound
+            np.full(n, 22.0),        # thetas upper bound
+            np.full(n, 5.0),         # w_maxs upper bound
         ])
-
         return lb, ub
-    
+
     def generate_w_mins_base(self, rotor_r_min, rotor_r_max):
         n_barriers = self.n_barriers
         available_height = rotor_r_max - rotor_r_min
@@ -448,73 +451,51 @@ class RandomBarrierGenerator(BarrierGenerator):
         return total_height_barrier * weights
     
     def random_parameters(self):
-
-        rand1 = np.random.uniform(0.7, 1.0, self.n_barriers)
-        rand2 = np.random.uniform(12,20)
-        spacings = np.random.dirichlet(np.ones(self.n_barriers - 1))
-
-        return rand1, rand2, spacings
-    
-    def set_parameters(self, params) -> None:
-        rand1, rand2, spacings = params
-    
         w_mins_base = self.generate_w_mins_base(self.r_min, self.r_max)
 
-        w_mins = w_mins_base * rand1
+        w_mins = w_mins_base * np.random.uniform(0.7, 1.0, self.n_barriers)
         w_mids = w_mins.copy()
 
         total_height = np.sum(w_mins)
-        total_spacing = np.sum(spacings)
+        available_height = self.r_max - self.r_min
+        remaining_space = available_height - total_height
 
-        available_height = self.r_max - rand2
+        if total_height > available_height:
+            w_mins *= available_height / total_height
 
-        eps = 1e-8
-        denom = total_height + total_spacing
-        scale = (available_height)/max(denom, eps)
+        gaps = np.full(self.n_barriers + 1, remaining_space / (self.n_barriers + 1))
 
-        if scale < 1.0:
-            w_mins *= scale
-            spacings *= scale
+        y_min = np.zeros(self.n_barriers)
+        current_pos = self.r_min + gaps[0]
+        for i in range(self.n_barriers):
+            y_min[i] = current_pos
+            current_pos += w_mins[i] + gaps[i+1]
 
-        y_mins = np.zeros(self.n_barriers)
-        y_mins[0] = rand2
-        current_pos = y_mins[0]
-
-        for i in range(1, self.n_barriers):
-            current_pos += w_mins[i-1] + spacings[i-1]
-            y_mins[i] = current_pos
-        
         offsets = w_mins * 0.1
-        y_mids = y_mins + offsets
-        
-        w_maxs = np.clip(w_mins * 0.7, 0.01, None)
+        y_mids = y_min + offsets
 
         w_maxs = np.clip(w_mins * 0.7, 0.01, None)
-        thetas = np.linspace(1, 20, self.n_barriers)
+
+        base = np.linspace(1, 20, self.n_barriers)
+        noise = np.random.uniform(-2, 2, self.n_barriers)
+        thetas = base + noise
         thetas[0] = 1
 
-        self.y_mins = y_mins
+        return w_mins, y_min, y_mids, w_mids, thetas, w_maxs
+
+    def set_parameters(self, params) -> None:
+        w_mins, y_mins, y_mids, w_mids, thetas, w_maxs = params
         self.w_mins = w_mins
+        self.y_mins = y_mins
         self.y_mids = y_mids
         self.w_mids = w_mids
         self.thetas = thetas
         self.w_maxs = w_maxs
 
-        return y_mins, w_mins, y_mids, w_mids, thetas, w_maxs
+    def X_to_params(self, X: np.ndarray):
+        n = self.n_barriers
+        return X[:n], X[n:2*n], X[2*n:3*n], X[3*n:4*n], X[4*n:5*n], X[5*n:6*n]
 
-    def X_to_params(self, X: np.ndarray, barrier=None):
-        # n = int(self.n_barriers if barrier is None else barrier)
-        n = self.n_barriers if barrier is None else barrier
-
-        if len(X) != 2*n:
-            raise ValueError(f"X length {len(X)} does not match expected 2*n={2*n}")
-
-        rand1 = X[:n]
-        rand2 = X[n]
-        spacings = X[n+1:n+1+(n-1)]
-        
-        return rand1, rand2, spacings
-    
     def generate_barriers(self) -> list[np.ndarray]:
         barriers = []
         for args in zip(self.y_mins, self.w_mins, self.y_mids, self.w_mids, self.thetas, self.w_maxs):

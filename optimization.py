@@ -1,4 +1,5 @@
 import glob
+import os
 import pickle
 import numpy as np
 import pandas as pd
@@ -21,15 +22,15 @@ w_maxs = []
 ripples = []
 
 for file in files:
-    fname = file.split("\\")[-1].replace(".pkl", "")
-    parts = fname.split("_")  # ['design', 'RandomBarrierGenerator', '0', 'barriers', '1']
+    fname = os.path.basename(file).replace(".pkl", "")
+    parts = fname.split("_")
     method = parts[1]
     design = int(parts[2])
     barriers = int(parts[4])
 
     row = metadata[(metadata['method'] == method) &
                    (metadata['design'] == design) &
-                   (metadata['barriers'] == barriers)]
+                   (metadata['n_barriers'] == barriers)]
     if row.empty:
         print(f"Metadata nenalezena pro {fname}")
         continue
@@ -67,8 +68,8 @@ all_torque = np.array(all_torque)
 ripples = np.array(ripples)
 
 params = {
-    "y_mins": np.array(y_mins),
     "w_mins": np.array(w_mins),
+    "y_mins": np.array(y_mins),
     "y_mids": np.array(y_mids),
     "w_mids": np.array(w_mids),
     "thetas": np.array(thetas),

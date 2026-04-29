@@ -3,10 +3,11 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import numpy as np
-from .design import Design
-from .geometry import rotate
 from scipy.interpolate import CubicSpline
 from shapely.geometry import LineString
+
+from .design import Design
+from .geometry import rotate
 
 
 def get_arc(R: float, start_deg: float, end_deg: float, n_points: int) -> np.ndarray:
@@ -335,22 +336,16 @@ class HacklGenerator_SixLambdas(AbstractHacklGenerator):
         # Tiered bounds to prevent intersection
         self.lam_inner_min = np.array([0.20, 0.31, 0.41])
         self.lam_inner_max = np.array([0.25, 0.35, 0.45])
-        
+
         self.lam_outer_min = np.array([0.26, 0.36, 0.46])
         self.lam_outer_max = np.array([0.30, 0.40, 0.50])
-        
+
         super().__init__(design, r_stator_end, **kwargs)
 
     @property
     def bounds(self):
-        lb = np.concatenate((
-            self.phis_inner_min, self.phis_outer_min,
-            self.lam_inner_min, self.lam_outer_min
-        ))
-        ub = np.concatenate((
-            self.phis_inner_max, self.phis_outer_max,
-            self.lam_inner_max, self.lam_outer_max
-        ))
+        lb = np.concatenate((self.phis_inner_min, self.phis_outer_min, self.lam_inner_min, self.lam_outer_min))
+        ub = np.concatenate((self.phis_inner_max, self.phis_outer_max, self.lam_inner_max, self.lam_outer_max))
         return lb, ub
 
     def random_parameters(self):
@@ -377,24 +372,22 @@ class HacklGenerator_SixLambdas(AbstractHacklGenerator):
 class HacklGenerator_3BrokenLines(AbstractHacklGenerator):
     def __init__(self, design, r_stator_end, **kwargs):
         super().__init__(design, r_stator_end, **kwargs)
-        
+
         # Inner Bezier weight (lam)
         self.lam_min, self.lam_max = 0.30, 0.45
-        
+
         # Outer broken line controls: r (radial distance), L (straight length)
         self.r_ctrl_min = np.array([22.5, 30.5, 36.5])
         self.r_ctrl_max = np.array([24.5, 32.5, 38.0])
-        
+
         self.L_min = np.array([2.0, 2.0, 0.0])
         self.L_max = np.array([18.0, 12.0, 1.5])
 
     @property
     def bounds(self):
         # 13 params: phis_in(3), phis_out(3), lam(1), r(3), L(3)
-        lb = np.concatenate((self.phis_inner_min, self.phis_outer_min, 
-                             [self.lam_min], self.r_ctrl_min, self.L_min))
-        ub = np.concatenate((self.phis_inner_max, self.phis_outer_max, 
-                             [self.lam_max], self.r_ctrl_max, self.L_max))
+        lb = np.concatenate((self.phis_inner_min, self.phis_outer_min, [self.lam_min], self.r_ctrl_min, self.L_min))
+        ub = np.concatenate((self.phis_inner_max, self.phis_outer_max, [self.lam_max], self.r_ctrl_max, self.L_max))
         return lb, ub
 
     def random_parameters(self):
@@ -420,24 +413,24 @@ class HacklGenerator_3BrokenLines(AbstractHacklGenerator):
         if is_inner:
             # Inner: Use parent's smooth Bezier logic
             return super()._get_bezier_curve(phi_deg, is_inner, i)
-            
+
         # Outer: 3-segment broken line logic
         phi_rad = np.radians(phi_deg)
         p_start = np.array([self.R * np.cos(phi_rad), self.R * np.sin(phi_rad)])
-        p_end = np.array([p_start[1], p_start[0]]) 
+        p_end = np.array([p_start[1], p_start[0]])
         # y=x symmetry
-        
+
         # Compute vertices
         r, L = self.r_vals[i], self.L_vals[i]
-        v1 = np.array([r + L/2, r - L/2]) / np.sqrt(2.0)
-        v2 = np.array([r - L/2, r + L/2]) / np.sqrt(2.0)
-        
+        v1 = np.array([r + L / 2, r - L / 2]) / np.sqrt(2.0)
+        v2 = np.array([r - L / 2, r + L / 2]) / np.sqrt(2.0)
+
         # Discretize into dense points for compatibility
         z = np.linspace(0, 1, self.n_curve // 3)[:, None]
-        
-        seg1 = (1-z) * p_start + z * v1
-        seg2 = (1-z) * v1 + z * v2
-        seg3 = (1-z) * v2 + z * p_end
-        
+
+        seg1 = (1 - z) * p_start + z * v1
+        seg2 = (1 - z) * v1 + z * v2
+        seg3 = (1 - z) * v2 + z * p_end
+
         # Stack segments and drop duplicate joint points
         return np.vstack((seg1, seg2[1:], seg3[1:]))

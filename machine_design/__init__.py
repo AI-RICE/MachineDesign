@@ -1,10 +1,10 @@
 from .design import Design
 from .generators import (
     FourStupid,
-    HacklGenerator_OneLambda,
-    HacklGenerator_TwoLambdas,
-    HacklGenerator_SixLambdas,
     HacklGenerator_3BrokenLines,
+    HacklGenerator_OneLambda,
+    HacklGenerator_SixLambdas,
+    HacklGenerator_TwoLambdas,
     save_params,
 )
 from .geometry import analyze_results, plot_barriers, rotate

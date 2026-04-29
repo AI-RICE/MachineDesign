@@ -1,10 +1,9 @@
+import pickle
 from collections.abc import Iterable
 
 import numpy as np
 import pandas as pd
-import pickle
 import torch
-
 from botorch.utils.transforms import unnormalize
 from torch import Tensor
 
@@ -44,7 +43,7 @@ def objective_single(X: Tensor, design, generator, bounds, NUM_CORES, objective_
         Tor = design.compute(NUM_CORES)
         TorAvg, _, TorRippleRms = analyze_results(Tor)
     except Exception:
-        TorAvg, TorRippleRms = np.nan, np.nan        
+        TorAvg, TorRippleRms = np.nan, np.nan
 
     # Delete the rotor
     design.delete_rotor()

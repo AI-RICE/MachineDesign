@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 
 from machine_design import (
+    HacklGenerator_3BrokenLines,
     HacklGenerator_OneLambda,
     HacklGenerator_SixLambdas,
-    HacklGenerator_3BrokenLines,
     analyze_results,
     load_design,
     plot_barriers,

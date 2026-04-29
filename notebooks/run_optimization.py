@@ -81,7 +81,8 @@ for generator in generators:
 
         def ripple_constraint(Y):
             ripple = -Y[..., 1]
-            return ripple - ref_cons_ripple
+            ripple_max = -ref_cons_ripple
+            return ripple - ripple_max
 
         if use_constraints:
             constraints = [ripple_constraint]

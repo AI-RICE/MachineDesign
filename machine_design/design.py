@@ -498,9 +498,14 @@ class Design:
 
         solutions = m2d.post.get_solution_data(expressions="Moving1.Torque", primary_sweep_variable="Time")
         try:
-            return solutions.data_magnitude()
+            result = solutions.data_magnitude()
         except AttributeError:
-            return None
+            result = None
+
+        # Delete solution data to prevent the saving size to explode
+        self.m2d.odesign.DeleteFullVariation("All", False)
+
+        return result
 
     def delete_rotor(self) -> None:
         assert isinstance(self.m2d.modeler, Modeler2D)

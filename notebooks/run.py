@@ -6,20 +6,21 @@ import numpy as np
 import pandas as pd
 
 from machine_design import (
-    Design,
-    FourStupid,
-    ThreeStupid,
-    HacklGenerator_OneLambda,
-    HacklGenerator_OneLambdaTheta,
-    HacklGenerator_TwoLambdas,
-    HacklGenerator_SixLambdas,
-    HacklGenerator_14Parameters,
     HacklGenerator_3BrokenLines,
-    HacklGenerator_allBezier,
+    HacklGenerator_OneLambda,
+    HacklGenerator_SixLambdas,
     analyze_results,
+    load_design,
     plot_barriers,
     save_params,
 )
+
+aedt_version = "2024.1"
+n_designs = 50
+r_stator_end = 0.7
+offset = 0.7 / 2
+num_cores = 4
+plot_design = True
 
 project_name = "SynRM_test"
 design_name = "Design01"
@@ -28,62 +29,34 @@ path_results = "results"
 for path in [path_data, path_results]:
     os.makedirs(path, exist_ok=True)
 file_name_aedt = f"{path_data}/{project_name}.aedt"
-plot_design = True
-n_designs =50
 
-# Define constants
-AEDT_VERSION = "2025.1"
-NUM_CORES = 4
-NG_MODE = True  # non-graphical mode
-CLS_EXIT = True  # close on exit
-
-if not os.path.exists(file_name_aedt):
-    design = Design.create(
-        project_name,
-        design_name,
-        file_name_aedt,
-        version=AEDT_VERSION,
-        non_graphical=NG_MODE,
-        new_desktop=False,
-        close_on_exit=CLS_EXIT,
-    )
-else:
-    design = Design.load(
-        file_name_aedt,
-        version=AEDT_VERSION,
-        non_graphical=NG_MODE,
-        new_desktop=False,
-        close_on_exit=CLS_EXIT,
-    )
-
-r_stator_end = 0.7
-offset = 0.7 / 2
-# generator_stupid3 = ThreeStupid(design, r_stator_end, offset=offset)
-# generator_stupid4 = FourStupid(design, r_stator_end, offset=offset)
-# generator_hackl1 = HacklGenerator_OneLambda(design, r_stator_end, offset=offset)
-# generator_hackl2 = HacklGenerator_TwoLambdas(design, r_stator_end, offset=offset)
-# generator_hackl3 = HacklGenerator_OneLambdaTheta(design, r_stator_end, offset=offset)
-# generator_hackl4 = HacklGenerator_SixLambdas(design, r_stator_end, offset=offset)
-# generator_hackl5 = HacklGenerator_14Parameters(design, r_stator_end, offset=offset)
-# generator_hackl6 = HacklGenerator_allBezier(design, r_stator_end, offset=offset)
-generator_hackl7 = HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset)
-generators = [generator_hackl7]
+design = load_design(file_name_aedt, project_name, design_name, aedt_version)
+generators = [
+    HacklGenerator_OneLambda(design, r_stator_end, offset=offset),
+    HacklGenerator_SixLambdas(design, r_stator_end, offset=offset),
+    HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset),
+]
 
 metadata = pd.DataFrame()
 for i in range(0, n_designs):
     for generator in generators:
-        params = generator.random_parameters()
-        generator.set_parameters(params)
-        barriers = generator.generate_barriers()
-        barriers = generator.split_barriers(barriers)
+        # Generate a feasible design
+        while True:
+            params = generator.random_parameters()
+            generator.set_parameters(params)
+            barriers = generator.generate_barriers()
+            barriers = generator.split_barriers(barriers)
+            feasible = generator.feasible_barriers(barriers)
+            if feasible:
+                break
 
+        # Generate the geometry
         design.add_rotor()
-
         for barrier in barriers:
             design.add_rotor_barrier(barrier)
 
         # Compute the torque
-        Tor = design.compute(NUM_CORES)
+        Tor = design.compute(num_cores)
         if Tor is None:
             TorAvg, TorRippleRms = np.nan, np.nan
         else:

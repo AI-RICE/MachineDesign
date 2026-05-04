@@ -27,7 +27,7 @@ torch.set_default_dtype(torch.float64)
 
 
 aedt_version = "2024.1"
-n_iters = 50
+n_evals = 250
 r_stator_end = 0.7
 offset = 0.7 / 2
 num_cores = 4
@@ -91,7 +91,7 @@ for generator in generators:
             constraints = None
             ref_point = torch.tensor([ref_no_cons_torque, ref_no_cons_ripple])
 
-        for i in range(n_iters):
+        while len(train_X) < n_evals:
             # Fit surrogate
             model = SingleTaskGP(train_X, train_Y)
             mll = ExactMarginalLogLikelihood(model.likelihood, model)

@@ -56,7 +56,7 @@ def init_points(root, method):
     results = pd.read_csv(f"{root}/metadata.csv")
     results = results[~results["T"].isnull()]
     results = results[results["method"] == method]
-    results["path"] = [f"results/design_{row['method']}_{row['design']}.pkl" for _, row in results.iterrows()]
+    results["path"] = [f"{root}/design_{row['method']}_{row['design']}.pkl" for _, row in results.iterrows()]
 
     Xs, Ys = [], []
     for _, r in results.iterrows():

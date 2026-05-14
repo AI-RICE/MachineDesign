@@ -271,7 +271,7 @@ class Design:
         coil_id.color = (255, 128, 0)
         coil_id.transparency = 0.0
         modeler.rotate(assignment=coil_id, axis="Z", angle="360deg/SlotNumber/2")
-        coil_id.duplicate_around_axis(axis="Z", angle="360deg/SlotNumber", clones="CoilPitch", create_new_objects=True)
+        coil_id.duplicate_around_axis(axis="Z", angle="360deg/SlotNumber", clones="SlotNumber/Poles", create_new_objects=True)
         id_coils = modeler.get_objects_w_string(string_name="Coil", case_sensitive=True)
 
         # Create section of machine

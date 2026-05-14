@@ -27,6 +27,7 @@ class Design:
         return cls(m2d)
 
     def set_parameters(self) -> None:
+        self.setup_name = "Setup1"
         self.set_iron()
         self.set_geom_params()
         self.set_slot_params()
@@ -34,10 +35,7 @@ class Design:
         self.set_mod_params()
         self.set_oper_params()
         self.set_rot_points()
-
-        self.setup_name = "Setup1"
-        self.rotor_r_min = self.mm_to_str("geom_params", "DiaShaft") / 2
-        self.rotor_r_max = self.mm_to_str("geom_params", "DiaStatorGap") / 2 - self.mm_to_str("geom_params", "Airgap")
+        self.set_derived_params()
 
     def set_iron(self):
         self.Fe = "Cogent Power - M350-50A, B-H at 50Hz"
@@ -114,6 +112,10 @@ class Design:
                 "0mm",
             ],
         ]
+
+    def set_derived_params(self):
+        self.rotor_r_min = self.mm_to_str("geom_params", "DiaShaft") / 2
+        self.rotor_r_max = self.mm_to_str("geom_params", "DiaStatorGap") / 2 - self.mm_to_str("geom_params", "Airgap")
 
     def create_stator(self) -> None:
         m2d = self.m2d

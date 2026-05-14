@@ -101,16 +101,8 @@ class Design:
             ["DiaShaft/2*cos(360deg/(2*SymmetryFactor))", "DiaShaft/2*sin(360deg/(2*SymmetryFactor))", "0mm"],
             ["DiaShaft/2", "0mm", "0mm"],
             ["DiaStatorGap/2-Airgap", "0mm", "0mm"],
-            [
-                "(DiaStatorGap/2-Airgap)*cos(360deg/(2*SymmetryFactor))",
-                "(DiaStatorGap/2-Airgap)*sin(360deg/(2*SymmetryFactor))",
-                "0mm",
-            ],
-            [
-                "(DiaStatorGap/2-Airgap)*cos(360deg/SymmetryFactor)",
-                "(DiaStatorGap/2-Airgap)*sin(360deg/SymmetryFactor)",
-                "0mm",
-            ],
+            ["(DiaStatorGap/2-Airgap)*cos(360deg/(2*SymmetryFactor))", "(DiaStatorGap/2-Airgap)*sin(360deg/(2*SymmetryFactor))", "0mm"],
+            ["(DiaStatorGap/2-Airgap)*cos(360deg/SymmetryFactor)", "(DiaStatorGap/2-Airgap)*sin(360deg/SymmetryFactor)", "0mm"],
         ]
 
     def set_derived_params(self):

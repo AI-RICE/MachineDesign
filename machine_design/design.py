@@ -320,6 +320,67 @@ class Design:
         )
         m2d.assign_vector_potential(assignment=id_bc_az, vector_value=0, boundary="A0")
 
+        self.assign_stator_coils()
+
+        # Mesh operation
+        m2d.mesh.assign_length_mesh(
+            assignment=id_coils,
+            inside_selection=True,
+            maximum_length=3,
+            maximum_elements=None,
+            name="coils",
+        )
+        m2d.mesh.assign_length_mesh(
+            assignment=stator_id,
+            inside_selection=True,
+            maximum_length=3,
+            maximum_elements=None,
+            name="stator",
+        )
+
+        # core loss
+        m2d.set_core_losses("Stator", core_loss_on_field=False)
+
+        # inductance calculation
+        m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=False)
+        # model depth
+        m2d.model_depth = "StackLength"
+        # symmetry
+        m2d.change_symmetry_multiplier("SymmetryFactor")
+        # Calculation setup
+        setup = m2d.create_setup(name=self.setup_name)
+        setup.props["StopTime"] = "Nper/f"
+        setup.props["TimeStep"] = "1/(f*(PointPer-1))"
+        setup.props["SaveFieldsType"] = "None"
+        setup.props["OutputPerObjectCoreLoss"] = False
+        setup.props["OutputPerObjectSolidLoss"] = True
+        setup.props["OutputError"] = True
+        setup.update()
+        m2d.validate_simple()
+
+        for k, v in self.output_vars.items():
+            m2d.create_output_variable(k, v)
+
+        for k, v in self.post_params.items():
+            expressions = list(k) if isinstance(k, tuple) else [k]  # if multiple report, use list(k). Else, use k
+            m2d.post.create_report(
+                expressions=expressions,
+                setup_sweep_name="",
+                domain="Sweep",
+                variations=None,
+                primary_sweep_variable="Time",
+                secondary_sweep_variable=None,
+                report_category=None,
+                plot_type="Rectangular Plot",
+                context=None,
+                subdesign_id=None,
+                polyline_points=1001,
+                plot_name=v,
+            )
+
+    def assign_stator_coils(self):
+        m2d = self.m2d
+        
         # Excitations
         I_A = "Im * cos(2*pi*f*time+epsI)"
         I_B = "Im * cos(2*pi*f*time-120deg+epsI)"
@@ -407,62 +468,6 @@ class Design:
             name="PhaseC",
         )
         m2d.add_winding_coils(assignment="PhaseC", coils=["CS4", "CS5", "CS6"])
-
-        # Mesh operation
-        m2d.mesh.assign_length_mesh(
-            assignment=id_coils,
-            inside_selection=True,
-            maximum_length=3,
-            maximum_elements=None,
-            name="coils",
-        )
-        m2d.mesh.assign_length_mesh(
-            assignment=stator_id,
-            inside_selection=True,
-            maximum_length=3,
-            maximum_elements=None,
-            name="stator",
-        )
-
-        # core loss
-        m2d.set_core_losses("Stator", core_loss_on_field=False)
-
-        # inductance calculation
-        m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=False)
-        # model depth
-        m2d.model_depth = "StackLength"
-        # symmetry
-        m2d.change_symmetry_multiplier("SymmetryFactor")
-        # Calculation setup
-        setup = m2d.create_setup(name=self.setup_name)
-        setup.props["StopTime"] = "Nper/f"
-        setup.props["TimeStep"] = "1/(f*(PointPer-1))"
-        setup.props["SaveFieldsType"] = "None"
-        setup.props["OutputPerObjectCoreLoss"] = False
-        setup.props["OutputPerObjectSolidLoss"] = True
-        setup.props["OutputError"] = True
-        setup.update()
-        m2d.validate_simple()
-
-        for k, v in self.output_vars.items():
-            m2d.create_output_variable(k, v)
-
-        for k, v in self.post_params.items():
-            expressions = list(k) if isinstance(k, tuple) else [k]  # if multiple report, use list(k). Else, use k
-            m2d.post.create_report(
-                expressions=expressions,
-                setup_sweep_name="",
-                domain="Sweep",
-                variations=None,
-                primary_sweep_variable="Time",
-                secondary_sweep_variable=None,
-                report_category=None,
-                plot_type="Rectangular Plot",
-                context=None,
-                subdesign_id=None,
-                polyline_points=1001,
-                plot_name=v,
-            )
 
     def add_rotor(self) -> None:
         modeler = self.m2d.modeler

@@ -27,10 +27,22 @@ class Design:
         return cls(m2d)
 
     def set_parameters(self) -> None:
-        # materials
+        self.set_iron()
+        self.set_geom_params()
+        self.set_slot_params()
+        self.set_winds_params()
+        self.set_mod_params()
+        self.set_oper_params()
+        self.set_rot_points()
+
+        self.setup_name = "Setup1"
+        self.rotor_r_min = self.mm_to_str("geom_params", "DiaShaft") / 2
+        self.rotor_r_max = self.mm_to_str("geom_params", "DiaStatorGap") / 2 - self.mm_to_str("geom_params", "Airgap")
+
+    def set_iron(self):
         self.Fe = "Cogent Power - M350-50A, B-H at 50Hz"
 
-        # main definitions
+    def set_geom_params(self):
         self.geom_params = {
             "DiaStatorGap": "79mm",
             "DiaStatorYoke": "125mm",
@@ -40,7 +52,8 @@ class Design:
             "DiaShaft": "25mm",
             "StackLength": "85mm",
         }
-        # stator slot
+
+    def set_slot_params(self):
         self.slot_params = {
             "Hs0": "0.95mm",
             "Hs1": "0.31mm",
@@ -51,7 +64,8 @@ class Design:
             "Rs": "1.5mm",
             "SetAngle": "10deg",
         }
-        # winding
+
+    def set_winds_params(self):
         self.wind_params = {
             "Layers": "1",
             "ParallelPaths": "1",
@@ -60,17 +74,19 @@ class Design:
             "SpaceLayers": "0.2mm",
             "Nc": "68",  # turns per coil
         }
-        # model parameters
-        PolePairs = 2
-        f = 50  # [Hz]
-        RotSpeed = 60 * f / PolePairs  # [rpm]
+
+    def set_mod_params(self):
+        self.PolePairs = 2
         self.mod_params = {
-            "Poles": f"2*{PolePairs}",
+            "Poles": f"2*{self.PolePairs}",
             "ModelLength": "85mm",
             "SymmetryFactor": "Poles",
             "StatorSkewAngle": "0deg",
         }
-        # operation parameters
+
+    def set_oper_params(self):
+        f = 50  # [Hz]
+        RotSpeed = 60 * f / self.PolePairs  # [rpm]
         self.oper_params = {
             "Im": "1.5*sqrt(2)A",
             "epsI": "pi/4",  # current angle
@@ -80,6 +96,8 @@ class Design:
             "Nper": "1/6",  # number of included periods
             "PointPer": "101",  # number of time points per period
         }
+
+    def set_rot_points(self):
         self.rot_points = [
             ["DiaShaft/2*cos(360deg/SymmetryFactor)", "DiaShaft/2*sin(360deg/SymmetryFactor)", "0mm"],
             ["DiaShaft/2*cos(360deg/(2*SymmetryFactor))", "DiaShaft/2*sin(360deg/(2*SymmetryFactor))", "0mm"],
@@ -96,9 +114,6 @@ class Design:
                 "0mm",
             ],
         ]
-        self.setup_name = "Setup1"
-        self.rotor_r_min = self.mm_to_str("geom_params", "DiaShaft") / 2
-        self.rotor_r_max = self.mm_to_str("geom_params", "DiaStatorGap") / 2 - self.mm_to_str("geom_params", "Airgap")
 
     def create_stator(self) -> None:
         m2d = self.m2d

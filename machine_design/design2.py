@@ -298,3 +298,21 @@ class Design2(Design):
     def inductance_computation(self):
         self.m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=True)
 
+    def set_variables(self, Id1, Iq1, Id3, Iq3):
+        self.m2d.variable_manager["Id1"] = f"{Id1}A"
+        self.m2d.variable_manager["Iq1"] = f"{Iq1}A"
+        self.m2d.variable_manager["Id3"] = f"{Id3}A"
+        self.m2d.variable_manager["Iq3"] = f"{Iq3}A"
+
+    def extract_results(self, solutions):
+        # TODO: this works only because torque is the last one in the array
+        out = np.zeros(len(self.solution_expressions))
+        for i, expr in enumerate(self.solution_expressions):
+            data = solutions.data_real(expr)
+            val = float(np.mean(data[:-1]))
+
+            if expr.startswith("L_"):
+                val /= 1e9
+
+            out[i] = val
+        return data

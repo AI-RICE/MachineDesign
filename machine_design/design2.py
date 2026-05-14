@@ -38,34 +38,17 @@ class Design2(Design):
     def set_derived_params(self):
         pass
 
-    def compute(self, NUM_CORES: int = 1):
-        m2d = self.m2d
-        assert m2d.mesh is not None
-        assert m2d.post is not None
-
-        m2d.mesh.assign_length_mesh(
-            assignment=self.rotor_id,
-            inside_selection=True,
-            maximum_length=3,
-            maximum_elements=None,
-            name="rotor",
-        )
-        # core loss rotor
-        m2d.set_core_losses("Rotor", core_loss_on_field=False)
-
-        # Analyze
-        m2d.analyze_setup(self.setup_name, use_auto_settings=False, cores=NUM_CORES)
-
-        solutions = m2d.post.get_solution_data(expressions="Moving1.Torque", primary_sweep_variable="Time")
-        try:
-            result = solutions.data_magnitude()
-        except AttributeError:
-            result = None
-
-        # Delete solution data to prevent the saving size to explode
-        self.m2d.odesign.DeleteFullVariation("All", False)
-
-        return result
+    def set_solution_expressions(self):
+        self.expressions = [
+            "V_d1", "V_q1", "V_d3", "V_q3",
+            "Flux_e_d1", "Flux_e_q1", "Flux_e_d3", "Flux_e_q3",
+            "I_d1", "I_q1", "I_d3", "I_q3",
+            "Ld1", "Ld1q1", "Ld1d3", "Ld1q3",
+            "Lq1", "Lq1d3", "Lq1q3",
+            "Ld3", "Ld3q3",
+            "Lq3",
+            "Moving1.Torque"
+        ]
 
     def delete_rotor(self) -> None:
         assert isinstance(self.m2d.modeler, Modeler2D)

@@ -342,7 +342,8 @@ class Design:
         m2d.set_core_losses("Stator", core_loss_on_field=False)
 
         # inductance calculation
-        m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=False)
+        self.inductance_computation()
+
         # model depth
         m2d.model_depth = "StackLength"
         # symmetry
@@ -469,6 +470,9 @@ class Design:
         )
         m2d.add_winding_coils(assignment="PhaseC", coils=["CS4", "CS5", "CS6"])
 
+    def inductance_computation(self):
+        self.m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=False)
+        
     def add_rotor(self) -> None:
         modeler = self.m2d.modeler
         assert isinstance(modeler, Modeler2D)

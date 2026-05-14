@@ -165,4 +165,136 @@ class Design2(Design):
             ("Ld1", "Lq1", "Ld3", "Lq3"): "Inductance_dq main",
             ("Ld1q1", "Ld1d3", "Ld1q3", "Lq1d3", "Lq1q3", "Ld3q3"): "Inductance_dq cross-coupling",
         }
+    
+    def assign_stator_coils(self):
+        m2d = self.m2d
+
+        # Excitations
+        I_A = "Im1*cos(2*pi*f*time+epsI1-pi) + Im3*cos(3*(2*pi*f*time)+epsI3-pi)"
+        I_B = "Im1*cos(2*pi*f*time-72deg+epsI1-pi) + Im3*cos(3*(2*pi*f*time-72deg)+epsI3-pi)"
+        I_C = "Im1*cos(2*pi*f*time-144deg+epsI1-pi) + Im3*cos(3*(2*pi*f*time-144deg)+epsI3-pi)"
+        I_D = "Im1*cos(2*pi*f*time-216deg+epsI1-pi) + Im3*cos(3*(2*pi*f*time-216deg)+epsI3-pi)"
+        I_E = "Im1*cos(2*pi*f*time-288deg+epsI1-pi) + Im3*cos(3*(2*pi*f*time-288deg)+epsI3-pi)"
+        m2d.assign_coil
+        #Define phase windings
+        m2d.assign_coil(
+            assignment=["Coil"],
+            conductors_number="Nc",
+            polarity="Positive",
+            name="CS1",
+        )
+        m2d.assign_coil(
+            assignment=["Coil_1"],
+            conductors_number="Nc",
+            polarity="Negative",
+            name="CS2",
+        )
+        m2d.assign_coil(
+            assignment=["Coil_2"],
+            conductors_number="Nc",
+            polarity="Negative",
+            name="CS3",
+        )
+        m2d.assign_coil(
+            assignment=["Coil_3"],
+            conductors_number="Nc",
+            polarity="Positive",
+            name="CS4",
+        )
+        m2d.assign_coil(
+            assignment=["Coil_4"],
+            conductors_number="Nc",
+            polarity="Positive",
+            name="CS5",
+        )
+        m2d.assign_coil(
+            assignment=["Coil_5"],
+            conductors_number="Nc",
+            polarity="Negative",
+            name="CS6",
+        )
+        m2d.assign_coil(
+            assignment=["Coil_6"],
+            conductors_number="Nc",
+            polarity="Negative",
+            name="CS7",
+        )
+        m2d.assign_coil(
+            assignment=["Coil_7"],
+            conductors_number="Nc",
+            polarity="Positive",
+            name="CS8",
+        )
+        m2d.assign_coil(
+            assignment=["Coil_8"],
+            conductors_number="Nc",
+            polarity="Positive",
+            name="CS9",
+        )
+        m2d.assign_coil(
+            assignment=["Coil_9"],
+            conductors_number="Nc",
+            polarity="Negative",
+            name="CS10",
+        )
+
+        m2d.assign_winding(
+            assignment=None,
+            winding_type="Current",
+            is_solid=False,
+            current=I_A,
+            parallel_branches="ParallelPaths",
+            name="PhaseA",
+        )
+        m2d.assign_winding(
+            assignment=None,
+            winding_type="Current",
+            is_solid=False,
+            current=I_B,
+            parallel_branches="ParallelPaths",
+            name="PhaseB",
+        )
+        m2d.assign_winding(
+            assignment=None,
+            winding_type="Current",
+            is_solid=False,
+            current=I_C,
+            parallel_branches="ParallelPaths",
+            name="PhaseC",
+        )
+        m2d.assign_winding(
+            assignment=None,
+            winding_type="Current",
+            is_solid=False,
+            current=I_D,
+            parallel_branches="ParallelPaths",
+            name="PhaseD",
+        )
+        m2d.assign_winding(
+            assignment=None,
+            winding_type="Current",
+            is_solid=False,
+            current=I_E,
+            parallel_branches="ParallelPaths",
+            name="PhaseE",
+        )
+
+        m2d.add_winding_coils(
+            assignment="PhaseA", coils=["CS1", "CS10"]
+        )
+        m2d.add_winding_coils(
+            assignment="PhaseB", coils=["CS4", "CS5"]
+        )
+        m2d.add_winding_coils(
+            assignment="PhaseC", coils=["CS8", "CS9"]
+        )
+        m2d.add_winding_coils(
+            assignment="PhaseD", coils=["CS2", "CS3"]
+        )
+        m2d.add_winding_coils(
+            assignment="PhaseE", coils=["CS6", "CS7"]
+        )
+
+    def inductance_computation(self):
+        self.m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=True)
 

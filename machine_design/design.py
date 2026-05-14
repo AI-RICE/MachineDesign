@@ -506,7 +506,8 @@ class Design:
         self.rotor_id.subtract(barrier_id)
         modeler.delete(barrier_id)
 
-    def compute(self, NUM_CORES: int = 1):
+    # TODO: change the other arguments to kwargs
+    def compute(self, *args, NUM_CORES: int = 1):
         m2d = self.m2d
         assert m2d.mesh is not None
         assert m2d.post is not None
@@ -521,12 +522,14 @@ class Design:
         # core loss rotor
         m2d.set_core_losses("Rotor", core_loss_on_field=False)
 
+        self.set_variables(*args)
+
         # Analyze
         m2d.analyze_setup(self.setup_name, use_auto_settings=False, cores=NUM_CORES)
 
         solutions = m2d.post.get_solution_data(expressions=self.solution_expressions, primary_sweep_variable="Time")
         try:
-            result = solutions.data_magnitude()
+            result = self.extract_results(solutions)
         except AttributeError:
             result = None
 
@@ -535,6 +538,12 @@ class Design:
 
         return result
 
+    def set_variables(self, *args):
+        pass
+
+    def extract_results(self, solutions):
+        return solutions.data_magnitude()
+    
     def delete_rotor(self) -> None:
         assert isinstance(self.m2d.modeler, Modeler2D)
         self.m2d.modeler.delete(self.rotor_id)

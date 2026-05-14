@@ -36,6 +36,7 @@ class Design:
         self.set_oper_params()
         self.set_rot_points()
         self.set_derived_params()
+        self.set_solution_expressions()
 
     def set_iron(self):
         self.Fe = "Cogent Power - M350-50A, B-H at 50Hz"
@@ -108,6 +109,9 @@ class Design:
     def set_derived_params(self):
         self.rotor_r_min = self.mm_to_str("geom_params", "DiaShaft") / 2
         self.rotor_r_max = self.mm_to_str("geom_params", "DiaStatorGap") / 2 - self.mm_to_str("geom_params", "Airgap")
+
+    def set_solution_expressions(self):
+        self.solution_expressions = "Moving1.Torque"
 
     def create_stator(self) -> None:
         m2d = self.m2d
@@ -505,7 +509,7 @@ class Design:
         # Analyze
         m2d.analyze_setup(self.setup_name, use_auto_settings=False, cores=NUM_CORES)
 
-        solutions = m2d.post.get_solution_data(expressions="Moving1.Torque", primary_sweep_variable="Time")
+        solutions = m2d.post.get_solution_data(expressions=self.solution_expressions, primary_sweep_variable="Time")
         try:
             result = solutions.data_magnitude()
         except AttributeError:

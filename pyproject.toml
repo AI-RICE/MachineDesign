@@ -29,11 +29,13 @@ dependencies=[
     'trame',
     'matplotlib',
     'botorch',
+    'networkx',
 ]
 
 [tool.setuptools]
 packages = [
   "machine_design",
+  "machine_design.lumped",
 ]
 
 [tool.ruff]

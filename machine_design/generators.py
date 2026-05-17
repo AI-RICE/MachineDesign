@@ -1,13 +1,15 @@
 import pickle
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy.interpolate import CubicSpline
 from shapely.geometry import LineString
 
-from .design import Design
 from .geometry import rotate
+
+if TYPE_CHECKING:
+    from .design import Design
 
 
 def get_arc(R: float, start_deg: float, end_deg: float, n_points: int) -> np.ndarray:
@@ -36,7 +38,7 @@ def save_params(params, file_name: str) -> None:
 class BarrierGenerator(ABC):
     # TODO: rename offset
     def __init__(
-        self, design: Design, r_stator_end: float, offset: None | float = None, n_curve: int = 500, n_flat: int = 20
+        self, design: "Design", r_stator_end: float, offset: None | float = None, n_curve: int = 500, n_flat: int = 20
     ) -> None:
         self.r_max = design.rotor_r_max
         self.r_min = design.rotor_r_min

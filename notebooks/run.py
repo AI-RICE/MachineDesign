@@ -56,7 +56,8 @@ for i in range(0, n_designs):
             design.add_rotor_barrier(barrier)
 
         # Compute the torque
-        Tor = design.compute(num_cores)
+        Tor = design.compute(NUM_CORES=num_cores)
+        # Tor = design.compute(num_cores)
         if Tor is None:
             TorAvg, TorRippleRms = np.nan, np.nan
         else:

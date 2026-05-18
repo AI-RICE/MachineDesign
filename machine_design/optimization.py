@@ -40,7 +40,7 @@ def objective_single(X: Tensor, design, generator, bounds, NUM_CORES, **kwargs) 
 
     # Compute the torque
     try:
-        Tor = design.compute(NUM_CORES)
+        Tor = design.compute(NUM_CORES=NUM_CORES)
         TorAvg, _, TorRippleRms = analyze_results(Tor)
     except Exception:
         TorAvg, TorRippleRms = np.nan, np.nan

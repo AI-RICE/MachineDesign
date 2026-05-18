@@ -1,3 +1,5 @@
+import numpy as np
+
 from .design import Design
 
 
@@ -39,7 +41,7 @@ class Design2(Design):
         pass
 
     def set_solution_expressions(self):
-        self.expressions = [
+        self.solution_expressions = [
             "V_d1", "V_q1", "V_d3", "V_q3",
             "Flux_e_d1", "Flux_e_q1", "Flux_e_d3", "Flux_e_q3",
             "I_d1", "I_q1", "I_d3", "I_q3",

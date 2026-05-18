@@ -16,7 +16,11 @@ from .granularity import (
     Granularity,
     sample_granularity,
 )
+from .material import DEFAULT_PERP_WIDTH_M, MU_0, MU_IRON, MU_R_IRON_LINEAR
 from .network import LumpedNetwork, build_network
+from .reluctance import compute_edge_reluctances
+from .solve import assemble_admittance, coenergy, solve_potentials
+from .torque import LumpedTorqueResult, lumped_torque_proxy
 from .visualize import plot_granularity_grid, plot_network
 
 __all__ = [
@@ -31,4 +35,14 @@ __all__ = [
     "build_network",
     "plot_network",
     "plot_granularity_grid",
+    "MU_0",
+    "MU_IRON",
+    "MU_R_IRON_LINEAR",
+    "DEFAULT_PERP_WIDTH_M",
+    "compute_edge_reluctances",
+    "assemble_admittance",
+    "solve_potentials",
+    "coenergy",
+    "lumped_torque_proxy",
+    "LumpedTorqueResult",
 ]

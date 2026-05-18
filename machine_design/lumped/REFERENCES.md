@@ -31,8 +31,15 @@ Tata Steel). Standard datasheet curve. Reproduction:
 
 - B. Heller, V. Hamata, "Harmonic Field Effects in Induction Machines",
   Elsevier, 1977 — for analytical envelope.
-- M350-50A datasheet, Cogent Power — anchor points (TODO: add B–H tabulation
-  when saturation enters the model in M1).
+- M350-50A datasheet, Cogent Power — anchor points.
+
+**v1 (M1)** uses a linear `μ_r = 1000` as a representative low-field
+permeability for M350-50A, consistent with the typical 0.5–1.0 T operating
+range used in published SynRM lumped models (Pyrhönen ch. 7, Lipo ch. 4).
+The actual datasheet curve gives `μ_r ≈ 3000` at B = 0.5 T and `μ_r ≈ 500`
+at B = 1.5 T; the choice of 1000 is intentionally crude and is a structural
+parameter, not a fit. Saturation `μ(B)` is a v2 task (see CLAUDE.md §4
+M1 priority note).
 
 ## Three-phase winding model
 

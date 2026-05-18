@@ -15,6 +15,7 @@ from __future__ import annotations
 import numpy as np
 from shapely.geometry import LineString, Polygon
 
+from .cross_section import edge_cross_section_m2
 from .material import DEFAULT_PERP_WIDTH_M, EDGE_PERP_WIDTH_M, MU_0, MU_IRON
 from .network import LumpedNetwork
 
@@ -99,9 +100,10 @@ def compute_edge_reluctances(net: LumpedNetwork) -> dict[tuple[str, str], float]
     for u, v, d in net.graph.edges(data=True):
         pts, length_mm = _edge_geometry(net, u, v, d)
         length_iron_m, length_air_m = _iron_air_split(pts, length_mm, barrier_polygons, d["kind"])
-        # Per-edge-kind perpendicular width (m), times stack to get area (m²).
-        width = EDGE_PERP_WIDTH_M.get(d["kind"], DEFAULT_PERP_WIDTH_M)
-        A = width * stack_m
+        # v2: per-edge geometric cross-section (m²) based on edge purpose.
+        A = edge_cross_section_m2(net, u, v, d)
+        if A <= 0.0:
+            A = DEFAULT_PERP_WIDTH_M * stack_m
         if length_iron_m + length_air_m <= 1e-12:
             out[(u, v)] = 1e18
             continue

@@ -16,6 +16,7 @@ from .granularity import (
     Granularity,
     sample_granularity,
 )
+from .cross_section import edge_cross_section_m2
 from .material import DEFAULT_PERP_WIDTH_M, MU_0, MU_IRON, MU_R_IRON_LINEAR
 from .network import LumpedNetwork, build_network
 from .reluctance import compute_edge_reluctances
@@ -39,6 +40,7 @@ __all__ = [
     "MU_IRON",
     "MU_R_IRON_LINEAR",
     "DEFAULT_PERP_WIDTH_M",
+    "edge_cross_section_m2",
     "compute_edge_reluctances",
     "assemble_admittance",
     "solve_potentials",

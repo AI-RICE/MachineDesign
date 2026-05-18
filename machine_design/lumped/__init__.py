@@ -16,8 +16,10 @@ from .granularity import (
     Granularity,
     sample_granularity,
 )
+from .bh import mu_r_bh, mu_r_bh_array
 from .cross_section import edge_cross_section_m2
 from .material import DEFAULT_PERP_WIDTH_M, MU_0, MU_IRON, MU_R_IRON_LINEAR
+from .saturation import lumped_torque_proxy_saturated, solve_with_saturation
 from .network import LumpedNetwork, build_network
 from .reluctance import compute_edge_reluctances
 from .solve import assemble_admittance, coenergy, solve_potentials
@@ -47,4 +49,8 @@ __all__ = [
     "coenergy",
     "lumped_torque_proxy",
     "LumpedTorqueResult",
+    "mu_r_bh",
+    "mu_r_bh_array",
+    "solve_with_saturation",
+    "lumped_torque_proxy_saturated",
 ]

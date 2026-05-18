@@ -82,8 +82,16 @@ def _iron_air_split(
     return iron_mm * 1e-3, air_mm * 1e-3
 
 
-def compute_edge_reluctances(net: LumpedNetwork) -> dict[tuple[str, str], float]:
-    """Return {(u, v): R [A·turns/Wb]} for every edge in the network."""
+def compute_edge_reluctances(
+    net: LumpedNetwork,
+    mu_iron_per_edge: dict[tuple[str, str], float] | None = None,
+) -> dict[tuple[str, str], float]:
+    """Return {(u, v): R [A·turns/Wb]} for every edge in the network.
+
+    If `mu_iron_per_edge` is given, it overrides `material.MU_IRON` per edge
+    (used by `saturation.solve_with_saturation` to set a B-dependent μ on
+    iron edges).
+    """
     spec = net.spec
     stack_m = spec.stack_length * 1e-3            # mm → m
 
@@ -107,6 +115,35 @@ def compute_edge_reluctances(net: LumpedNetwork) -> dict[tuple[str, str], float]
         if length_iron_m + length_air_m <= 1e-12:
             out[(u, v)] = 1e18
             continue
-        R = length_iron_m / (MU_IRON * A) + length_air_m / (MU_0 * A)
+        mu_iron_eff = MU_IRON if mu_iron_per_edge is None else mu_iron_per_edge.get((u, v), MU_IRON)
+        R = length_iron_m / (mu_iron_eff * A) + length_air_m / (MU_0 * A)
         out[(u, v)] = max(R, 1e-3)
+    return out
+
+
+def edge_geometry_lengths(net: LumpedNetwork) -> dict[tuple[str, str], tuple[float, float, float]]:
+    """For each edge return (length_iron_m, length_air_m, A_m2).
+
+    Used by the saturation solver to convert flux to B and update μ
+    without re-running the polygon-intersection work.
+    """
+    spec = net.spec
+    stack_m = spec.stack_length * 1e-3
+    barrier_polygons: list[Polygon] = []
+    for poly in net.barrier_polylines:
+        if poly is None or len(poly) < 4:
+            continue
+        try:
+            barrier_polygons.append(Polygon(poly))
+        except Exception:
+            continue
+
+    out: dict[tuple[str, str], tuple[float, float, float]] = {}
+    for u, v, d in net.graph.edges(data=True):
+        pts, length_mm = _edge_geometry(net, u, v, d)
+        length_iron_m, length_air_m = _iron_air_split(pts, length_mm, barrier_polygons, d["kind"])
+        A = edge_cross_section_m2(net, u, v, d)
+        if A <= 0.0:
+            A = DEFAULT_PERP_WIDTH_M * stack_m
+        out[(u, v)] = (length_iron_m, length_air_m, A)
     return out

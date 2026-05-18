@@ -1,0 +1,76 @@
+"""Load a trained PFN checkpoint into a ready-to-use `PFNBoModel`.
+
+Returns the model + its training-time z-score normalisation so callers
+can convert between BO-space (real T units) and PFN-space (z-scored).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+import numpy as np
+import torch
+
+from .library import load_library
+from .model import PFNBoModel
+
+
+@dataclass
+class LoadedPFN:
+    model: PFNBoModel
+    device: torch.device
+    generator_name: str
+    input_dim: int
+    library_path: Path
+    library_sha256: str
+    lumped_tag: str | None
+    granularity_mode: str
+    y_mean: float           # training-time z-score mean (over `T_proxy` at the
+                            # training-time granularity weighting)
+    y_std: float
+
+
+def _device() -> torch.device:
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
+def load_checkpoint(path: str | Path, device: torch.device | None = None) -> LoadedPFN:
+    """Load a checkpoint saved by `machine_design.pfn.train`."""
+    path = Path(path)
+    device = device or _device()
+    payload = torch.load(path, map_location=device, weights_only=False)
+
+    model_cfg = payload["model_config"]
+    model = PFNBoModel(**model_cfg).to(device)
+    model.load_state_dict(payload["state_dict"])
+    model.eval()
+
+    # Re-derive the training-time y-normalisation from the library file.
+    # The library lives at the relative path stored in the checkpoint.
+    lib_path = Path(payload["library_path"])
+    library = load_library(lib_path)
+    g = payload["granularity_mode"]
+    if g == "random":
+        y_all = np.concatenate(list(library.T_proxy.values()))
+    else:
+        y_all = library.T_proxy[g]
+    y_mean = float(y_all.mean())
+    y_std = float(y_all.std() + 1e-12)
+
+    return LoadedPFN(
+        model=model,
+        device=device,
+        generator_name=payload["generator_name"],
+        input_dim=payload["input_dim"],
+        library_path=lib_path,
+        library_sha256=payload["library_sha256"],
+        lumped_tag=payload.get("lumped_tag"),
+        granularity_mode=g,
+        y_mean=y_mean,
+        y_std=y_std,
+    )

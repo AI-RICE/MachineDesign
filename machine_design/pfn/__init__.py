@@ -6,6 +6,7 @@ can meta-train (M2), plus the BoTorch-compatible surrogate that the BO
 loop will call at inference time (M4).
 """
 
+from .checkpoint import LoadedPFN, load_checkpoint
 from .library import (
     LumpedLibrary,
     LumpedLibraryEntry,
@@ -14,6 +15,7 @@ from .library import (
 )
 from .model import PFNBoModel
 from .prior_sampler import PFNTask, PriorSampler
+from .surrogate import PFNSurrogate
 from .train import ModelConfig, TrainConfig, train
 
 __all__ = [
@@ -27,4 +29,7 @@ __all__ = [
     "TrainConfig",
     "ModelConfig",
     "train",
+    "LoadedPFN",
+    "load_checkpoint",
+    "PFNSurrogate",
 ]

@@ -170,3 +170,6 @@ cython_debug/
 
 # M2: lumped libraries (generated artifacts; rebuild via m2_build_library.py)
 libraries/
+
+# M3: PFN checkpoints (large; rebuild via m3_sweep.py)
+checkpoints/

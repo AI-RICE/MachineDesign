@@ -12,7 +12,9 @@ from .library import (
     build_library,
     load_library,
 )
+from .model import PFNBoModel
 from .prior_sampler import PFNTask, PriorSampler
+from .train import ModelConfig, TrainConfig, train
 
 __all__ = [
     "LumpedLibrary",
@@ -21,4 +23,8 @@ __all__ = [
     "load_library",
     "PFNTask",
     "PriorSampler",
+    "PFNBoModel",
+    "TrainConfig",
+    "ModelConfig",
+    "train",
 ]

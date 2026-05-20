@@ -71,7 +71,9 @@ def _sha256_of_file(p: Path) -> str:
     return h.hexdigest()
 
 
-def _device() -> torch.device:
+def _device(override: str | None = None) -> torch.device:
+    if override:
+        return torch.device(override)
     if torch.cuda.is_available():
         return torch.device("cuda")
     if torch.backends.mps.is_available():
@@ -125,15 +127,16 @@ def train(
     granularity_mode: str = "random",
     log_every: int = 100,
     lumped_tag: str | None = None,
+    device_override: str | None = None,
 ) -> None:
     """Run a full training schedule and save the checkpoint."""
-    device = _device()
-    print(f"Device: {device}")
-    print(f"Loading library: {library_path}")
+    device = _device(device_override)
+    print(f"Device: {device}", flush=True)
+    print(f"Loading library: {library_path}", flush=True)
     library = load_library(library_path)
-    print(f"  generator: {library.generator_name}, N={len(library)}, D={library.params.shape[1]}")
+    print(f"  generator: {library.generator_name}, N={len(library)}, D={library.params.shape[1]}", flush=True)
     lib_sha = _sha256_of_file(library_path)
-    print(f"  sha256: {lib_sha[:16]}…")
+    print(f"  sha256: {lib_sha[:16]}…", flush=True)
 
     # Hold out a slice for validation NLL — never seen during training.
     n_val = max(8, int(train_cfg.val_frac * len(library)))
@@ -147,7 +150,7 @@ def train(
     perm = rng.permutation(len(library))
     train_idx = perm[:n_train]
     val_idx = perm[n_train:]
-    print(f"  train: {n_train} rows, val (held-out): {n_val} rows")
+    print(f"  train: {n_train} rows, val (held-out): {n_val} rows", flush=True)
 
     def _slice_library(library, idx):
         # Lightweight in-memory slice — keep the dataclass interface.
@@ -176,8 +179,10 @@ def train(
     )
 
     n_target = 1
-    losses: list[float] = []
+    losses: list[float] = []  # one entry per log_every steps (mean over window)
     val_history: list[tuple[int, float]] = []
+    loss_accum: torch.Tensor | None = None  # device-side running sum, sync'd once per log_every
+    loss_count = 0
 
     t0 = time.time()
     for step in range(1, train_cfg.steps + 1):
@@ -209,21 +214,30 @@ def train(
         torch.nn.utils.clip_grad_norm_(model.parameters(), train_cfg.grad_clip)
         optimizer.step()
         scheduler.step()
-        losses.append(float(nll.item()))
+
+        # Accumulate loss on-device; sync only at log boundaries. On MPS the
+        # per-step `.item()` previously forced a host↔device copy every step,
+        # dominating the wall clock.
+        detached = nll.detach()
+        loss_accum = detached if loss_accum is None else loss_accum + detached
+        loss_count += 1
 
         if step % log_every == 0:
-            recent = float(np.mean(losses[-log_every:]))
+            recent = float((loss_accum / loss_count).item())
+            losses.append(recent)
+            loss_accum = None
+            loss_count = 0
             elapsed = time.time() - t0
             lr_now = scheduler.get_last_lr()[0]
             print(f"  step {step:>6}/{train_cfg.steps}  loss={recent:.4f}  lr={lr_now:.2e}  "
-                  f"elapsed={elapsed:.1f}s")
+                  f"elapsed={elapsed:.1f}s", flush=True)
 
         if step % train_cfg.val_every == 0 or step == train_cfg.steps:
             val_nll = _eval_held_out(model, val_sampler, rng, train_cfg, device, n_eval=64)
             val_history.append((step, val_nll))
-            print(f"    held-out NLL @ step {step}: {val_nll:.4f}")
+            print(f"    held-out NLL @ step {step}: {val_nll:.4f}", flush=True)
 
-    final_loss = float(np.mean(losses[-200:]))
+    final_loss = losses[-1] if losses else float("nan")
     final_val_nll = val_history[-1][1] if val_history else float("nan")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -298,6 +312,8 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument("--nlayers", type=int, default=4)
     # Misc.
     ap.add_argument("--lumped-tag", default="lumped-v3.0-prefrozen")
+    ap.add_argument("--device", default=None,
+                    help="override device: 'cpu', 'mps', 'cuda'. Default: auto.")
     return ap.parse_args()
 
 
@@ -323,6 +339,7 @@ def main() -> int:
         model_cfg=model_cfg,
         granularity_mode=args.granularity,
         lumped_tag=args.lumped_tag,
+        device_override=args.device,
     )
     return 0
 

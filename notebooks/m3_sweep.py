@@ -67,7 +67,7 @@ def main() -> int:
 
         if not args.skip_library:
             _run([
-                sys.executable, "notebooks/m2_build_library.py", gen,
+                sys.executable, "-u", "notebooks/m2_build_library.py", gen,
                 "--n", str(args.n_library),
                 "--workers", str(args.workers),
                 "--seed", str(args.seed),
@@ -77,7 +77,7 @@ def main() -> int:
             print(f"--skip-library: assuming {lib_path} exists")
 
         _run([
-            sys.executable, "-m", "machine_design.pfn.train",
+            sys.executable, "-u", "-m", "machine_design.pfn.train",
             str(lib_path),
             "--out", str(ckpt_path),
             "--granularity", args.granularity,

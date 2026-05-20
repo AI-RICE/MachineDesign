@@ -47,10 +47,13 @@ class PriorSampler:
         if granularity not in {"random", *GRANULARITIES}:
             raise ValueError(f"granularity must be 'random' or one of {set(GRANULARITIES)}")
         self.granularity_mode = granularity
-        # Normalise y per granularity for stable PFN training. The PFN sees
-        # zero-mean unit-variance targets; downstream code can de-normalise.
-        self._mean = {g: float(np.mean(y)) for g, y in library.T_proxy.items()}
-        self._std = {g: float(np.std(y) + 1e-12) for g, y in library.T_proxy.items()}
+        # y is normalised PER TASK (PFNs4BO standard): each context+target
+        # batch is z-scored by its own mean/std before being shown to the PFN.
+        # This decouples training-time scale from the absolute units of the
+        # underlying lumped solver (or, at inference, any other oracle), so
+        # the same PFN can be applied to FEA T_mean (~5 N·m) or lumped
+        # T_proxy (~1e12) without recalibration. Per-context normalisation
+        # at inference mirrors this — see machine_design/pfn/surrogate.py.
 
     @property
     def input_dim(self) -> int:
@@ -84,7 +87,9 @@ class PriorSampler:
         y_all = self.library.T_proxy[gran][idx]
         x_all = self.library.params[idx]
         if normalise:
-            y_all = (y_all - self._mean[gran]) / self._std[gran]
+            mean = float(np.mean(y_all))
+            std = float(np.std(y_all) + 1e-12)
+            y_all = (y_all - mean) / std
         return PFNTask(
             x_context=x_all[:n_context],
             y_context=y_all[:n_context],

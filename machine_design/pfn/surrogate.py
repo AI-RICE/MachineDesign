@@ -142,6 +142,8 @@ class PFNSurrogate(Model):
         y_mean: float,
         y_std: float,
         device: torch.device | None = None,
+        x_mean: torch.Tensor | None = None,
+        x_std: torch.Tensor | None = None,
     ) -> None:
         super().__init__()
         if train_Y.ndim != 2 or train_Y.shape[1] != 1:
@@ -151,11 +153,20 @@ class PFNSurrogate(Model):
                              f"{train_X.shape[0]} vs {train_Y.shape[0]}")
         self.pfn = pfn
         self.device = device or next(pfn.parameters()).device
-        self.train_X = train_X.to(self.device, dtype=torch.float32)
         # train_Y is expected pre-normalised (z-scored). Stored as-is.
         self.train_Y = train_Y.to(self.device, dtype=torch.float32)
         self.y_mean = float(y_mean)
         self.y_std = float(y_std)
+        # X normalisation must match the training-time stats so the encoder
+        # sees inputs at the magnitudes it learned on.
+        if x_mean is not None and x_std is not None:
+            self.x_mean = x_mean.to(self.device, dtype=torch.float32)
+            self.x_std = x_std.to(self.device, dtype=torch.float32)
+            self.train_X = (train_X.to(self.device, dtype=torch.float32) - self.x_mean) / self.x_std
+        else:
+            self.x_mean = None
+            self.x_std = None
+            self.train_X = train_X.to(self.device, dtype=torch.float32)
 
     @classmethod
     def from_loaded_with_real_Y(
@@ -164,15 +175,36 @@ class PFNSurrogate(Model):
         train_X: torch.Tensor,
         train_Y_real: torch.Tensor,
     ) -> "PFNSurrogate":
-        """Construct a surrogate from real-unit Y values; normalises internally."""
-        train_Y_norm = (train_Y_real - loaded.y_mean) / loaded.y_std
+        """Construct a surrogate from real-unit Y values; normalises internally.
+
+        Per-context normalisation (PFNs4BO standard): the context y-values are
+        z-scored by their own mean/std before being fed to the PFN. The
+        checkpoint's global y_mean/y_std are ignored because training used
+        per-granularity stats whose scale does not match arbitrary inference
+        data (in particular, FEA T_mean values are ~12 orders of magnitude
+        smaller than lumped T_proxy, and any single global normaliser collapses
+        them to a near-constant context).
+        """
+        ctx_mean = float(train_Y_real.mean().item())
+        ctx_std = float(train_Y_real.std().item())
+        if not (ctx_std > 1e-12):  # degenerate context (n=1 or all equal)
+            ctx_std = max(abs(ctx_mean), 1.0) * 1e-3
+        train_Y_norm = (train_Y_real - ctx_mean) / ctx_std
+        x_mean_t = (
+            torch.from_numpy(loaded.x_mean) if loaded.x_mean is not None else None
+        )
+        x_std_t = (
+            torch.from_numpy(loaded.x_std) if loaded.x_std is not None else None
+        )
         return cls(
             pfn=loaded.model,
             train_X=train_X,
             train_Y=train_Y_norm,
-            y_mean=loaded.y_mean,
-            y_std=loaded.y_std,
+            y_mean=ctx_mean,
+            y_std=ctx_std,
             device=loaded.device,
+            x_mean=x_mean_t,
+            x_std=x_std_t,
         )
 
     def denormalise_mean(self, mean_norm: torch.Tensor) -> torch.Tensor:
@@ -192,7 +224,13 @@ class PFNSurrogate(Model):
 
     def condition_on_observations(self, X: torch.Tensor, Y: torch.Tensor, **kwargs) -> "PFNSurrogate":
         """Return a new surrogate with `(X, Y)` appended to the context."""
-        new_X = torch.cat([self.train_X, X.to(self.train_X)], dim=0)
+        # self.train_X is already x-normalised; we must de-normalise it back
+        # to raw units before re-applying normalisation in __init__.
+        if self.x_mean is not None:
+            train_X_raw = self.train_X * self.x_std + self.x_mean
+        else:
+            train_X_raw = self.train_X
+        new_X = torch.cat([train_X_raw, X.to(train_X_raw)], dim=0)
         new_Y = torch.cat([self.train_Y, Y.to(self.train_Y)], dim=0)
         return PFNSurrogate(
             pfn=self.pfn,
@@ -201,6 +239,8 @@ class PFNSurrogate(Model):
             y_mean=self.y_mean,
             y_std=self.y_std,
             device=self.device,
+            x_mean=self.x_mean,
+            x_std=self.x_std,
         )
 
     # ------------------------------------------------------------------
@@ -226,6 +266,10 @@ class PFNSurrogate(Model):
         q = orig_shape[-2]
         batch_shape = orig_shape[:-2]
         X_flat = X.reshape(-1, q, D).to(self.device, dtype=torch.float32)  # (B, q, D)
+        # Apply the same x normalisation used at training (and on train_X
+        # in __init__) to the test points.
+        if self.x_mean is not None:
+            X_flat = (X_flat - self.x_mean) / self.x_std
         B = X_flat.shape[0]
 
         # The PFN's TableTransformer expects `(n_seq, batch, D)` for x and

@@ -29,6 +29,8 @@ class LoadedPFN:
     y_mean: float           # training-time z-score mean (over `T_proxy` at the
                             # training-time granularity weighting)
     y_std: float
+    x_mean: np.ndarray | None  # per-dim x normalisation from training; None on legacy checkpoints
+    x_std: np.ndarray | None
 
 
 def _device() -> torch.device:
@@ -62,6 +64,8 @@ def load_checkpoint(path: str | Path, device: torch.device | None = None) -> Loa
     y_mean = float(y_all.mean())
     y_std = float(y_all.std() + 1e-12)
 
+    x_mean = payload.get("x_mean")
+    x_std = payload.get("x_std")
     return LoadedPFN(
         model=model,
         device=device,
@@ -73,4 +77,6 @@ def load_checkpoint(path: str | Path, device: torch.device | None = None) -> Loa
         granularity_mode=g,
         y_mean=y_mean,
         y_std=y_std,
+        x_mean=np.asarray(x_mean, dtype=np.float32) if x_mean is not None else None,
+        x_std=np.asarray(x_std, dtype=np.float32) if x_std is not None else None,
     )

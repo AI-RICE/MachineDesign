@@ -167,6 +167,18 @@ def train(
     train_sampler = PriorSampler(train_lib, granularity=granularity_mode)
     val_sampler = PriorSampler(val_lib, granularity=granularity_mode)
 
+    # Per-dimension X normalisation: PFNs are sensitive to input scale. The
+    # default linear encoder over raw `params` (D values ranging from O(0.25)
+    # to O(44) across dimensions) was empirically collapsing the model to the
+    # marginal predictor. We z-score per dimension using the full library so
+    # the encoder sees inputs with comparable magnitudes across all D.
+    x_mean = library.params.mean(axis=0).astype(np.float32)
+    x_std = (library.params.std(axis=0) + 1e-12).astype(np.float32)
+    x_mean_t = torch.from_numpy(x_mean).to(device)
+    x_std_t = torch.from_numpy(x_std).to(device)
+    print(f"  x normalisation (per-dim, from library): mean={x_mean.tolist()}", flush=True)
+    print(f"                                            std ={x_std.tolist()}", flush=True)
+
     # Model.
     model = PFNBoModel(**asdict(model_cfg)).to(device)
     optimizer = torch.optim.AdamW(
@@ -199,6 +211,7 @@ def train(
         x_seq = x_seq.to(device)
         y_ctx = y_ctx.to(device)
         y_tgt = y_tgt.to(device)
+        x_seq = (x_seq - x_mean_t) / x_std_t
 
         logits = model((None, x_seq, y_ctx), single_eval_pos=n_context)
         if logits.shape[0] == n_target:
@@ -233,7 +246,10 @@ def train(
                   f"elapsed={elapsed:.1f}s", flush=True)
 
         if step % train_cfg.val_every == 0 or step == train_cfg.steps:
-            val_nll = _eval_held_out(model, val_sampler, rng, train_cfg, device, n_eval=64)
+            val_nll = _eval_held_out(
+                model, val_sampler, rng, train_cfg, device, n_eval=64,
+                x_mean_t=x_mean_t, x_std_t=x_std_t,
+            )
             val_history.append((step, val_nll))
             print(f"    held-out NLL @ step {step}: {val_nll:.4f}", flush=True)
 
@@ -255,6 +271,8 @@ def train(
         "final_train_loss": final_loss,
         "final_held_out_nll": final_val_nll,
         "val_history": val_history,
+        "x_mean": x_mean,  # per-dim x normalisation, applied at training; surrogate must mirror
+        "x_std": x_std,
     }
     torch.save(payload, output_path)
     print(f"\nSaved checkpoint: {output_path}")
@@ -269,6 +287,8 @@ def _eval_held_out(
     cfg: TrainConfig,
     device: torch.device,
     n_eval: int = 64,
+    x_mean_t: torch.Tensor | None = None,
+    x_std_t: torch.Tensor | None = None,
 ) -> float:
     """Mean NLL across `n_eval` independent held-out tasks."""
     model.eval()
@@ -282,6 +302,8 @@ def _eval_held_out(
             x_seq = x_seq.to(device)
             y_ctx = y_ctx.to(device)
             y_tgt = y_tgt.to(device)
+            if x_mean_t is not None and x_std_t is not None:
+                x_seq = (x_seq - x_mean_t) / x_std_t
             logits = model((None, x_seq, y_ctx), single_eval_pos=n_context)
             logits_tgt = logits[-n_target:].reshape(-1, model.num_bins)
             targets = y_tgt.reshape(-1)

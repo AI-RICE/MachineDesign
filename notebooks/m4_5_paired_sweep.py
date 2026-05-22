@@ -131,8 +131,9 @@ def _acquire_feasible(
         )
         n_acqf_calls += 1
         for c in cand.detach().cpu().numpy():
+            c = np.asarray(c, dtype=np.float64)
             if _is_feasible(gen, c):
-                feasible.append(c.astype(np.float32))
+                feasible.append(c)
                 if len(feasible) >= q:
                     break
         if len(feasible) >= q:
@@ -143,11 +144,16 @@ def _acquire_feasible(
         lo, hi = gen.bounds
         while len(feasible) < q and n_uniform_tries < max_uniform_tries:
             n_uniform_tries += 1
-            c = rng.uniform(lo, hi).astype(np.float32)
+            # IMPORTANT: keep float64 — feasibility is determined by exact
+            # polygon-intersection checks, and float32 rounding (~1e-7) is
+            # enough to push otherwise-feasible barrier curves *just* outside
+            # the polyline range, dropping feasibility from ~98% to 0% in
+            # 13-D ThreeBrokenLines.
+            c = rng.uniform(lo, hi)  # float64
             if _is_feasible(gen, c):
                 feasible.append(c)
 
-    return np.stack(feasible[:q]) if feasible else np.zeros((0, len(gen.bounds[0])), dtype=np.float32), {
+    return np.stack(feasible[:q]) if feasible else np.zeros((0, len(gen.bounds[0])), dtype=np.float64), {
         "n_acqf_calls": n_acqf_calls,
         "n_uniform_tries": n_uniform_tries,
         "n_feasible_obtained": len(feasible),

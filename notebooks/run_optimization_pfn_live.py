@@ -54,7 +54,15 @@ from machine_design import (
 from machine_design.pfn import PFNSurrogate, load_checkpoint
 
 
-torch.set_default_dtype(torch.float64)
+# PFN was trained at float32 and surrogate.py.posterior() casts inputs to
+# float32. We deliberately do NOT set the BoTorch-recommended float64 default
+# here: doing so causes the PFN to be re-materialised at float64 (some inner
+# positional / buffer tensors propagate the default dtype) while inputs are
+# still float32, producing "mat1 and mat2 must have the same dtype" errors
+# during qLogEI's acquisition forward pass. Without input_transform=Normalize
+# the BoTorch float64 recommendation does not buy us much here, since the
+# PFN's internal x_mean/x_std-based normalisation handles scale.
+torch.set_default_dtype(torch.float32)
 
 
 # ---------------------------------------------------------------------------
@@ -107,7 +115,7 @@ method = generator.__class__.__name__
 
 ref_no_cons_torque, ref_no_cons_ripple = objective_transform(ref_no_cons["torque"], ref_no_cons["ripple"])
 objective_fallback_tuple = (objective_fallback["torque"], objective_fallback["ripple"])
-ref_point = torch.tensor([ref_no_cons_torque, ref_no_cons_ripple], dtype=torch.float64)
+ref_point = torch.tensor([ref_no_cons_torque, ref_no_cons_ripple], dtype=torch.float32)
 
 if output_name.exists():
     _print(f"  resuming from {output_name}")
@@ -145,7 +153,7 @@ def _objective_lambda(Xs_norm):
 
 def _penalty_objective(n_penalty: int) -> torch.Tensor:
     obj = objective_transform(None, None, objective_fallback=objective_fallback_tuple)
-    return torch.tensor(obj, dtype=torch.float64).repeat(n_penalty, 1)
+    return torch.tensor(obj, dtype=torch.float32).repeat(n_penalty, 1)
 
 
 def _hv(Y: torch.Tensor) -> float:
@@ -197,12 +205,12 @@ while len(train_X_raw) < n_evals:
     n_acqf_calls = 0
     for _ in range(max_candidate_tries):
         cand, _ = optimize_acqf(
-            acq_function=acq, bounds=bounds.to(torch.float64),
+            acq_function=acq, bounds=bounds.to(torch.float32),
             q=batch_size, num_restarts=10, raw_samples=256,
         )
         n_acqf_calls += 1
         for c in cand:
-            c64 = c.to(torch.float64)
+            c64 = c.to(torch.float32)
             if _is_feasible(np.asarray(c64.cpu().numpy(), dtype=np.float64)):
                 candidates_feasible.append(c64)
             else:
@@ -228,8 +236,8 @@ while len(train_X_raw) < n_evals:
         cand_norm = normalize(cand_raw, bounds)
         new_Y_all = _objective_lambda(cand_norm)
     else:
-        cand_raw = torch.empty((0, D), dtype=torch.float64)
-        new_Y_all = torch.empty((0, 2), dtype=torch.float64)
+        cand_raw = torch.empty((0, D), dtype=torch.float32)
+        new_Y_all = torch.empty((0, 2), dtype=torch.float32)
     if n_missing > 0:
         cand_raw = torch.cat([cand_raw, torch.stack(candidates_infeasible[:n_missing])], dim=0)
         new_Y_all = torch.cat([new_Y_all, _penalty_objective(n_missing)], dim=0)

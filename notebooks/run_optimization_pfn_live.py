@@ -126,7 +126,13 @@ D = bounds.shape[1]
 
 # Load PFN once; reused each step via from_loaded_with_real_Y.
 loaded = load_checkpoint(pfn_checkpoint_path)
-_print(f"  PFN loaded: D={loaded.input_dim}, x_mean/std present={loaded.x_mean is not None}")
+# torch.set_default_dtype(float64) above causes the PFN's nn.Linear layers
+# to be created with float64 weights. The PFN was trained at float32 and
+# surrogate.py.posterior() casts inputs to float32, producing a
+# "mat1 and mat2 must have the same dtype" mismatch. Force the model
+# back to float32 to match the inference path.
+loaded.model = loaded.model.to(torch.float32)
+_print(f"  PFN loaded: D={loaded.input_dim}, x_mean/std present={loaded.x_mean is not None}, dtype=float32")
 
 
 def _objective_lambda(Xs_norm):

@@ -120,7 +120,7 @@ def _stack_batch(
 
 
 def train(
-    library_path: Path,
+    library_path: Path | None,
     output_path: Path,
     train_cfg: TrainConfig,
     model_cfg: ModelConfig,
@@ -128,55 +128,100 @@ def train(
     log_every: int = 100,
     lumped_tag: str | None = None,
     device_override: str | None = None,
+    prior_kind: str = "lumped",
+    generator_name: str | None = None,
 ) -> None:
-    """Run a full training schedule and save the checkpoint."""
+    """Run a full training schedule and save the checkpoint.
+
+    `prior_kind="lumped"` (default): library-backed matched prior (current pipeline).
+    `prior_kind="gp"`: on-the-fly GP-prior sampler (§12.5.P4 sanity-check / negative
+    control); `generator_name` supplies the input bounds and dimensionality, and
+    `library_path` is ignored.
+    """
     device = _device(device_override)
     print(f"Device: {device}", flush=True)
-    print(f"Loading library: {library_path}", flush=True)
-    library = load_library(library_path)
-    print(f"  generator: {library.generator_name}, N={len(library)}, D={library.params.shape[1]}", flush=True)
-    lib_sha = _sha256_of_file(library_path)
-    print(f"  sha256: {lib_sha[:16]}…", flush=True)
-
-    # Hold out a slice for validation NLL — never seen during training.
-    n_val = max(8, int(train_cfg.val_frac * len(library)))
-    n_train = len(library) - n_val
-    if n_val < 4 or n_train < 4 * train_cfg.n_context_max:
-        raise RuntimeError(
-            f"library too small: n_train={n_train}, n_val={n_val}, "
-            f"need n_train ≥ 4·n_context_max = {4 * train_cfg.n_context_max}"
-        )
     rng = np.random.default_rng(train_cfg.seed)
-    perm = rng.permutation(len(library))
-    train_idx = perm[:n_train]
-    val_idx = perm[n_train:]
-    print(f"  train: {n_train} rows, val (held-out): {n_val} rows", flush=True)
 
-    def _slice_library(library, idx):
-        # Lightweight in-memory slice — keep the dataclass interface.
-        from copy import copy
-        new = copy(library)
-        new.params = library.params[idx]
-        new.T_proxy = {g: arr[idx] for g, arr in library.T_proxy.items()}
-        new.W_d_fine = library.W_d_fine[idx]
-        new.W_q_fine = library.W_q_fine[idx]
-        return new
+    if prior_kind == "lumped":
+        print(f"Loading library: {library_path}", flush=True)
+        library = load_library(library_path)
+        print(f"  generator: {library.generator_name}, N={len(library)}, D={library.params.shape[1]}", flush=True)
+        lib_sha = _sha256_of_file(library_path)
+        print(f"  sha256: {lib_sha[:16]}…", flush=True)
 
-    train_lib = _slice_library(library, train_idx)
-    val_lib = _slice_library(library, val_idx)
-    train_sampler = PriorSampler(train_lib, granularity=granularity_mode)
-    val_sampler = PriorSampler(val_lib, granularity=granularity_mode)
+        # Hold out a slice for validation NLL — never seen during training.
+        n_val = max(8, int(train_cfg.val_frac * len(library)))
+        n_train = len(library) - n_val
+        if n_val < 4 or n_train < 4 * train_cfg.n_context_max:
+            raise RuntimeError(
+                f"library too small: n_train={n_train}, n_val={n_val}, "
+                f"need n_train ≥ 4·n_context_max = {4 * train_cfg.n_context_max}"
+            )
+        perm = rng.permutation(len(library))
+        train_idx = perm[:n_train]
+        val_idx = perm[n_train:]
+        print(f"  train: {n_train} rows, val (held-out): {n_val} rows", flush=True)
 
-    # Per-dimension X normalisation: PFNs are sensitive to input scale. The
-    # default linear encoder over raw `params` (D values ranging from O(0.25)
-    # to O(44) across dimensions) was empirically collapsing the model to the
-    # marginal predictor. We z-score per dimension using the full library so
-    # the encoder sees inputs with comparable magnitudes across all D.
-    x_mean = library.params.mean(axis=0).astype(np.float32)
-    x_std = (library.params.std(axis=0) + 1e-12).astype(np.float32)
+        def _slice_library(library, idx):
+            # Lightweight in-memory slice — keep the dataclass interface.
+            from copy import copy
+            new = copy(library)
+            new.params = library.params[idx]
+            new.T_proxy = {g: arr[idx] for g, arr in library.T_proxy.items()}
+            new.W_d_fine = library.W_d_fine[idx]
+            new.W_q_fine = library.W_q_fine[idx]
+            return new
+
+        train_lib = _slice_library(library, train_idx)
+        val_lib = _slice_library(library, val_idx)
+        train_sampler = PriorSampler(train_lib, granularity=granularity_mode)
+        val_sampler = PriorSampler(val_lib, granularity=granularity_mode)
+        gen_name_payload = library.generator_name
+        lib_sha_payload = lib_sha
+        lib_path_payload = str(library_path)
+
+        # Per-dimension X normalisation from the library — see prior pipeline notes.
+        x_mean = library.params.mean(axis=0).astype(np.float32)
+        x_std = (library.params.std(axis=0) + 1e-12).astype(np.float32)
+        print(f"  x normalisation (per-dim, from library): mean={x_mean.tolist()}", flush=True)
+    elif prior_kind == "gp":
+        from machine_design.generators import (
+            HacklGenerator_3BrokenLines,
+            HacklGenerator_OneLambda,
+            HacklGenerator_SixLambdas,
+        )
+        from machine_design.lumped import REFERENCE_MACHINE
+        from .gp_prior_sampler import GPPriorSampler
+
+        gen_cls = {
+            "OneLambda": HacklGenerator_OneLambda,
+            "SixLambdas": HacklGenerator_SixLambdas,
+            "ThreeBrokenLines": HacklGenerator_3BrokenLines,
+        }[generator_name]
+        gen = gen_cls(REFERENCE_MACHINE, r_stator_end=0.7, offset=0.35)
+        lo, hi = gen.bounds
+        bounds = np.stack([np.asarray(lo, dtype=np.float64), np.asarray(hi, dtype=np.float64)])
+        D = bounds.shape[1]
+        print(f"  GP-prior PFN: generator={generator_name}  D={D}", flush=True)
+        print(f"  bounds[lo]={bounds[0].tolist()}", flush=True)
+        print(f"  bounds[hi]={bounds[1].tolist()}", flush=True)
+        train_sampler = GPPriorSampler(input_dim=D, bounds=bounds)
+        # Independent val sampler — different stream, same distribution.
+        val_sampler = GPPriorSampler(input_dim=D, bounds=bounds)
+        gen_name_payload = generator_name
+        lib_sha_payload = "gp-prior-no-library"
+        lib_path_payload = "gp-prior-no-library"
+
+        # Per-dim X normalisation derived from the uniform-on-bounds distribution:
+        # mean = midpoint, std = (hi - lo) / sqrt(12) (variance of U(lo, hi)).
+        x_mean = ((bounds[0] + bounds[1]) / 2.0).astype(np.float32)
+        x_std = ((bounds[1] - bounds[0]) / np.sqrt(12.0) + 1e-12).astype(np.float32)
+        print(f"  x normalisation (per-dim, from uniform-on-bounds): mean={x_mean.tolist()}", flush=True)
+    else:
+        raise ValueError(f"unknown prior_kind: {prior_kind!r}")
+
     x_mean_t = torch.from_numpy(x_mean).to(device)
     x_std_t = torch.from_numpy(x_std).to(device)
-    print(f"  x normalisation (per-dim, from library): mean={x_mean.tolist()}", flush=True)
     print(f"                                            std ={x_std.tolist()}", flush=True)
 
     # Model.
@@ -261,12 +306,13 @@ def train(
         "state_dict": model.state_dict(),
         "model_config": asdict(model_cfg),
         "train_config": asdict(train_cfg),
-        "library_path": str(library_path),
-        "library_sha256": lib_sha,
+        "library_path": lib_path_payload,
+        "library_sha256": lib_sha_payload,
         "lumped_tag": lumped_tag,
         "granularity_mode": granularity_mode,
-        "generator_name": library.generator_name,
-        "input_dim": int(library.params.shape[1]),
+        "generator_name": gen_name_payload,
+        "input_dim": int(x_mean.shape[0]),
+        "prior_kind": prior_kind,
         "steps": train_cfg.steps,
         "final_train_loss": final_loss,
         "final_held_out_nll": final_val_nll,
@@ -314,10 +360,17 @@ def _eval_held_out(
 
 def _parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser()
-    ap.add_argument("library", type=Path, help="path to .npz library")
+    ap.add_argument("library", type=Path, nargs="?", default=None,
+                    help="path to .npz library (required if --prior=lumped, ignored if --prior=gp)")
     ap.add_argument("--out", type=Path, required=True, help="output checkpoint .pt")
     ap.add_argument("--granularity", default="random",
                     choices=["random", "COARSE", "MEDIUM", "FINE"])
+    # Prior selection (lumped = original matched prior; gp = §12.5.P4 negative control).
+    ap.add_argument("--prior", default="lumped", choices=["lumped", "gp"],
+                    help="lumped = library-backed matched prior; gp = on-the-fly GP-prior PFN")
+    ap.add_argument("--generator", default=None,
+                    choices=["OneLambda", "SixLambdas", "ThreeBrokenLines"],
+                    help="required for --prior=gp; supplies bounds + input_dim")
     # Train.
     ap.add_argument("--steps", type=int, default=20_000)
     ap.add_argument("--batch-size", type=int, default=64)
@@ -336,7 +389,12 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument("--lumped-tag", default="lumped-v3.0-prefrozen")
     ap.add_argument("--device", default=None,
                     help="override device: 'cpu', 'mps', 'cuda'. Default: auto.")
-    return ap.parse_args()
+    args = ap.parse_args()
+    if args.prior == "lumped" and args.library is None:
+        ap.error("--prior=lumped requires a positional library path")
+    if args.prior == "gp" and args.generator is None:
+        ap.error("--prior=gp requires --generator (for bounds + D)")
+    return args
 
 
 def main() -> int:
@@ -362,6 +420,8 @@ def main() -> int:
         granularity_mode=args.granularity,
         lumped_tag=args.lumped_tag,
         device_override=args.device,
+        prior_kind=args.prior,
+        generator_name=args.generator,
     )
     return 0
 

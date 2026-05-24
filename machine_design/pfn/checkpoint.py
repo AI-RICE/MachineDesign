@@ -53,16 +53,25 @@ def load_checkpoint(path: str | Path, device: torch.device | None = None) -> Loa
     model.eval()
 
     # Re-derive the training-time y-normalisation from the library file.
-    # The library lives at the relative path stored in the checkpoint.
-    lib_path = Path(payload["library_path"])
-    library = load_library(lib_path)
-    g = payload["granularity_mode"]
-    if g == "random":
-        y_all = np.concatenate(list(library.T_proxy.values()))
+    # For GP-prior PFNs (§12.5.P4) there is no library; per-context y-norm at
+    # inference (PFNSurrogate.from_loaded_with_real_Y) handles the scale, so
+    # the stored y_mean/y_std are effectively unused but we must set defaults.
+    prior_kind = payload.get("prior_kind", "lumped")
+    lib_path_str = payload.get("library_path", "")
+    if prior_kind == "gp" or lib_path_str in ("", "gp-prior-no-library"):
+        lib_path = Path("gp-prior-no-library")
+        y_mean = 0.0
+        y_std = 1.0
     else:
-        y_all = library.T_proxy[g]
-    y_mean = float(y_all.mean())
-    y_std = float(y_all.std() + 1e-12)
+        lib_path = Path(lib_path_str)
+        library = load_library(lib_path)
+        g = payload["granularity_mode"]
+        if g == "random":
+            y_all = np.concatenate(list(library.T_proxy.values()))
+        else:
+            y_all = library.T_proxy[g]
+        y_mean = float(y_all.mean())
+        y_std = float(y_all.std() + 1e-12)
 
     x_mean = payload.get("x_mean")
     x_std = payload.get("x_std")
@@ -74,7 +83,7 @@ def load_checkpoint(path: str | Path, device: torch.device | None = None) -> Loa
         library_path=lib_path,
         library_sha256=payload["library_sha256"],
         lumped_tag=payload.get("lumped_tag"),
-        granularity_mode=g,
+        granularity_mode=payload.get("granularity_mode", "GP"),
         y_mean=y_mean,
         y_std=y_std,
         x_mean=np.asarray(x_mean, dtype=np.float32) if x_mean is not None else None,

@@ -38,6 +38,11 @@ from scipy.stats import spearmanr
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.ensemble import GradientBoostingRegressor
 
+from botorch.fit import fit_gpytorch_mll
+from botorch.models import SingleTaskGP
+from botorch.models.transforms.input import Normalize
+from gpytorch.mlls import ExactMarginalLogLikelihood
+
 from machine_design.fea_emulator import load_fea_designs
 from machine_design.pfn import PFNSurrogate, load_checkpoint
 
@@ -119,6 +124,33 @@ def main() -> int:
         rows.append({"model": "GBM (FEA-trained, non-parametric)", "n_train": n, **m})
         print(f"GBM(n={n:>4}): RMSE={m['rmse']:.4f}  ρ={m['spearman_rho']:+.3f}  R²={m['r2']:+.3f}")
 
+    # 1c. SingleTaskGP (Matern + ARD, Type-II ML fit), same protocol as the
+    #     ICEM2026 GP-EHVI baseline. If GP-prior PFN ≈ GP at the same n, our
+    #     PFN training is healthy. If PFN ≪ GP, the PFN is under-trained or
+    #     architecture-bound (independent of which prior class).
+    bounds_np = np.stack([X_pool.min(axis=0), X_pool.max(axis=0)])
+    bounds_t = torch.from_numpy(bounds_np.astype(np.float64))
+    for n in [16, 32, 64, 128, 256]:
+        gp_idx = rng.choice(len(X_pool), n, replace=False)
+        X_tr = torch.from_numpy(X_pool[gp_idx].astype(np.float64))
+        Y_tr = torch.from_numpy(T_pool[gp_idx].astype(np.float64)).unsqueeze(-1)
+        try:
+            gp = SingleTaskGP(
+                X_tr, Y_tr,
+                input_transform=Normalize(d=X_tr.shape[1], bounds=bounds_t),
+            )
+            fit_gpytorch_mll(ExactMarginalLogLikelihood(gp.likelihood, gp))
+            gp.eval()
+            with torch.no_grad():
+                X_te = torch.from_numpy(X_test.astype(np.float64))
+                gp_pred = gp.posterior(X_te).mean.squeeze(-1).cpu().numpy()
+            m = _metrics(T_test, gp_pred)
+        except Exception as e:
+            print(f"GP(n={n:>4}): FIT FAILED ({type(e).__name__}: {e})")
+            continue
+        rows.append({"model": "GP (SingleTaskGP, Matern+ARD, Type-II ML)", "n_train": n, **m})
+        print(f"GP (n={n:>4}): RMSE={m['rmse']:.4f}  ρ={m['spearman_rho']:+.3f}  R²={m['r2']:+.3f}")
+
     # === Diagnostic 3: PFN saturation with context (16, 32, 50, 64) ===
     print("\n--- PFN saturation with context ---")
     for n_ctx in [16, 32, 50, 64]:
@@ -137,11 +169,14 @@ def main() -> int:
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.5))
 
     gbm_rows = df[df["model"].str.startswith("GBM")]
+    gp_rows = df[df["model"].str.startswith("GP (SingleTaskGP")]
     pfn_main = df[df["model"] == "PFN (matched lumped prior)"].iloc[0]
     pfn_sat = df[df["model"].str.startswith("PFN(ctx=")]
 
-    # Panel 1: RMSE vs n_train (GBM curve + PFN horizontal)
+    # Panel 1: RMSE vs n_train (GBM + GP curves + PFN horizontal)
     axes[0].loglog(gbm_rows["n_train"], gbm_rows["rmse"], "o-", label="GBM (FEA-trained)", color="#1f78b4")
+    if len(gp_rows):
+        axes[0].loglog(gp_rows["n_train"], gp_rows["rmse"], "s-", label="GP (Matern+ARD, ML)", color="#33a02c")
     axes[0].axhline(pfn_main["rmse"], color="#e31a1c", ls="--",
                     label=f"PFN(ctx={pfn_ctx_n}) RMSE={pfn_main['rmse']:.3f}")
     axes[0].set_xlabel("n training FEA designs (log)")

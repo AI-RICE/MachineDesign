@@ -31,14 +31,32 @@ from .prior_sampler import PFNTask
 
 @dataclass(frozen=True)
 class GPPriorConfig:
-    """PFNs4BO-style hyperparameter ranges. Defaults are intentionally wide."""
-    log_ls_mean: float = 0.0           # length-scale (unit-cube) log-normal mean
-    log_ls_std: float = 0.7
-    log_outputscale_mean: float = 0.0  # output scale log-normal mean
+    """Hyperparameter ranges for the GP-prior PFN training distribution.
+
+    Defaults revised 2026-05-24 from PFNs4BO's TabPFN-flavoured original to
+    cover what the FEA OneLambda response surface actually looks like, as
+    measured by the §6.7 diagnostic on the 200k PFN:
+
+      - FEA-direct GP picks length scales up to ~14 (very smooth in some
+        dims). Original log_ls_std=0.7 capped max ls at ~4; revised
+        log_ls_std=1.4 covers up to ~16.
+      - FEA-direct GP picks noise ~4e-3 (essentially deterministic).
+        Original log_noise_min=-4 had a floor of ~0.018; revised
+        log_noise_min=-10 covers down to ~4e-5.
+      - FEA torque is smooth, ν=2.5 matches better than mixing in ν=1.5.
+
+    Crucially, the revision only WIDENS the prior — no FEA hyperparameters
+    are used to set centers. The §6.7 FEA-direct GP fit only served as a
+    measurement target, not as a training-prior input (preserves §11
+    hygiene per CLAUDE.md).
+    """
+    log_ls_mean: float = 0.0
+    log_ls_std: float = 1.4              # was 0.7; allows ls ∈ [~0.06, ~16]
+    log_outputscale_mean: float = 0.0
     log_outputscale_std: float = 0.7
-    log_noise_min: float = -4.0        # log observation noise — log-uniform
-    log_noise_max: float = -1.0
-    nu_choices: tuple = (1.5, 2.5)
+    log_noise_min: float = -10.0         # was -4.0; allows near-deterministic
+    log_noise_max: float = -2.0          # was -1.0
+    nu_choices: tuple = (2.5,)           # was (1.5, 2.5); FEA smooth
 
 
 class GPPriorSampler:

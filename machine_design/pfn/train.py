@@ -379,6 +379,8 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument("--noise-std", type=float, default=0.02)
     ap.add_argument("--n-context-min", type=int, default=16)
     ap.add_argument("--n-context-max", type=int, default=64)
+    ap.add_argument("--warmup-steps", type=int, default=500,
+                    help="linear LR warmup before cosine decay. PFNs4BO uses ~10%% of total steps.")
     # Model.
     ap.add_argument("--num-bins", type=int, default=100)
     ap.add_argument("--ninp", type=int, default=128)
@@ -407,6 +409,7 @@ def main() -> int:
         noise_std=args.noise_std,
         n_context_min=args.n_context_min,
         n_context_max=args.n_context_max,
+        warmup_steps=args.warmup_steps,
     )
     model_cfg = ModelConfig(
         num_bins=args.num_bins,

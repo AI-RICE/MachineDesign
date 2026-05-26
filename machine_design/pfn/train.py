@@ -271,15 +271,16 @@ def train(
 
         # Gradient accumulation: scale the per-batch loss so that summed gradients
         # over `accum_steps` batches equal the mean gradient of an effective
-        # `accum_steps * batch_size` batch. Optimizer/scheduler step only when the
-        # accumulation window closes (sample-step count divisible by accum_steps).
+        # `accum_steps * batch_size` batch. Optimizer step only when the
+        # accumulation window closes; LR scheduler still ticks every sample step
+        # so cosine completes exactly at `train_cfg.steps` regardless of accum.
         accum = max(1, train_cfg.accum_steps)
         (nll / accum).backward()
         if step % accum == 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), train_cfg.grad_clip)
             optimizer.step()
-            scheduler.step()
             optimizer.zero_grad(set_to_none=True)
+        scheduler.step()
 
         # Accumulate loss on-device; sync only at log boundaries. On MPS the
         # per-step `.item()` previously forced a host↔device copy every step,

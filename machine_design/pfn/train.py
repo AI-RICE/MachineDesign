@@ -50,6 +50,7 @@ class TrainConfig:
     noise_std: float = 0.02
     val_frac: float = 0.1
     val_every: int = 1000
+    accum_steps: int = 1                # gradient accumulation: optimizer step every N sample-batches
 
 
 @dataclass
@@ -242,6 +243,7 @@ def train(
     loss_count = 0
 
     t0 = time.time()
+    optimizer.zero_grad(set_to_none=True)
     for step in range(1, train_cfg.steps + 1):
         n_context = int(rng.integers(train_cfg.n_context_min, train_cfg.n_context_max + 1))
         tasks = train_sampler.sample_batch(
@@ -267,11 +269,17 @@ def train(
         targets = y_tgt.reshape(-1)
         nll = model.criterion(logits_tgt, targets).mean()
 
-        optimizer.zero_grad(set_to_none=True)
-        nll.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), train_cfg.grad_clip)
-        optimizer.step()
-        scheduler.step()
+        # Gradient accumulation: scale the per-batch loss so that summed gradients
+        # over `accum_steps` batches equal the mean gradient of an effective
+        # `accum_steps * batch_size` batch. Optimizer/scheduler step only when the
+        # accumulation window closes (sample-step count divisible by accum_steps).
+        accum = max(1, train_cfg.accum_steps)
+        (nll / accum).backward()
+        if step % accum == 0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), train_cfg.grad_clip)
+            optimizer.step()
+            scheduler.step()
+            optimizer.zero_grad(set_to_none=True)
 
         # Accumulate loss on-device; sync only at log boundaries. On MPS the
         # per-step `.item()` previously forced a host↔device copy every step,
@@ -381,6 +389,10 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument("--n-context-max", type=int, default=64)
     ap.add_argument("--warmup-steps", type=int, default=500,
                     help="linear LR warmup before cosine decay. PFNs4BO uses ~10%% of total steps.")
+    ap.add_argument("--accum-steps", type=int, default=1,
+                    help="gradient accumulation: optimizer step every N sample-batches. "
+                         "Effective batch = batch_size * accum_steps. LR schedule still indexed "
+                         "by sample-step count, so total compute = batch_size * steps regardless.")
     # Model.
     ap.add_argument("--num-bins", type=int, default=100)
     ap.add_argument("--ninp", type=int, default=128)
@@ -410,6 +422,7 @@ def main() -> int:
         n_context_min=args.n_context_min,
         n_context_max=args.n_context_max,
         warmup_steps=args.warmup_steps,
+        accum_steps=args.accum_steps,
     )
     model_cfg = ModelConfig(
         num_bins=args.num_bins,

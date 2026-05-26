@@ -65,12 +65,57 @@ def _ensure_pfns_on_path() -> None:
 
 _ensure_pfns_on_path()
 
+import math  # noqa: E402
+
+import torch.nn.functional as F  # noqa: E402
+
 from pfns.model.bar_distribution import FullSupportBarDistribution  # noqa: E402
 from pfns.model.transformer import TableTransformer                  # noqa: E402
 
 
+class GaussianHead(nn.Module):
+    """Heteroscedastic-Gaussian output head, mirroring the interface of
+    `FullSupportBarDistribution` (`forward(output, target) -> per-row NLL`,
+    `.mean(output)`, `.variance(output)`).
+
+    This is the Transformer-Neural-Process-style predictor: the network emits
+    a per-target `(mean, raw_scale)` and the predictive is `N(mean, std^2)`
+    with `std = softplus(raw_scale) + min_std`. Softplus (not exp of a
+    log-variance) keeps the scale strictly positive and bounded in gradient
+    early in training, which avoids the variance blow-up a log-σ head can hit.
+
+    Unlike the bar head this predictive is necessarily unimodal — exactly the
+    GP-shaped assumption we want when asking whether a Gaussian head tracks a
+    GP posterior more faithfully than the 100-bin Riemann head.
+    """
+
+    def __init__(self, min_std: float = 1e-3) -> None:
+        super().__init__()
+        self.min_std = float(min_std)
+
+    def _unpack(self, output: torch.Tensor):
+        mu = output[..., 0]
+        std = F.softplus(output[..., 1]) + self.min_std
+        return mu, std
+
+    def forward(self, output: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        mu, std = self._unpack(output)
+        var = std ** 2
+        return 0.5 * torch.log(2.0 * math.pi * var) + 0.5 * (target - mu) ** 2 / var
+
+    def mean(self, output: torch.Tensor) -> torch.Tensor:
+        mu, _ = self._unpack(output)
+        return mu
+
+    def variance(self, output: torch.Tensor) -> torch.Tensor:
+        _, std = self._unpack(output)
+        return std ** 2
+
+
 class PFNBoModel(nn.Module):
-    """Transformer-based PFN with a binned (Riemann) output distribution."""
+    """Transformer-based PFN. The output head is either a binned (Riemann)
+    `FullSupportBarDistribution` (`head="bar"`, the default) or a
+    heteroscedastic Gaussian (`head="gaussian"`, TNP-style)."""
 
     def __init__(
         self,
@@ -81,21 +126,33 @@ class PFNBoModel(nn.Module):
         nhead: int = 4,
         nhid: int = 512,
         nlayers: int = 4,
+        head: str = "bar",
     ) -> None:
         super().__init__()
-        self.num_bins = num_bins
+        self.head = head
         self.y_low = y_low
         self.y_high = y_high
+        if head == "gaussian":
+            out_dim = 2
+            self.criterion: nn.Module = GaussianHead()
+        elif head == "bar":
+            out_dim = num_bins
+            self.criterion = FullSupportBarDistribution(
+                borders=torch.linspace(y_low, y_high, num_bins + 1)
+            )
+        else:
+            raise ValueError(f"head must be 'bar' or 'gaussian', got {head!r}")
+        # `num_bins` doubles as the decoder output width everywhere downstream
+        # (train.py / surrogate.py reshape to (-1, model.num_bins)). For the
+        # Gaussian head that width is 2; the criterion interprets the columns.
+        self.num_bins = out_dim
         self.inner = TableTransformer(
-            decoder_dict={"standard": (None, num_bins)},
+            decoder_dict={"standard": (None, out_dim)},
             batch_first=False,
             ninp=ninp,
             nhead=nhead,
             nhid=nhid,
             nlayers=nlayers,
-        )
-        self.criterion = FullSupportBarDistribution(
-            borders=torch.linspace(y_low, y_high, num_bins + 1)
         )
 
     def forward(self, inp, single_eval_pos=None):

@@ -62,6 +62,7 @@ class ModelConfig:
     nhead: int = 4
     nhid: int = 512
     nlayers: int = 4
+    head: str = "bar"                    # "bar" (Riemann) or "gaussian" (TNP-style)
 
 
 def _sha256_of_file(p: Path) -> str:
@@ -400,6 +401,8 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument("--nhead", type=int, default=4)
     ap.add_argument("--nhid", type=int, default=512)
     ap.add_argument("--nlayers", type=int, default=4)
+    ap.add_argument("--head", default="bar", choices=["bar", "gaussian"],
+                    help="output head: 'bar' (100-bin Riemann) or 'gaussian' (TNP-style mean+var)")
     # Misc.
     ap.add_argument("--lumped-tag", default="lumped-v3.0-prefrozen")
     ap.add_argument("--device", default=None,
@@ -428,6 +431,7 @@ def main() -> int:
     model_cfg = ModelConfig(
         num_bins=args.num_bins,
         ninp=args.ninp, nhead=args.nhead, nhid=args.nhid, nlayers=args.nlayers,
+        head=args.head,
     )
     train(
         library_path=args.library,

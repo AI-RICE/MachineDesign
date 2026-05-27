@@ -15,8 +15,8 @@ from machine_design import (
     save_params,
 )
 
-aedt_version = "2024.1"
-n_designs = 50
+aedt_version = "2025.1"
+n_designs = 10
 r_stator_end = 0.7
 offset = 0.7 / 2
 num_cores = 4

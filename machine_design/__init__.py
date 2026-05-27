@@ -1,4 +1,5 @@
 from .design import Design
+from .design2 import Design2
 from .generators import (
     FourStupid,
     HacklGenerator_3BrokenLines,

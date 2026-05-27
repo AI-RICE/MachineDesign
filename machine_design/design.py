@@ -17,12 +17,12 @@ class Design:
         return obj
 
     @classmethod
-    def load(cls, file_name: str, **kwargs) -> "Design":
+    def load(cls, file_name: str, design_name: str = "Design01", **kwargs) -> "Design":
         desktop = Desktop(**kwargs)
         desktop.load_project(file_name)
 
         m2d = Maxwell2d()
-        m2d.set_active_design("Design01")
+        m2d.set_active_design(design_name)
 
         return cls(m2d)
 

@@ -38,25 +38,33 @@ class Design2(Design):
         }
 
     def set_derived_params(self):
-        pass
+        super().set_derived_params()
+        # pass
 
     def set_solution_expressions(self):
         self.solution_expressions = [
             "V_d1", "V_q1", "V_d3", "V_q3",
+            "Vind_d1", "Vind_q1", "Vind_d3", "Vind_q3",
+
+            "Flux_d1", "Flux_q1", "Flux_d3", "Flux_q3",
             "Flux_e_d1", "Flux_e_q1", "Flux_e_d3", "Flux_e_q3",
+
             "I_d1", "I_q1", "I_d3", "I_q3",
+
             "Ld1", "Ld1q1", "Ld1d3", "Ld1q3",
             "Lq1", "Lq1d3", "Lq1q3",
             "Ld3", "Ld3q3",
             "Lq3",
-            "Moving1.Torque"
+
+            "Torque_dq",
+            "Moving1.Torque",
         ]
 
     def set_output_vars(self):
         self.output_vars = {
             'PolePairs': "2",
             'RotSign': "1",
-            'Rstat': "19",
+            'Rstat': "0.19", # origina value is 19, are you sure?
             'Lew': "0",
             'theta_el': "RotSign*(Moving1.Position - InitPos) * PolePairs - pi",
             'cos0_1': "cos(1*(theta_el - 2*PI*0/5))",
@@ -307,14 +315,17 @@ class Design2(Design):
         self.m2d.variable_manager["Iq3"] = f"{Iq3}A"
 
     def extract_results(self, solutions):
-        # TODO: this works only because torque is the last one in the array
+    
         out = np.zeros(len(self.solution_expressions))
         for i, expr in enumerate(self.solution_expressions):
-            data = solutions.data_real(expr)
-            val = float(np.mean(data[:-1]))
+            data = np.array(solutions.data_real(expr))
+            if data.size == 0:
+                val = np.nan
+            elif data.size == 1:
+                val = float(data[0])
+            else:
 
-            if expr.startswith("L_"):
-                val /= 1e9
+                val = float(np.mean(data[:-1]))
 
             out[i] = val
-        return data
+        return out

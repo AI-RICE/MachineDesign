@@ -26,7 +26,7 @@ from machine_design import (
 torch.set_default_dtype(torch.float64)
 
 
-aedt_version = "2024.1"
+aedt_version = "2025.1"
 n_evals = 250
 r_stator_end = 0.7
 offset = 0.7 / 2

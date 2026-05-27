@@ -47,8 +47,9 @@ class PriorSampler:
         if granularity not in {"random", *GRANULARITIES}:
             raise ValueError(f"granularity must be 'random' or one of {set(GRANULARITIES)}")
         self.granularity_mode = granularity
-        # y is normalised PER TASK (PFNs4BO standard): each context+target
-        # batch is z-scored by its own mean/std before being shown to the PFN.
+        # y is normalised PER TASK (PFNs4BO standard) but using CONTEXT-ONLY
+        # mean/std (NOT context+target) — see sample() for why target-inclusive
+        # normalisation leaks the target at small n_target.
         # This decouples training-time scale from the absolute units of the
         # underlying lumped solver (or, at inference, any other oracle), so
         # the same PFN can be applied to FEA T_mean (~5 N·m) or lumped
@@ -87,8 +88,13 @@ class PriorSampler:
         y_all = self.library.T_proxy[gran][idx]
         x_all = self.library.params[idx]
         if normalise:
-            mean = float(np.mean(y_all))
-            std = float(np.std(y_all) + 1e-12)
+            # CONTEXT-ONLY stats: normalising over context+target leaks the
+            # target when n_target is small (z-scores sum to zero, so the
+            # target is -sum(context z) independent of its x). Match the
+            # inference convention, which z-scores by context only.
+            yc = y_all[:n_context]
+            mean = float(np.mean(yc))
+            std = float(np.std(yc) + 1e-12)
             y_all = (y_all - mean) / std
         return PFNTask(
             x_context=x_all[:n_context],

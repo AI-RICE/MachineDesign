@@ -51,6 +51,7 @@ class TrainConfig:
     val_frac: float = 0.1
     val_every: int = 1000
     accum_steps: int = 1                # gradient accumulation: optimizer step every N sample-batches
+    save_every: int = 0                 # if >0, also save a step-suffixed checkpoint every N steps
 
 
 @dataclass
@@ -308,11 +309,36 @@ def train(
             val_history.append((step, val_nll))
             print(f"    held-out NLL @ step {step}: {val_nll:.4f}", flush=True)
 
+        if train_cfg.save_every > 0 and step % train_cfg.save_every == 0 and step != train_cfg.steps:
+            cur_loss = losses[-1] if losses else float("nan")
+            cur_nll = val_history[-1][1] if val_history else float("nan")
+            snap = _build_payload(model, model_cfg, train_cfg, lib_path_payload,
+                                  lib_sha_payload, lumped_tag, granularity_mode,
+                                  gen_name_payload, prior_kind, x_mean, x_std,
+                                  step, cur_loss, cur_nll, val_history)
+            snap_path = output_path.with_name(f"{output_path.stem}.step{step}{output_path.suffix}")
+            snap_path.parent.mkdir(parents=True, exist_ok=True)
+            torch.save(snap, snap_path)
+            print(f"  [snapshot] saved {snap_path}", flush=True)
+
     final_loss = losses[-1] if losses else float("nan")
     final_val_nll = val_history[-1][1] if val_history else float("nan")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
+    payload = _build_payload(model, model_cfg, train_cfg, lib_path_payload,
+                             lib_sha_payload, lumped_tag, granularity_mode,
+                             gen_name_payload, prior_kind, x_mean, x_std,
+                             train_cfg.steps, final_loss, final_val_nll, val_history)
+    torch.save(payload, output_path)
+    print(f"\nSaved checkpoint: {output_path}")
+    print(f"  final train loss: {final_loss:.4f}")
+    print(f"  final held-out NLL: {final_val_nll:.4f}")
+
+
+def _build_payload(model, model_cfg, train_cfg, lib_path_payload, lib_sha_payload,
+                   lumped_tag, granularity_mode, gen_name_payload, prior_kind,
+                   x_mean, x_std, step, train_loss, val_nll, val_history) -> dict:
+    return {
         "state_dict": model.state_dict(),
         "model_config": asdict(model_cfg),
         "train_config": asdict(train_cfg),
@@ -323,17 +349,13 @@ def train(
         "generator_name": gen_name_payload,
         "input_dim": int(x_mean.shape[0]),
         "prior_kind": prior_kind,
-        "steps": train_cfg.steps,
-        "final_train_loss": final_loss,
-        "final_held_out_nll": final_val_nll,
-        "val_history": val_history,
-        "x_mean": x_mean,  # per-dim x normalisation, applied at training; surrogate must mirror
+        "steps": step,
+        "final_train_loss": train_loss,
+        "final_held_out_nll": val_nll,
+        "val_history": list(val_history),
+        "x_mean": x_mean,
         "x_std": x_std,
     }
-    torch.save(payload, output_path)
-    print(f"\nSaved checkpoint: {output_path}")
-    print(f"  final train loss: {final_loss:.4f}")
-    print(f"  final held-out NLL: {final_val_nll:.4f}")
 
 
 def _eval_held_out(
@@ -395,6 +417,9 @@ def _parse_args() -> argparse.Namespace:
                     help="gradient accumulation: optimizer step every N sample-batches. "
                          "Effective batch = batch_size * accum_steps. LR schedule still indexed "
                          "by sample-step count, so total compute = batch_size * steps regardless.")
+    ap.add_argument("--save-every", type=int, default=0,
+                    help="if >0, also write a step-suffixed checkpoint every N steps (for "
+                         "mid-training evaluation of long runs).")
     # Model.
     ap.add_argument("--num-bins", type=int, default=100)
     ap.add_argument("--ninp", type=int, default=128)
@@ -427,6 +452,7 @@ def main() -> int:
         n_context_max=args.n_context_max,
         warmup_steps=args.warmup_steps,
         accum_steps=args.accum_steps,
+        save_every=args.save_every,
     )
     model_cfg = ModelConfig(
         num_bins=args.num_bins,

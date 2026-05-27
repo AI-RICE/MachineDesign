@@ -136,11 +136,18 @@ class GPPriorSampler:
         lo, hi = self.bounds
         X_raw = lo + X_unit * (hi - lo)
 
-        # 5. per-task y normalisation (matches the lumped pipeline's
-        #    per-task z-score; see prior_sampler.py).
+        # 5. per-task y normalisation using CONTEXT-ONLY statistics.
+        #    Normalising over context+target leaks the target when n_target is
+        #    small: z-scores sum to zero over the normalisation set, so with
+        #    n_target=1 the target equals -sum(context z) regardless of its x.
+        #    The model then learns that shortcut and predicts a near-constant at
+        #    inference (where we normalise by context only). Using context-only
+        #    stats here removes the leak and matches the inference convention
+        #    (PFNSurrogate.from_loaded_with_real_Y z-scores by context).
         if normalise:
-            ymean = float(np.mean(y))
-            ystd = float(np.std(y) + 1e-12)
+            yc = y[:n_context]
+            ymean = float(np.mean(yc))
+            ystd = float(np.std(yc) + 1e-12)
             y = (y - ymean) / ystd
 
         return PFNTask(

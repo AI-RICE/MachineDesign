@@ -9,7 +9,7 @@ def load_design(
     design_name,
     aedt_version,
     new_desktop=False,
-    non_graphical=True,
+    non_graphical=False,
     close_on_exit=True,
     **kwargs,
 ):

@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 from ansys.aedt.core import Desktop, Maxwell2d
 from ansys.aedt.core.modeler.modeler_2d import Modeler2D
@@ -21,6 +23,7 @@ class Design:
         desktop = Desktop(**kwargs)
         desktop.load_project(file_name)
 
+        project_name = os.path.splitext(os.path.basename(file_name))[0]
         m2d = Maxwell2d()
         m2d.set_active_design("Design01")
 
@@ -29,6 +32,7 @@ class Design:
     def set_parameters(self) -> None:
         # materials
         self.Fe = "Cogent Power - M350-50A, B-H at 50Hz"
+        self.PM = "ferrite"
 
         # main definitions
         self.geom_params = {
@@ -468,6 +472,7 @@ class Design:
         if barrier_points.shape[1] == 2:
             barrier_points = np.hstack((barrier_points, np.zeros((len(barrier_points), 1))))
 
+
         # Convert them into a string format and interpolate
         points_str = [[str(y) for y in x] for x in barrier_points]
         barrier_id = modeler.create_polyline(
@@ -477,6 +482,73 @@ class Design:
         # Remove the barrier
         self.rotor_id.subtract(barrier_id)
         modeler.delete(barrier_id)
+
+
+    def add_rotor_magnet(self, mag: np.ndarray, segment_type=None) -> None:
+        modeler = self.m2d.modeler
+        assert isinstance(modeler, Modeler2D)
+
+        current_rotor = getattr(self, "rotor_id", None)
+        if current_rotor is not getattr(self, "_magnet_rotor_id", None):
+            stale = modeler.get_objects_w_string("Magnet", case_sensitive=True)
+            if stale:
+                modeler.delete(stale)
+            self._magnet_rotor_id = current_rotor
+
+        center = mag.mean(axis=0)
+        pts_centered = mag - center
+
+        _, _, Vt = np.linalg.svd(pts_centered, full_matrices=False)
+
+        r = np.linalg.norm(center)
+        radial = center / r
+        if abs(np.dot(Vt[0], radial)) > abs(np.dot(Vt[1], radial)):
+            long_axis = Vt[1]   # Vt[1] is more tangential
+        else:
+            long_axis = Vt[0]   # Vt[0] is more tangential (normal case)
+        short_axis = np.array([-long_axis[1], long_axis[0]])
+
+        angle_deg = np.degrees(np.arctan2(long_axis[1], long_axis[0]))
+
+        # Length = extent along long axis, width = extent along short (radial) axis
+        proj_long  = pts_centered @ long_axis
+        proj_short = pts_centered @ short_axis
+        mag_length = proj_long.max()  - proj_long.min()
+        mag_width  = proj_short.max() - proj_short.min()
+
+        length_scale = 0.85
+        width_scale  = 0.55
+
+        mag_id = modeler.create_rectangle(
+            origin=[
+                f"{-mag_length * length_scale / 2}mm",
+                f"{-mag_width  * width_scale  / 2}mm",
+                "0mm",
+            ],
+            sizes=[
+                f"{mag_length * length_scale}mm",
+                f"{mag_width  * width_scale}mm",
+                "0mm",
+            ],
+            name="Magnet",
+        )
+
+        mag_id.rotate(axis="Z", angle=angle_deg)
+        mag_id.move([f"{center[0]}mm", f"{center[1]}mm", "0mm"])
+
+        mag_id.material_name = self.PM
+        mag_id.solve_inside = True   # required for PM material in rotating Band region
+        mag_id.color = (255, 0, 0)
+
+        # Assign magnetization direction (radial, pointing outward from center).
+        # Without this the Maxwell 2D solver cannot process the PM and fails.
+        self.m2d.assign_coercivity(
+            assignment=[mag_id.name],
+            coordinate_system="Global",
+            x_component=str(round(radial[0], 6)),
+            y_component=str(round(radial[1], 6)),
+            name=f"Coercivity_{mag_id.name}",
+        )
 
     def compute(self, NUM_CORES: int = 1):
         m2d = self.m2d

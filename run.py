@@ -9,14 +9,15 @@ from machine_design import (
     HacklGenerator_3BrokenLines,
     HacklGenerator_OneLambda,
     HacklGenerator_SixLambdas,
+    FourStupid,
     analyze_results,
     load_design,
     plot_barriers,
     save_params,
 )
 
-aedt_version = "2024.1"
-n_designs = 50
+aedt_version = "2026.1"
+n_designs = 1
 r_stator_end = 0.7
 offset = 0.7 / 2
 num_cores = 4
@@ -32,9 +33,10 @@ file_name_aedt = f"{path_data}/{project_name}.aedt"
 
 design = load_design(file_name_aedt, project_name, design_name, aedt_version)
 generators = [
-    HacklGenerator_OneLambda(design, r_stator_end, offset=offset),
-    HacklGenerator_SixLambdas(design, r_stator_end, offset=offset),
-    HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset),
+    FourStupid(design, r_stator_end, offset=offset),
+    # HacklGenerator_OneLambda(design, r_stator_end, offset=offset),
+    # HacklGenerator_SixLambdas(design, r_stator_end, offset=offset),
+    # HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset),
 ]
 
 metadata = pd.DataFrame()
@@ -45,15 +47,17 @@ for i in range(0, n_designs):
             params = generator.random_parameters()
             generator.set_parameters(params)
             barriers = generator.generate_barriers()
-            barriers = generator.split_barriers(barriers)
+            magnets = generator.generate_magnets(barriers)
+            # barriers = generator.split_barriers(barriers)
             feasible = generator.feasible_barriers(barriers)
             if feasible:
                 break
 
         # Generate the geometry
         design.add_rotor()
-        for barrier in barriers:
+        for barrier, magnets in zip(barriers, magnets):
             design.add_rotor_barrier(barrier)
+            design.add_rotor_magnet(magnets)
 
         # Compute the torque
         Tor = design.compute(num_cores)

@@ -133,6 +133,7 @@ def train(
     device_override: str | None = None,
     prior_kind: str = "lumped",
     generator_name: str | None = None,
+    gibbs_log_b_std: float | None = None,
 ) -> None:
     """Run a full training schedule and save the checkpoint.
 
@@ -217,6 +218,40 @@ def train(
 
         # Per-dim X normalisation derived from the uniform-on-bounds distribution:
         # mean = midpoint, std = (hi - lo) / sqrt(12) (variance of U(lo, hi)).
+        x_mean = ((bounds[0] + bounds[1]) / 2.0).astype(np.float32)
+        x_std = ((bounds[1] - bounds[0]) / np.sqrt(12.0) + 1e-12).astype(np.float32)
+        print(f"  x normalisation (per-dim, from uniform-on-bounds): mean={x_mean.tolist()}", flush=True)
+    elif prior_kind == "gibbs":
+        from machine_design.generators import (
+            HacklGenerator_3BrokenLines,
+            HacklGenerator_OneLambda,
+            HacklGenerator_SixLambdas,
+        )
+        from machine_design.lumped import REFERENCE_MACHINE
+        from .gibbs_prior_sampler import GibbsPriorConfig, GibbsPriorSampler
+
+        gen_cls = {
+            "OneLambda": HacklGenerator_OneLambda,
+            "SixLambdas": HacklGenerator_SixLambdas,
+            "ThreeBrokenLines": HacklGenerator_3BrokenLines,
+        }[generator_name]
+        gen = gen_cls(REFERENCE_MACHINE, r_stator_end=0.7, offset=0.35)
+        lo, hi = gen.bounds
+        bounds = np.stack([np.asarray(lo, dtype=np.float64), np.asarray(hi, dtype=np.float64)])
+        D = bounds.shape[1]
+        cfg = GibbsPriorConfig(log_b_std=gibbs_log_b_std) if gibbs_log_b_std is not None else GibbsPriorConfig()
+        print(f"  Gibbs-prior PFN: generator={generator_name}  D={D}", flush=True)
+        print(f"  bounds[lo]={bounds[0].tolist()}", flush=True)
+        print(f"  bounds[hi]={bounds[1].tolist()}", flush=True)
+        print(f"  GibbsPriorConfig: log_a_std={cfg.log_a_std}, log_b_std={cfg.log_b_std}, nu={cfg.nu}",
+              flush=True)
+        train_sampler = GibbsPriorSampler(input_dim=D, bounds=bounds, cfg=cfg)
+        val_sampler = GibbsPriorSampler(input_dim=D, bounds=bounds, cfg=cfg)
+        gen_name_payload = generator_name
+        lib_sha_payload = "gibbs-prior-no-library"
+        lib_path_payload = "gibbs-prior-no-library"
+
+        # Per-dim X normalisation (same as the gp branch — uniform on bounds).
         x_mean = ((bounds[0] + bounds[1]) / 2.0).astype(np.float32)
         x_std = ((bounds[1] - bounds[0]) / np.sqrt(12.0) + 1e-12).astype(np.float32)
         print(f"  x normalisation (per-dim, from uniform-on-bounds): mean={x_mean.tolist()}", flush=True)
@@ -398,7 +433,10 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument("--granularity", default="random",
                     choices=["random", "COARSE", "MEDIUM", "FINE"])
     # Prior selection (lumped = original matched prior; gp = §12.5.P4 negative control).
-    ap.add_argument("--prior", default="lumped", choices=["lumped", "gp"],
+    ap.add_argument("--gibbs-log-b-std", type=float, default=None,
+                    help="for --prior=gibbs: σ_b in b_d ~ Normal(0, σ_b^2). "
+                         "0.0 ⇒ stationary recovery; 1.0 default; 1.5 stronger non-stationarity.")
+    ap.add_argument("--prior", default="lumped", choices=["lumped", "gp", "gibbs"],
                     help="lumped = library-backed matched prior; gp = on-the-fly GP-prior PFN")
     ap.add_argument("--generator", default=None,
                     choices=["OneLambda", "SixLambdas", "ThreeBrokenLines"],
@@ -437,6 +475,8 @@ def _parse_args() -> argparse.Namespace:
         ap.error("--prior=lumped requires a positional library path")
     if args.prior == "gp" and args.generator is None:
         ap.error("--prior=gp requires --generator (for bounds + D)")
+    if args.prior == "gibbs" and args.generator is None:
+        ap.error("--prior=gibbs requires --generator (for bounds + D)")
     return args
 
 
@@ -469,6 +509,7 @@ def main() -> int:
         device_override=args.device,
         prior_kind=args.prior,
         generator_name=args.generator,
+        gibbs_log_b_std=args.gibbs_log_b_std,
     )
     return 0
 

@@ -58,8 +58,8 @@ def load_checkpoint(path: str | Path, device: torch.device | None = None) -> Loa
     # the stored y_mean/y_std are effectively unused but we must set defaults.
     prior_kind = payload.get("prior_kind", "lumped")
     lib_path_str = payload.get("library_path", "")
-    if prior_kind == "gp" or lib_path_str in ("", "gp-prior-no-library"):
-        lib_path = Path("gp-prior-no-library")
+    if prior_kind in ("gp", "gibbs") or lib_path_str in ("", "gp-prior-no-library", "gibbs-prior-no-library"):
+        lib_path = Path(lib_path_str or f"{prior_kind}-prior-no-library")
         y_mean = 0.0
         y_std = 1.0
     else:

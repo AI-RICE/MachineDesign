@@ -1,15 +1,13 @@
 # MachineDesign
 
-Repository for automatic design of machines using optimization algorithms and Ansys simulations.
+This repo contains Python code for automatic rotor design and optimization of synchronous reluctance machines (SynRMs).
+The motivation is to improve the performance of SynRMs without using permanent magnets by optimizing the rotor flux barrier geometry. Candidate designs are generated in Python, simulated in Ansys Electronics Desktop, and optimized to increase the average torque and reduce torque ripple.
 
-## Interesting links:
-- BO for bariers: https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=10897899
-- conference target: https://icem2026.ubi.pt/files/ICEM2026_SS1.pdf
+<img src="figures/result.png" width="600">
 
+Run 'run.py' for random design evaluation and 'run_optimization.py' for Bayesian optimization. Ansys Electronics Desktop and PyAEDT are required.
 
-## Project #1
-Optimization of reluctance machine:
+## Citation
 
-1. phase: 3f machine with simple barier (rectangle)
-2. phase: 3f machine with AE-based barier 
-3. phase: 5f machine!!
+If you use this code, please cite our paper:
+[Add citation here]

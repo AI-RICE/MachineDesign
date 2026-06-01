@@ -152,6 +152,10 @@ def main():
     ap.add_argument("--run-name", default="OneLambda_dsp_live")
     ap.add_argument("--n-init", type=int, default=20)
     ap.add_argument("--n-iters", type=int, default=40)
+    ap.add_argument("--warmstart-npz", default=None,
+                    help="re-encoded RadialSpline designs (X_rs,keep,T) to warm-start init")
+    ap.add_argument("--n-warmstart", type=int, default=0,
+                    help="number of warm-start designs spanning Hackl T; replaces Sobol init")
     ap.add_argument("--num-cores", type=int, default=4)
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
@@ -199,16 +203,26 @@ def main():
         log(f"eval {idx:04d}: T_mean={rec['T_mean']:.4f} T_ripple={rec['T_ripple']:.4f} "
             f"feasible={rec['feasible']} best={best:.4f} t_ansys={rec['t_ansys']:.0f}s [{rec['status']}]", run_dir)
 
-    # --- initial Sobol design ---
-    n_init_remaining = max(0, args.n_init - next_idx)
-    if n_init_remaining > 0:
-        Uinit = draw_sobol_samples(bounds=unit, n=n_init_remaining, q=1, seed=args.seed).squeeze(1)
-        for u in Uinit:
-            idx = len(U)
-            record(idx, u.numpy(), evaluate_fea(u.numpy(), gen, design, lo, span, args.num_cores))
+    # --- build init points: warm-start (re-encoded known-good) or Sobol ---
+    if args.n_warmstart > 0 and args.warmstart_npz:
+        dd = np.load(args.warmstart_npz, allow_pickle=True)
+        Xw, keepw, Tw = dd["X_rs"], dd["keep"], dd["T"]
+        Xw, Tw = Xw[keepw.astype(bool)], Tw[keepw.astype(bool)]
+        sel = np.argsort(Tw)[np.linspace(0, len(Tw) - 1, args.n_warmstart).astype(int)]  # spread across T
+        Uinit = np.clip((Xw[sel] - lo) / span, 0.0, 1.0)
+        n_init_designs = args.n_warmstart
+        log(f"warm-start: {args.n_warmstart} re-encoded designs spanning Hackl T "
+            f"[{float(Tw[sel].min()):.2f},{float(Tw[sel].max()):.2f}] N·m", run_dir)
+    else:
+        Uinit = draw_sobol_samples(bounds=unit, n=args.n_init, q=1, seed=args.seed).squeeze(1).numpy()
+        n_init_designs = args.n_init
+
+    # --- evaluate remaining init points (resume-aware) ---
+    for i in range(next_idx, n_init_designs):
+        record(i, Uinit[i], evaluate_fea(Uinit[i], gen, design, lo, span, args.num_cores))
 
     # --- BO iterations ---
-    total = args.n_init + args.n_iters
+    total = n_init_designs + args.n_iters
     while len(U) < total:
         Ut = torch.tensor(np.stack(U))
         Yt = torch.tensor(Y).unsqueeze(-1)
@@ -218,7 +232,7 @@ def main():
         cand, _ = optimize_acqf(acqf, bounds=unit, q=1, num_restarts=8, raw_samples=512)
         u = cand.squeeze(0).numpy()
         idx = len(U)
-        log(f"--- BO iter {idx - args.n_init + 1}/{args.n_iters} (n={len(U)}) proposing eval {idx} ---", run_dir)
+        log(f"--- BO iter {idx - n_init_designs + 1}/{args.n_iters} (n={len(U)}) proposing eval {idx} ---", run_dir)
         record(idx, u, evaluate_fea(u, gen, design, lo, span, args.num_cores))
 
     log(f"=== done: {len(U)} evals, best T_mean = {max(Y):.4f} ===", run_dir)

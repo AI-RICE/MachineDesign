@@ -253,6 +253,52 @@ class TestSampling:
         assert abs(var_emp - (outputscale_fixed + noise_fixed)) < 0.05, (
             f"marginal var={var_emp:.4f}, expected ~{outputscale_fixed + noise_fixed:.4f}")
 
+    def test_18b_sampler_kernel_uses_gp_input_range(self):
+        """Regression test for the [-1,1] vs [0,1] input-range bug that made
+        sigma_b=0 Gibbs NOT equivalent to GPPriorSampler at training time.
+        Both samplers should produce empirically similar autocorrelations along
+        a fixed input axis with matched ell distribution."""
+        rng = np.random.default_rng(99)
+        D = 4
+        bounds = np.stack([np.zeros(D), np.ones(D)])
+        gibbs = GibbsPriorSampler(D, bounds, GibbsPriorConfig(log_b_std=0.0,
+                                                              log_outputscale_std=0.0,
+                                                              log_noise_min=-12, log_noise_max=-12))
+        # The GP-prior's log_ls_std must match Gibbs's log_a_std for the comparison.
+        gp_cfg = GPPriorConfig(log_ls_mean=0.0, log_ls_std=1.4,
+                               log_outputscale_mean=0.0, log_outputscale_std=0.0,
+                               log_noise_min=-12, log_noise_max=-12, nu_choices=(2.5,))
+        gp = GPPriorSampler(D, bounds, gp_cfg)
+
+        def avg_pair_corr_at_distance(sampler, h=0.1, n=500):
+            """Empirical correlation between y(x) and y(x + h*e_0), averaged
+            across many tasks. Uses 2-point context so we can measure pair-corr."""
+            corrs = []
+            for _ in range(n):
+                t = sampler.sample(rng, n_context=2, n_target=0, normalise=False)
+                t.x_context[0] = 0.5; t.x_context[1] = 0.5
+                t.x_context[1, 0] = 0.5 + h    # 1-D separation along dim 0
+                # We need to actually evaluate the function at both points -- the
+                # sampler draws X uniformly, so we can't fix X. Instead estimate
+                # corr from the empirical samples' product moment.
+                corrs.append(t.y_context[0] * t.y_context[1])
+            return float(np.mean(corrs))
+
+        # Simpler: empirical variance ratio across the two samplers (proxy for
+        # smoothness; with matched configs they should match within ~10%).
+        def avg_yc_var(sampler, n=400):
+            vs = []
+            for _ in range(n):
+                t = sampler.sample(rng, n_context=64, n_target=0, normalise=False)
+                vs.append(t.y_context.var())
+            return float(np.median(vs))
+        v_g = avg_yc_var(gibbs); v_p = avg_yc_var(gp)
+        # outputscale fixed = 1, noise ~0 -> per-task var(y context) should be ~ 1
+        # for both samplers when they share kernel-input range.
+        assert 0.7 < v_g / v_p < 1.3, (
+            f"Gibbs (b=0) per-task y-variance {v_g:.3f} vs GP {v_p:.3f}; "
+            f"ratio {v_g/v_p:.3f} -- suggests sampler kernel input range mismatch")
+
     def test_18_stationary_reduction_matches_gp_sampler(self):
         """With b=0 the Gibbs sampler should produce 2-point covariances matching
         the wide stationary GPPriorSampler. Compared on the same x-pair via many

@@ -174,13 +174,22 @@ class GibbsPriorSampler:
         outputscale = float(np.exp(rng.normal(cfg.log_outputscale_mean, cfg.log_outputscale_std)))
         noise = float(np.exp(rng.uniform(cfg.log_noise_min, cfg.log_noise_max)))
 
-        # 2. Sample N inputs uniformly in [0, 1]^D and map to [-1, 1]^D for kernel.
+        # 2. Sample N inputs uniformly in [0, 1]^D.
+        #    The length-scale field is indexed by x_tilde in [-1, 1] (so b_d is
+        #    the slope across the domain), but the KERNEL is computed in [0, 1]^D
+        #    -- the same input range gp_prior_sampler uses. This is essential:
+        #    with [-1, 1] kernel inputs and the same log-Normal ell distribution,
+        #    pairwise distances are 2x larger than gp_prior_sampler's, so the
+        #    sampler is NOT equivalent to GP-prior in the b=0 limit. Earlier 60k
+        #    G1/G2/G3 confirmation runs all stuck at predict-mean for exactly
+        #    this reason: the effective prior was a different (much wigglier)
+        #    function class than what we believed.
         X_unit01 = rng.uniform(0.0, 1.0, size=(N, D))
-        X_unit = 2.0 * X_unit01 - 1.0
+        X_tilde = 2.0 * X_unit01 - 1.0           # for ls field only
 
         # 3. Length-scale field, kernel, draw y.
-        log_ell = log_ell_field(a, b, X_unit)
-        K = paciorek_schervish_matern52(X_unit, X_unit, log_ell, log_ell, outputscale)
+        log_ell = log_ell_field(a, b, X_tilde)
+        K = paciorek_schervish_matern52(X_unit01, X_unit01, log_ell, log_ell, outputscale)
         K = K + noise * np.eye(N)
         L = _stable_chol(K)
         z = rng.standard_normal(N)

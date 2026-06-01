@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import BSpline, CubicSpline
 from shapely.geometry import LineString
 
 from .geometry import rotate
@@ -436,3 +436,251 @@ class HacklGenerator_3BrokenLines(AbstractHacklGenerator):
 
         # Stack segments and drop duplicate joint points
         return np.vstack((seg1, seg2[1:], seg3[1:]))
+
+
+class RadialSplineGenerator(BarrierGenerator):
+    """Unified high-D rotor-barrier parameterisation (Family A).
+
+    `n_barriers` nested flux barriers, each bounded by two clamped cubic
+    B-spline radial profiles `r(s)` in polar coordinates over the barrier's
+    own angular span ``[theta_lo, theta_hi]`` (degrees). Non-symmetric about
+    the d-axis. A **repair / projection** decoder guarantees manufacturable,
+    nested geometry: shaft iron, inter-barrier iron, surface bridge and a
+    minimum air width are enforced by construction, so every parameter vector
+    decodes to a valid design (the property that makes latent-space BO
+    efficient). The central d-axis rib is added downstream by the existing
+    ``split_barriers`` (offset = w_rod / sqrt(2)).
+
+    Per-barrier parameter block (length ``2 + 2K``):
+        ``[theta_lo, theta_hi, c_out[0..K-1], c_in[0..K-1]]``
+    where ``c_out`` is the surface-side (higher-r) boundary and ``c_in`` the
+    shaft-side (lower-r) boundary. Full vector length ``D = n_barriers*(2+2K)``.
+
+    See ``docs/PARAMETERISATION.md`` for the full design rationale and backups.
+    """
+
+    def __init__(
+        self,
+        design: "Design",
+        n_barriers: int = 3,
+        K: int = 18,
+        t_bridge: float = 0.7,
+        t_rib: float = 0.5,
+        t_shaft: float = 0.5,
+        min_air: float = 0.5,
+        w_rod: float = 0.5,
+        n_eval: int = 120,
+        n_grid: int = 361,
+        theta_qmargin: float = 2.0,
+        **kwargs,
+    ) -> None:
+        self.N = int(n_barriers)
+        self.K = int(K)
+        self.spline_k = 3
+        self.t_bridge = float(t_bridge)
+        self.t_rib = float(t_rib)
+        self.t_shaft = float(t_shaft)
+        self.min_air = float(min_air)
+        self.w_rod = float(w_rod)
+        self.n_eval = int(n_eval)
+        self.n_grid = int(n_grid)
+        # rib strip half-width: split_barriers removes |x - y| <= offset, whose
+        # perpendicular (geometric) width is sqrt(2)*offset == w_rod.
+        offset = self.w_rod / np.sqrt(2.0)
+        # r_stator_end = t_bridge so the inherited feasibility upper bound
+        # self.R == r_max - t_bridge matches the surface-bridge cap.
+        super().__init__(design, r_stator_end=self.t_bridge, offset=offset, **kwargs)
+
+        self.block = 2 + 2 * self.K
+        # radial bounds for control points
+        self.r_lo = self.r_min + self.t_shaft
+        self.r_hi = self.r_max - self.t_bridge  # == self.R
+        # angular bounds: guarantee theta_lo < 45 < theta_hi so the d-axis rib
+        # pierces every barrier (as in the existing Hackl designs).
+        self.theta_lo_lo = float(theta_qmargin)
+        self.theta_lo_hi = 40.0
+        self.theta_hi_lo = 50.0
+        self.theta_hi_hi = 90.0 - float(theta_qmargin)
+
+        self.s_grid, self.knots, self.basis = self._make_basis(self.n_eval, self.K, self.spline_k)
+        self._params: list | None = None
+
+    # ---- B-spline basis -------------------------------------------------
+    def _make_basis(self, n_eval: int, K: int, k: int):
+        n_interior = K - k - 1
+        if n_interior < 0:
+            raise ValueError(f"K={K} too small for cubic B-spline (need K >= {k + 1})")
+        interior = np.linspace(0.0, 1.0, n_interior + 2)[1:-1] if n_interior > 0 else np.array([])
+        t = np.concatenate((np.zeros(k + 1), interior, np.ones(k + 1)))
+        s = np.linspace(0.0, 1.0, n_eval)
+        return s, t, self._basis_at(s, t, k)
+
+    def _basis_at(self, s, t, k: int) -> np.ndarray:
+        s = np.clip(np.asarray(s, dtype=float), t[k], t[-k - 1] - 1e-12)
+        return BSpline.design_matrix(s, t, k).toarray()
+
+    # ---- interface ------------------------------------------------------
+    @property
+    def bounds(self) -> tuple[np.ndarray, np.ndarray]:
+        blk_lo = np.concatenate(
+            ([self.theta_lo_lo, self.theta_hi_lo], np.full(self.K, self.r_lo), np.full(self.K, self.r_lo))
+        )
+        blk_hi = np.concatenate(
+            ([self.theta_lo_hi, self.theta_hi_hi], np.full(self.K, self.r_hi), np.full(self.K, self.r_hi))
+        )
+        return np.tile(blk_lo, self.N), np.tile(blk_hi, self.N)
+
+    def X_to_params(self, X: np.ndarray) -> list:
+        X = np.asarray(X, dtype=float)
+        params = []
+        for b in range(self.N):
+            seg = X[b * self.block : (b + 1) * self.block]
+            params.append(
+                (float(seg[0]), float(seg[1]), seg[2 : 2 + self.K].copy(), seg[2 + self.K : 2 + 2 * self.K].copy())
+            )
+        return params
+
+    def params_to_X(self, params) -> np.ndarray:
+        return np.concatenate([np.concatenate(([tlo, thi], co, ci)) for (tlo, thi, co, ci) in params])
+
+    def set_parameters(self, params) -> None:
+        # accept either a flat X vector or a list of per-barrier tuples
+        if isinstance(params, np.ndarray) and params.ndim == 1:
+            params = self.X_to_params(params)
+        self._params = list(params)
+
+    def random_parameters(self):
+        rng = np.random.default_rng()
+        return self.X_to_params(self.random_X(rng))
+
+    def random_X(self, rng: np.random.Generator) -> np.ndarray:
+        """Prior sample biased toward realistic SynRM barriers, with heavy tails
+        for diversity (decision P8, policy 2). Each barrier is an arc whose
+        q-axis ends sit near the rotor surface and which dips toward the shaft at
+        the d-axis to a per-barrier depth (inner barrier deepest). ~25% of draws
+        use a wide deviation amplitude so the manifold keeps exploratory tails."""
+        edges = np.linspace(self.r_lo, self.r_hi, self.N + 1)  # per-barrier d-axis depth bands
+        cp_s = np.linspace(0.0, 1.0, self.K)
+        dip_shape = np.sin(np.pi * cp_s)  # 0 at ends, 1 at d-axis
+        amp = 2.5 if rng.random() < 0.25 else 0.6  # heavy-tail switch
+        blocks = []
+        for b in range(self.N):
+            lo_b, hi_b = edges[b], edges[b + 1]
+            # wide spans biased to the extremes (small theta_lo, large theta_hi)
+            theta_lo = self.theta_lo_lo + (self.theta_lo_hi - self.theta_lo_lo) * rng.beta(1.3, 4.0)
+            theta_hi = self.theta_hi_hi - (self.theta_hi_hi - self.theta_hi_lo) * rng.beta(1.3, 4.0)
+            depth = rng.uniform(lo_b, hi_b)  # min radius at the d-axis
+            end_r = self.r_hi - rng.uniform(0.0, 8.0)  # radius at q-axis ends (near surface, with tail)
+            end_r = max(end_r, depth + 1.0)
+            midline = end_r - (end_r - depth) * dip_shape
+            air = rng.uniform(self.min_air, max(self.min_air * 2.0, (hi_b - lo_b) * 0.6))
+            c_out = np.clip(midline + air / 2 + self._smooth_dev(rng, cp_s, amp), self.r_lo, self.r_hi)
+            c_in = np.clip(midline - air / 2 + self._smooth_dev(rng, cp_s, amp), self.r_lo, self.r_hi)
+            blocks.append(np.concatenate(([theta_lo, theta_hi], c_out, c_in)))
+        return np.concatenate(blocks)
+
+    def _smooth_dev(self, rng: np.random.Generator, cp_s: np.ndarray, amp: float = 1.5) -> np.ndarray:
+        dev = np.zeros_like(cp_s)
+        for m in range(1, 4):
+            dev += rng.normal(0.0, amp / m) * np.sin(m * np.pi * cp_s + rng.uniform(0.0, np.pi))
+        return dev
+
+    # ---- decoder (repair) ----------------------------------------------
+    def generate_barriers(self) -> list[np.ndarray]:
+        if self._params is None:
+            raise RuntimeError("call set_parameters() before generate_barriers()")
+        # 1. raw boundaries on each barrier's own theta grid.
+        #    Enforce theta-nesting (inner barrier spans widest, outer narrowest)
+        #    so barriers are radially stacked at every shared angle and their
+        #    blunt end-caps cannot cross.
+        raw = []
+        prev_lo = prev_hi = None
+        for (theta_lo, theta_hi, c_out, c_in) in self._params:
+            theta_lo = float(np.clip(theta_lo, self.theta_lo_lo, self.theta_lo_hi))
+            theta_hi = float(np.clip(theta_hi, self.theta_hi_lo, self.theta_hi_hi))
+            if prev_lo is not None:
+                theta_lo = max(theta_lo, prev_lo)
+                theta_hi = min(theta_hi, prev_hi)
+            theta_hi = max(theta_hi, theta_lo + 1.0)  # keep a finite span
+            prev_lo, prev_hi = theta_lo, theta_hi
+            theta = theta_lo + self.s_grid * (theta_hi - theta_lo)
+            raw.append([theta, self.basis @ np.asarray(c_in, float), self.basis @ np.asarray(c_out, float)])
+
+        # 2. resample each barrier onto a global angle grid (NaN where absent).
+        #    theta-nesting => the present set at every column is a prefix {0..m}.
+        G = np.linspace(0.0, 90.0, self.n_grid)
+        rin_G = np.full((self.N, self.n_grid), np.nan)
+        rout_G = np.full((self.N, self.n_grid), np.nan)
+        spans = []
+        for b, (theta, r_in, r_out) in enumerate(raw):
+            mask = (G >= theta[0]) & (G <= theta[-1])
+            spans.append((theta[0], theta[-1]))
+            rin_G[b, mask] = np.interp(G[mask], theta, r_in)
+            rout_G[b, mask] = np.interp(G[mask], theta, r_out)
+
+        # 3. two-sided radial projection per column: floor from the shaft up,
+        #    then ceiling from the surface bridge down. Guarantees shaft iron,
+        #    inter-barrier ribs, min air, surface bridge and nesting.
+        floor0 = self.r_min + self.t_shaft
+        cap = self.r_hi
+        present = ~np.isnan(rin_G)
+        for g in range(self.n_grid):
+            bs = np.where(present[:, g])[0]
+            floor = floor0
+            for b in bs:
+                rin_G[b, g] = max(rin_G[b, g], floor)
+                rout_G[b, g] = max(rout_G[b, g], rin_G[b, g] + self.min_air)
+                floor = rout_G[b, g] + self.t_rib
+            ceil = cap
+            for b in bs[::-1]:
+                rout_G[b, g] = min(rout_G[b, g], ceil)
+                rin_G[b, g] = min(rin_G[b, g], rout_G[b, g] - self.min_air)
+                ceil = rin_G[b, g] - self.t_rib
+
+        # 4. closed polygons (outer asc + inner desc + close); blunt radial caps
+        barriers = []
+        for b in range(self.N):
+            m = present[b]
+            th = np.radians(G[m])
+            ro, ri = rout_G[b, m], rin_G[b, m]
+            xy_out = np.column_stack((ro * np.cos(th), ro * np.sin(th)))
+            xy_in = np.column_stack((ri * np.cos(th), ri * np.sin(th)))
+            loop = np.vstack((xy_out, xy_in[::-1], xy_out[:1]))
+            barriers.append(loop)
+        return barriers
+
+    # ---- encoder (warm-start) ------------------------------------------
+    def fit_barriers(self, barriers: list[np.ndarray]) -> np.ndarray:
+        """Least-squares fit this parameterisation to existing closed barrier
+        polylines (e.g. from a Hackl generator). Returns a bounds-clipped X."""
+        polys = sorted((np.asarray(b, float) for b in barriers), key=lambda p: np.linalg.norm(p, axis=1).min())
+        blocks = [self._fit_one(p) for p in polys[: self.N]]
+        while len(blocks) < self.N:
+            blocks.append(blocks[-1].copy())
+        X = np.concatenate(blocks)
+        lo, hi = self.bounds
+        return np.clip(X, lo, hi)
+
+    def _fit_one(self, poly: np.ndarray) -> np.ndarray:
+        r = np.linalg.norm(poly, axis=1)
+        theta = np.degrees(np.arctan2(poly[:, 1], poly[:, 0]))
+        theta_lo, theta_hi = float(theta.min()), float(theta.max())
+        nb = self.n_eval
+        edges = np.linspace(theta_lo, theta_hi, nb + 1)
+        centers = 0.5 * (edges[:-1] + edges[1:])
+        idx = np.clip(np.digitize(theta, edges) - 1, 0, nb - 1)
+        r_out = np.full(nb, np.nan)
+        r_in = np.full(nb, np.nan)
+        for bi in range(nb):
+            rr = r[idx == bi]
+            if rr.size:
+                r_out[bi] = rr.max()
+                r_in[bi] = rr.min()
+        s_c = (centers - theta_lo) / max(theta_hi - theta_lo, 1e-9)
+        valid = ~np.isnan(r_out)
+        r_out = np.interp(s_c, s_c[valid], r_out[valid])
+        r_in = np.interp(s_c, s_c[valid], r_in[valid])
+        B = self._basis_at(s_c, self.knots, self.spline_k)
+        c_out, *_ = np.linalg.lstsq(B, r_out, rcond=None)
+        c_in, *_ = np.linalg.lstsq(B, r_in, rcond=None)
+        return np.concatenate(([theta_lo, theta_hi], c_out, c_in))

@@ -177,3 +177,11 @@ checkpoints/
 # M4.5: FEA emulators + paired sweep traces (large; rebuild via m4_5_* scripts)
 emulators/
 sweeps/
+
+# newparam line: keep code + docs(markdown), exclude large artifacts/figures/PDFs
+docs/refs/*.pdf
+notebooks/RadialSpline_*.npz
+notebooks/RadialSpline_*.png
+notebooks/RadialSpline_bo_results/
+replications/**/*.png
+replications/**/*.npz

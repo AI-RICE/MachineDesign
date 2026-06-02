@@ -478,7 +478,7 @@ class Design:
         self.rotor_id.subtract(barrier_id)
         modeler.delete(barrier_id)
 
-    def compute(self, NUM_CORES: int = 1):
+    def compute(self, NUM_CORES: int = 1, mesh_length: float = 3.0):
         m2d = self.m2d
         assert m2d.mesh is not None
         assert m2d.post is not None
@@ -486,7 +486,7 @@ class Design:
         m2d.mesh.assign_length_mesh(
             assignment=self.rotor_id,
             inside_selection=True,
-            maximum_length=3,
+            maximum_length=mesh_length,
             maximum_elements=None,
             name="rotor",
         )

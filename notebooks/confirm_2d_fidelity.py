@@ -50,6 +50,17 @@ def refit_2d(barrier, s=0.2, n=600):
     return np.vstack([poly, poly[:1]])  # close (check_barrier)
 
 
+def resample(barrier, n=1500):
+    """Near-exact geometry: re-sample the original boundary by arc length (no
+    smoothing, corners preserved) -> isolates the rib/discretisation pipeline."""
+    p = barrier
+    x, y = p[:, 0], p[:, 1]
+    u = np.r_[0, np.cumsum(np.hypot(np.diff(x), np.diff(y)))]
+    u /= u[-1]
+    un = np.linspace(0, 1, n)
+    return np.column_stack([np.interp(un, u, x), np.interp(un, u, y)])
+
+
 def fea(design, splitter, barriers, cores):
     bars = splitter.split_barriers(barriers)
     design.add_rotor()
@@ -79,18 +90,19 @@ def main():
 
     design = load_design(args.aedt_project, "SynRM_test", "Design01", args.aedt_version)
     rg = RadialSplineGenerator(REFERENCE_MACHINE, K=48)
-    print(f"{'design':22s} | {'library':>16} | {'H (FEA)':>15} | {'2D re-enc':>15} | {'r(theta) re-enc':>15}", flush=True)
+    hdr = f"{'design':22s} | {'H (FEA)':>13} | {'resample~exact':>13} | {'2D s=0.2':>13} | {'r(theta)':>13}"
+    print(hdr, flush=True)
     for short, X, Tlib, Rlib, tag in tests:
         hk = GENS[short](REFERENCE_MACHINE, r_stator_end=0.7, offset=0.35)
         hk.set_parameters(hk.X_to_params(np.asarray(X, float)))
         hb = hk.generate_barriers()
         Th, Rh = fea(design, hk, hb, args.num_cores)
-        b2d = [refit_2d(b) for b in hb]
-        T2, R2 = fea(design, hk, b2d, args.num_cores)
+        Te, Re = fea(design, hk, [resample(b) for b in hb], args.num_cores)        # near-exact geom
+        T2, R2 = fea(design, hk, [refit_2d(b, 0.2, 600) for b in hb], args.num_cores)  # smoothed
         rg.set_parameters(rg.fit_barriers(hb))
         T_r, R_r = fea(design, rg, rg.generate_barriers(), args.num_cores)
-        print(f"{short+'/'+tag:22s} | T={Tlib:.3f} r={Rlib:4.1f}% | T={Th:.3f} r={Rh:4.1f}% | "
-              f"T={T2:.3f} r={R2:4.1f}% | T={T_r:.3f} r={R_r:4.1f}%", flush=True)
+        print(f"{short+'/'+tag:22s} | T{Th:.3f} r{Rh:4.1f} | T{Te:.3f} r{Re:4.1f} | "
+              f"T{T2:.3f} r{R2:4.1f} | T{T_r:.3f} r{R_r:4.1f}", flush=True)
     design.close_project()
 
 

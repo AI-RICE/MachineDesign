@@ -54,10 +54,12 @@ def main():
     ap.add_argument("--num-cores", type=int, default=4)
     ap.add_argument("--designs-npz", default="notebooks/test_designs_2d.npz")
     ap.add_argument("--meshes", nargs="+", type=float, default=[3.0, 1.5, 0.75])
+    ap.add_argument("--only", default=None, help="restrict to one generator (e.g. OneLambda)")
     args = ap.parse_args()
 
     dd = np.load(args.designs_npz, allow_pickle=True)
-    tests = [(s, X) for s, X, t in zip(dd["shorts"], dd["Xs"], dd["tags"]) if t == "maxT" and s in GENS]
+    tests = [(s, X) for s, X, t in zip(dd["shorts"], dd["Xs"], dd["tags"])
+             if t == "maxT" and s in GENS and (args.only is None or s == args.only)]
 
     design = load_design(args.aedt_project, "SynRM_test", "Design01", args.aedt_version)
     print(f"{'design':14s} | {'mesh':>5} | {'Hackl native':>13} | {'resample~exact':>14} | {'|diff|':>7}", flush=True)

@@ -70,17 +70,12 @@ def main():
     ap.add_argument("--aedt-project", default="data/SynRM_test.aedt")
     ap.add_argument("--aedt-version", default="2024.2")
     ap.add_argument("--num-cores", type=int, default=4)
+    ap.add_argument("--designs-npz", default="notebooks/test_designs_2d.npz",
+                    help="pre-extracted test Hackl designs (shorts, Xs, Tlib, Rlib, tags)")
     args = ap.parse_args()
 
-    # test designs: best-T per family + a low-ripple SixLambdas
-    tests = []
-    for short in ("OneLambda", "SixLambdas", "ThreeBrokenLines"):
-        d = load_fea_designs(short, "../MachineDesign/results", None)
-        j = int(np.argmax(d.T_mean))
-        tests.append((short, d.X[j], float(d.T_mean[j]), float(d.T_ripple[j]), "maxT"))
-    d = load_fea_designs("SixLambdas", "../MachineDesign/results", None)
-    jr = int(np.argmin(d.T_ripple + (d.T_mean < 4.0) * 100))  # low ripple, decent T
-    tests.append(("SixLambdas", d.X[jr], float(d.T_mean[jr]), float(d.T_ripple[jr]), "lowRip"))
+    dd = np.load(args.designs_npz, allow_pickle=True)
+    tests = list(zip(dd["shorts"], dd["Xs"], dd["Tlib"], dd["Rlib"], dd["tags"]))
 
     design = load_design(args.aedt_project, "SynRM_test", "Design01", args.aedt_version)
     rg = RadialSplineGenerator(REFERENCE_MACHINE, K=48)

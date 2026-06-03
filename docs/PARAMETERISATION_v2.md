@@ -89,6 +89,14 @@ overwrites by name), but interleaving airgap settings in one session needs a
 mesh-clear. Standing convention: **every v2 FEA call passes explicit
 (mesh_length=0.5, airgap_mesh=0.5)**.
 
+**Step 3 — PASS** (`../../notebooks/step3_fidelity_gate.py`). Bézier re-encode →
+FEA at converged (0.5, 0.5) vs original Hackl: **worst |ΔT| = 0.51%** (OneLambda
+−0.38, SixLambdas +0.09, 3BL −0.51, SixLambdas-lowRip +0.28; ripple within
+0.4 pts), barely above the noise floor. The ~0.04 mm corner-aware re-encode is
+**effectively lossless in torque** — the gate `r(θ)` failed (11 mm → 9–12% loss).
+⇒ warm-start from the Hackl families will be lossless; representation + FEA
+foundation fully validated.
+
 **Step 2 — PASS** (`../../notebooks/bezier_superset_proto.py`; fig
 [`figures/bezier_superset_containment.png`](figures/bezier_superset_containment.png)).
 Corner-aware fit (detect tangent jumps → C⁰ breakpoints → cubic per sub-segment)

@@ -320,13 +320,24 @@ Scripts: [`../../notebooks/confirm_2d_fidelity.py`](../../notebooks/confirm_2d_f
    conversely a low-RMS smooth 2-D fit can lose torque by *rounding corners*
    (it wrecked the low-ripple point) — geometry RMS is a poor torque proxy.
 
-**Consequence for the OneLambda/SixLambdas/ThreeBrokenLines baseline comparison:**
-the 3 mm max-torques (4.517 / 4.557 / 4.516) are each inflated ~+0.12 and the
-inter-family gap (~0.04 N·m) sits **at the ~1% residual-noise floor** ⇒ at 3 mm
-the three families are **statistically tied; the apparent ranking is not
-reliable.** Worth flagging to the co-authors: parameterisation comparisons need a
-mesh-converged FEA (~0.5 mm). *Re-evaluation of each family's Pareto front at
-0.5 mm is in progress (`reeval_converged.py`) to settle it.*
+**Baseline comparison re-evaluated at 0.5 mm** (`reeval_converged.py`, 8
+Pareto-front designs/family; fig `family_pareto_converged.png`):
+
+| family | max-T 3 mm → 0.5 mm | HV 3 mm → 0.5 mm | mesh bias |
+|---|---|---|---|
+| OneLambda | 4.517 → 4.426 | 1.510 → 1.442 | −0.091 |
+| SixLambdas | 4.557 → 4.452 | 1.538 → **1.472** | −0.105 |
+| ThreeBrokenLines | 4.516 → **4.457** | 1.508 → 1.463 | −0.060 |
+
+**The ranking does not survive mesh convergence.** On max-T, 3 mm said
+SixLambdas > {OneLambda ≈ 3BL}; at 0.5 mm it **flips** to 3BL ≳ SixLambdas >
+OneLambda — because the coarse-mesh bias is **family-dependent** (−0.06 for 3BL
+vs −0.10/−0.11 for the smooth families). At converged mesh the three are within
+**~1–2%** (≈ the ~1% noise floor): **SixLambdas ≈ ThreeBrokenLines, marginally
+ahead of OneLambda**; on HV SixLambdas (1.472) ≳ 3BL (1.463) > OneLambda (1.442).
+**Conclusion: at 3 mm the parameterisation ranking is not reliable; "SixLambdas
+is clearly best" overstates it.** Worth flagging to the co-authors — parameterisation
+comparisons need mesh-converged (~0.5 mm) FEA.
 
 **Pipeline fix going forward:** `Design.compute` now takes `mesh_length`; default
 BO/eval should use **~0.5 mm** so all future runs are converged (cost is modest,

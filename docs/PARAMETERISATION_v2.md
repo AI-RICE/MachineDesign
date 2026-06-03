@@ -44,19 +44,20 @@ Each barrier = inner + outer **2-D piecewise-cubic-Bézier** boundaries with
   parametric, the `r(θ)` killer).
 - Contains OneLambda/SixLambdas/ThreeBrokenLines as **exact** parameter settings
   (beziers exact; arcs to ~1e-3 mm; broken lines exact).
-- DOF ~100–200 → the **DSP-GP / SAASBO** optimisers we validated (E3/E5) apply.
+- **DOF ≈ 100** (richer than Hackl 7–13, workable) → fixed M segments/barrier
+  (~33 DOF/barrier). Coarser than the lossless encoder, so the **converged-FEA
+  fidelity must be re-checked at this D** (Step 3 was at ~0.04 mm; D≈100 gives
+  ~0.1–0.2 mm — verify it stays <1–2% torque, bump D if not). DSP-GP/SAASBO apply.
 
-## Feasibility = constrained BO (decision)
+## Feasibility = cheap checker as a hard constraint (no second GP)
 
-No by-construction straitjacket. Instead:
-- a **cheap, geometry-only validator** (Shapely: simple, non-self-intersecting,
-  nested, in-rotor, min-iron — **no FEA**);
-- a **second GP modelling P(feasible)**; acquisition = **EI · P(feasible)**
-  (constrained EHVI for the MO case), and/or the validator as a **hard filter
-  inside the acqf optimiser** (reject infeasible candidates before FEA).
-- This frees the control points to be unconstrained while spending FEA only on
-  feasible designs. (Backup: by-construction centerline+width if the feasible
-  region proves too thin for the constraint-GP to learn efficiently.)
+A feasibility GP only pays off when feasibility is *expensive*. Ours is **cheap
+(geometry-only, ~ms)** — Shapely: simple / non-self-intersecting / nested /
+in-rotor / min-iron. So use it **directly inside the acquisition optimiser**:
+generate candidates → **filter to feasible with the checker** → optimise the acqf
+over the feasible set (validate before any FEA). No second model; zero FEA wasted
+on infeasible designs; control points stay free. (Backup if the feasible region
+is too thin: by-construction centerline+width.)
 
 ## Optimiser
 
@@ -75,7 +76,67 @@ from the pooled exact re-encodings, **all FEA at the converged mesh**.
 | 5 | **BO at converged mesh** — DSP-GP sanity, then qLogEHVI/MORBO vs the bar | dominate / sample-efficiency / tie-unified |
 | 6 | **Decision + write-up** | honest verdict (any outcome is publishable per D7) |
 
+## Encoder design (exact / structure-aware) — the warm-start that matters
+
+**Why (Step-4b finding).** A naive uniform-arclength *fit* encoder at the BO
+resolution M=6 (D=108) loses **−4.6% torque** vs the original Hackl (`step4_fea_check.py`):
+torque sensitivity is ≈ **20 × (geometry error in mm) %**, so 0.23 mm → 4.6%.
+Reaching <1% by *fitting* would need ~0.05 mm → M≈16–20 → D≈300 — well above the
+D≈100 target. The fit, not the representation, is the bottleneck (an M=6 chain
+*can* hold a Hackl barrier exactly: 2 beziers + 2 arcs ≈ 4–6 cubics).
+
+**Approach — encode the natural pieces, then subdivide losslessly to M:**
+1. **Natural-piece segmentation.** Breakpoints = sharp **corners** (turning-angle
+   jumps — the broken-line vertices) **+ adaptive splits**: recursively split each
+   inter-corner arc at its max-fit-error point until per-piece error < ε
+   (~0.01 mm). This auto-discovers the (smooth) bezier↔arc junctions without
+   hand-coding them. Broken-line segments are **exact degenerate cubics**; the
+   ~6° end arcs are cubic to ~1e-5 mm. → near-lossless natural chain.
+   - ThreeBrokenLines: ~6 natural pieces (3 line-cubics + 2 arcs + 1 inner bezier).
+     OneLambda/SixLambdas: ~4 (outer bez + 2 arcs + inner bez).
+2. **Reach fixed M by exact de Casteljau subdivision.** A cubic splits into two
+   cubics tracing the **identical** curve. For a family with < M natural pieces,
+   split the longest segments until exactly M — **lossless** (geometry unchanged);
+   the extra control points are **spare DOF for BO to deform that region**.
+   "Where do the remaining segments go?" → here, by exact subdivision.
+3. **Subdivision rule:** split longest segments / favour the smooth boundaries;
+   **corners and bridge points stay pinned breakpoints** (they carry the torque),
+   so similar geometries map to similar control-point layouts (smooth GP map).
+4. **M floor = max family natural count** (≈6, ThreeBrokenLines) ⇒ default
+   **M=6 → D=108**; M configurable for margin.
+
+**Verification gate:** re-encode each family → (a) geometry round-trip ≪ torque
+scale, (b) **FEA ΔT <1%** at M=6 (redo of Step-4b with the exact encoder).
+
 ## Progress
+
+**Step 4 — encoder DONE** ([`../machine_design/bezier_generator.py`](../machine_design/bezier_generator.py);
+test [`../../notebooks/bezier_generator_test.py`](../../notebooks/bezier_generator_test.py)).
+Final `BezierSupersetGenerator(M=6 → D=108, n_per=160)`. Implementation lessons:
+- **The −4.6% at M=6 was two artifacts, not a representation limit.** (a) `_fit_cubic`
+  used **chord-length** parameterisation while Hackl samples **uniformly in the Bézier
+  parameter** → fixed by uniform-t fitting (a natural piece is then recovered to
+  **1e-14, exact**); (b) `_decode_one` sampled only **n_per=40/segment** → a 35 mm
+  segment got ~0.9 mm point spacing, so the FEA polygon (and the nearest-neighbour
+  metric) was coarse → fixed by **n_per=160** (~1000 pts, matching the original).
+- **Encoder = adaptive recursive split to ε + lossless de Casteljau pad to M.**
+  Corner-threshold detection missed gentle broken-line vertices; recursive
+  splitting at the max-error point auto-finds every vertex/junction. Spare
+  segments for simpler families come from exact de Casteljau subdivision.
+- **Two robustness fixes for 3BL** (raised it 74% → **100%** feasible re-encode):
+  straight-snap near-collinear pieces (no spurious bow), and **drop degenerate
+  zero-length pieces** (their coincident anchors caused the surface-hugging
+  d-axis-pinch self-cross).
+- **Result:** all three families **~99–100% feasible** re-encode over 120 random
+  designs; geometry ~0.06–0.08 mm (smooth) / ~0.12 mm (3BL) on the top-torque set
+  (nearest-neighbour metric, decode-sampling-limited — pieces are exact). Feasibility
+  is a hard filter (Shapely simple + min-iron/rib/bridge/shaft). Perturbation
+  feasibility around a warm-start: σ=0.1 mm → 34%, σ=0.25 → 13% (thin feasible
+  region — the acqf optimiser must filter; flagged as a standing risk).
+- **Pending in Step 4:** broad prior sampler + pooled exact warm-start (skip the
+  ~1% infeasible re-encodes), and the **FEA fidelity gate** (Step-4b redo of the
+  −4.6% check with this encoder — the real lossless-warm-start test).
+
 
 **Step 0 — DONE** (`../../notebooks/step0_fidelity.py`). Converged FEA setting =
 **rotor mesh 0.5 mm + airgap (Band) mesh ~0.5 mm**. Airgap refinement moves mean

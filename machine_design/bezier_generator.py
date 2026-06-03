@@ -39,14 +39,31 @@ def _turning_deg(P):
 
 
 def _fit_cubic(seg):
-    """Cubic Bézier with fixed endpoints, LS interior control points -> (4,2)."""
+    """Cubic Bézier with fixed endpoints, LS interior control points -> (4,2).
+    Uniform parameterisation: matches the generator's uniform-in-parameter
+    sampling, so a piece that IS a cubic Bézier is recovered ~exactly (chord-
+    length would mismatch the non-uniform Bézier speed and lose fidelity)."""
     B0, B3 = seg[0], seg[-1]
-    d = np.r_[0, np.cumsum(np.linalg.norm(np.diff(seg, axis=0), axis=1))]
-    t = d / d[-1] if d[-1] > 0 else np.linspace(0, 1, len(seg))
+    t = np.linspace(0, 1, len(seg))
     A = np.column_stack([3 * (1 - t) ** 2 * t, 3 * (1 - t) * t ** 2])
     rhs = seg - np.outer((1 - t) ** 3, B0) - np.outer(t ** 3, B3)
     sol, *_ = np.linalg.lstsq(A, rhs, rcond=None)
     return np.array([B0, sol[0], sol[1], B3])
+
+
+def _straight_or_fit(arc):
+    """If the arc is near-collinear (broken-line segment), return the exact
+    straight cubic (control pts on the chord) — no spurious bow that could make
+    adjacent segments cross. Otherwise LS-fit a cubic."""
+    P0, P3 = arc[0], arc[-1]
+    chord = P3 - P0
+    L = np.linalg.norm(chord)
+    if L > 1e-9:
+        s = (arc - P0) @ chord / L ** 2
+        dev = np.linalg.norm(arc - (P0 + np.outer(s, chord)), axis=1).max()
+        if dev < 0.05:  # straight to <0.05 mm
+            return np.array([P0, P0 + chord / 3, P0 + 2 * chord / 3, P3])
+    return _fit_cubic(arc)
 
 
 def _eval_cubic(c, t):
@@ -54,9 +71,18 @@ def _eval_cubic(c, t):
             + 3 * (1 - t) * t ** 2 * c[2] + t ** 3 * c[3])
 
 
+def _split_cubic(c, t=0.5):
+    """de Casteljau split of cubic c into two cubics tracing the SAME curve."""
+    P0, P1, P2, P3 = c
+    A, B, C = P0 + (P1 - P0) * t, P1 + (P2 - P1) * t, P2 + (P3 - P2) * t
+    D, E = A + (B - A) * t, B + (C - B) * t
+    F = D + (E - D) * t
+    return np.array([P0, A, D, F]), np.array([F, E, C, P3])
+
+
 class BezierSupersetGenerator(BarrierGenerator):
     def __init__(self, design, n_barriers=3, M=6, t_bridge=0.7, t_rib=0.5, t_shaft=0.5,
-                 min_air=0.5, w_rod=0.5, n_per=40, corner_thresh=12.0, **kwargs):
+                 min_air=0.5, w_rod=0.5, n_per=160, corner_thresh=12.0, **kwargs):
         self.N = int(n_barriers)
         self.M = int(M)
         self.t_bridge, self.t_rib, self.t_shaft, self.min_air = t_bridge, t_rib, t_shaft, min_air
@@ -89,44 +115,53 @@ class BezierSupersetGenerator(BarrierGenerator):
             raise RuntimeError("call set_parameters() first")
         return [self._decode_one(c) for c in self._params]
 
-    # ---- encode (warm-start): corner-aware fit -> fixed-M closed chain ----
+    # ---- encode (warm-start): adaptive natural-piece fit -> exactly M -----
+    def _adaptive(self, arc, eps, out, depth=0, maxd=9):
+        """Recursively split an arc at its max-fit-error point until each piece
+        is a cubic to < eps. Auto-finds vertices (broken-line) AND smooth
+        bezier<->arc junctions; the len/clip guards forbid degenerate pieces."""
+        c = _straight_or_fit(arc)
+        u = np.linspace(0, 1, len(arc))[:, None]
+        err = np.linalg.norm(_eval_cubic(c, u) - arc, axis=1)
+        if err.max() < eps or len(arc) < 6 or depth >= maxd:
+            out.append(c)
+            return
+        s = int(np.clip(err.argmax(), 2, len(arc) - 3))
+        self._adaptive(arc[: s + 1], eps, out, depth + 1, maxd)
+        self._adaptive(arc[s:], eps, out, depth + 1, maxd)
+
     def _fit_one(self, barrier):
+        """Sharp corners seed the segmentation; adaptive refinement makes each
+        piece a near-exact cubic (catching gentle vertices/junctions the corner
+        threshold misses); de Casteljau subdivision pads losslessly to exactly M
+        cubics. Returns 3M control points (anchors+interiors), closed chain."""
         P = _dedup_closed(np.asarray(barrier, float))
         n = len(P)
-        corners = np.where(_turning_deg(P) > self.corner_thresh)[0]
-        if len(corners) == 0:
-            corners = np.array([0])
-        corners = np.sort(corners)
-        # arc lengths between consecutive (cyclic) corners
-        arcs = []
-        for k in range(len(corners)):
-            i0, i1 = corners[k], corners[(k + 1) % len(corners)]
-            idx = [j % n for j in range(i0, i0 + ((i1 - i0) % n) + 1)]
-            arc = P[idx]
-            L = float(np.sum(np.linalg.norm(np.diff(arc, axis=0), axis=1))) if len(arc) > 1 else 0.0
-            arcs.append((arc, L))
-        # allocate M segments across arcs (>=1 each), proportional to length
-        Ltot = sum(L for _, L in arcs) or 1.0
-        nseg = [max(1, int(round(self.M * L / Ltot))) for _, L in arcs]
-        # adjust to sum exactly M
-        while sum(nseg) > self.M and max(nseg) > 1:
-            nseg[int(np.argmax(nseg))] -= 1
-        while sum(nseg) < self.M:
-            nseg[int(np.argmax([L for _, L in arcs]))] += 1
-        # fit cubics; collect anchors+interiors (skip each cubic's P3 = next P0)
-        ctrl = []
-        for (arc, _), ns in zip(arcs, nseg):
-            bnds = np.linspace(0, len(arc) - 1, ns + 1).astype(int)
-            for s in range(ns):
-                seg = arc[bnds[s]: bnds[s + 1] + 1]
-                if len(seg) < 2:
-                    seg = arc[bnds[s]: bnds[s] + 2] if bnds[s] + 2 <= len(arc) else arc[-2:]
-                c = _fit_cubic(seg)
-                ctrl.extend([c[0], c[1], c[2]])
-        ctrl = np.array(ctrl[: 3 * self.M])
-        if len(ctrl) < 3 * self.M:  # pad (rare)
-            ctrl = np.vstack([ctrl, np.repeat(ctrl[-1:], 3 * self.M - len(ctrl), axis=0)])
-        return ctrl
+        seeds = sorted(set([0] + list(np.where(_turning_deg(P) > 25.0)[0])))
+        eps = 0.02
+        while True:
+            pieces = []
+            for k in range(len(seeds)):
+                i0, i1 = seeds[k], seeds[(k + 1) % len(seeds)]
+                idx = [j % n for j in range(i0, i0 + ((i1 - i0) % n) + 1)]
+                if len(idx) >= 2:
+                    self._adaptive(P[idx], eps, pieces)
+            if len(pieces) <= self.M or eps > 5.0:
+                break
+            eps *= 1.7  # design needs > M pieces at this tol: coarsen
+        # drop degenerate (near-zero-length) pieces: their coincident anchors are
+        # what let neighbouring segments cross at a sharp pinch (3BL d-axis).
+        kept = [c for c in pieces if np.linalg.norm(c[3] - c[0]) > 1e-3]
+        if kept:
+            pieces = kept
+        # pad to exactly M by splitting the longest segment (lossless)
+        while len(pieces) < self.M:
+            li = max(range(len(pieces)),
+                     key=lambda i: np.linalg.norm(pieces[i][3] - pieces[i][0]))
+            l, r = _split_cubic(pieces[li])
+            pieces[li:li + 1] = [l, r]
+        pieces = pieces[: self.M]
+        return np.array([pt for c in pieces for pt in (c[0], c[1], c[2])])
 
     def fit_barriers(self, barriers):
         polys = sorted((np.asarray(b, float) for b in barriers), key=lambda p: np.linalg.norm(p, axis=1).min())

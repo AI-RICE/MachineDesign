@@ -75,6 +75,18 @@ from the pooled exact re-encodings, **all FEA at the converged mesh**.
 | 5 | **BO at converged mesh** — DSP-GP sanity, then qLogEHVI/MORBO vs the bar | dominate / sample-efficiency / tie-unified |
 | 6 | **Decision + write-up** | honest verdict (any outcome is publishable per D7) |
 
+## Progress
+
+**Step 2 — PASS** (`../../notebooks/bezier_superset_proto.py`; fig
+[`figures/bezier_superset_containment.png`](figures/bezier_superset_containment.png)).
+Corner-aware fit (detect tangent jumps → C⁰ breakpoints → cubic per sub-segment)
+contains all three families to **~0.04 mm** max round-trip (rms 0.018), vs `r(θ)`'s
+11 mm — ~280×. Corners (4/barrier smooth, 5/barrier 3BL) and re-entrant ends both
+captured. Accuracy↔DOF tradeoff (OneLambda): 38 DOF/barrier → 0.19 mm, 50 → 0.11,
+66 → 0.08, 122 → 0.04 (even at `r(θ)`-matched 38 DOF it's ~60× better). **Step-4
+design note:** for a fixed-D BO vector, use a fixed segment count M per barrier
+(free C⁰ tangents → corners emerge where tangents misalign); ~M=12 → ~0.08 mm.
+
 ## Standing risks
 - **Feasible region geometry** — if the constraint-GP can't learn it from cheap
   validator labels (thin/disconnected region), fall back to by-construction.

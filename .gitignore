@@ -187,3 +187,4 @@ replications/**/*.png
 replications/**/*.npz
 notebooks/test_designs_2d.npz
 notebooks/pareto_designs.npz
+notebooks/step0_designs.npz

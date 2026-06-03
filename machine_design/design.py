@@ -478,7 +478,7 @@ class Design:
         self.rotor_id.subtract(barrier_id)
         modeler.delete(barrier_id)
 
-    def compute(self, NUM_CORES: int = 1, mesh_length: float = 3.0):
+    def compute(self, NUM_CORES: int = 1, mesh_length: float = 3.0, airgap_mesh: float | None = None):
         m2d = self.m2d
         assert m2d.mesh is not None
         assert m2d.post is not None
@@ -490,6 +490,14 @@ class Design:
             maximum_elements=None,
             name="rotor",
         )
+        if airgap_mesh is not None:
+            m2d.mesh.assign_length_mesh(
+                assignment="Band",
+                inside_selection=True,
+                maximum_length=airgap_mesh,
+                maximum_elements=None,
+                name="airgap",
+            )
         # core loss rotor
         m2d.set_core_losses("Rotor", core_loss_on_field=False)
 

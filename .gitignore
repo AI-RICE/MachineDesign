@@ -186,3 +186,4 @@ notebooks/RadialSpline_bo_results/
 replications/**/*.png
 replications/**/*.npz
 notebooks/test_designs_2d.npz
+notebooks/pareto_designs.npz

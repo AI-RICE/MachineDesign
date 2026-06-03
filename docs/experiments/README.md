@@ -189,11 +189,155 @@ well axis-aligned, whereas a global modal basis spreads a localized feature acro
 many coefficients. **Decision: keep the B-spline basis.** Effective dim ≈12 stands;
 Phase-3 budget ~150–250 evals unchanged.
 
+> **⚠️ MESH CAVEAT (added after E9).** E7 and E8 were run at the default rotor
+> mesh `max_length = 3 mm`, which **E9 shows is not converged**: re-sampling the
+> *same* geometry swings torque ~0.13 N·m (~3%) at 3 mm, collapsing to ~0.02 at
+> 0.5 mm, and the converged torque is ~0.12 N·m (~2.7%) *below* the 3 mm value.
+> Consequently the **quantitative conclusions below are confounded by meshing**:
+> the "RadialSpline −1.9% (E7) / −8.8% HV (E8) vs Hackl" gaps are within the
+> 3 mm artifact. Honest restatement: **RadialSpline reaches torque/HV
+> indistinguishable from Hackl within FEA pipeline noise** — not "worse". The
+> *qualitative* findings (pipeline works, BO works, warm-start works) stand.
+> Re-evaluation at the converged 0.5 mm mesh is in progress.
+
+## E7 — Phase 3: LIVE ANSYS DSP-GP-BO over RadialSpline (OneLambda) — the real result
+
+Runner: [`../../notebooks/run_radialspline_live.py`](../../notebooks/run_radialspline_live.py).
+Recorded run: `results_radialspline_live/OneLambda_dsp_live_ws40/` (200 eval_*.npz
+with full torque series + geometry, evals.csv, config.json, run.log;
+`best_trajectory.png`). Isolated bayes venv (botorch+pyaedt) + git worktree +
+AEDT v242 copy — pfn track untouched. **~20 s/eval, 200/200 ok, 0 failures.**
+
+Setup: single-objective (maximise T_mean); **40 warm-start anchors** = re-encoded
+Hackl OneLambda designs spread across Hackl T∈[2.06,4.52]; **160 DSP-GP-BO iters**.
+
+| | T_mean (live ANSYS) |
+|---|---|
+| Warm-start best (re-encoded Hackl) | **4.297** |
+| **DSP-GP-BO best (160 iters)** | **4.435** |
+| OneLambda Hackl optimum (warm-start source) | 4.517 |
+| Global Hackl best (SixLambdas; warm-start was OneLambda-only) | 4.557 |
+
+**Findings:**
+1. **Pipeline + strategy validated on real FEA.** DSP-GP-BO navigates the 114-D
+   space and **improves +3.2% over the warm-start ceiling** (4.30→4.43); **87/160
+   BO evals beat the ceiling** — a genuine optimisation signal, not noise.
+2. **Re-encoding fidelity has a real cost.** The Hackl optimum (4.52) re-encodes
+   to a best of 4.30 under live FEA — a **−0.22 N·m loss** from the B-spline
+   refit + repair + rib. Warm-start anchors otherwise reproduce Hackl torque well
+   (T≈2→2.0, etc.).
+3. **RadialSpline did NOT beat the narrow parameterisation** on max T_mean:
+   4.435 vs OneLambda 4.517 (**−1.9%**), and vs the global Hackl best 4.557
+   (SixLambdas, **−2.7%**) — note the warm-start here was OneLambda-only (E8 pools
+   all three). BO recovered most of the re-encoding handicap but not all.
+4. **The emulator was vindicated-as-misleading.** E4's emulator suggested ~4.5
+   was trivially reachable and rated wild designs ~4.0; live FEA showed wild
+   designs ≈0.1 N·m (smoke) and a true ceiling capped by re-encoding. **Only the
+   live run gives the honest answer** — the whole reason Phase 3 was necessary.
+
+**Caveats / open questions:**
+- **Single-objective only.** The best design's ripple is 23.9% (unoptimised). The
+  multi-objective Pareto (T_mean vs ripple) is where a richer geometry more
+  plausibly wins — **untested** (needs T_ripple-aware acquisition, E6).
+- **Re-encoding loss is reducible** — a more faithful encoder / less aggressive
+  repair / finer rib could lift the 4.30 ceiling toward 4.52, changing the verdict.
+- OneLambda is the easiest case (7-D); SixLambdas/ThreeBrokenLines may differ.
+- Not apples-to-apples: Hackl 4.52 came from a 250-eval *multi-objective* EHVI
+  sweep; this was 200-eval *single-objective*.
+
+**Verdict (per D7, a first-class negative result):** the live pipeline works and
+DSP-GP-BO optimises the rich space effectively, but RadialSpline does **not** beat
+the dedicated Hackl parameterisation on single-objective T_mean for OneLambda. The
+value proposition now hinges on (a) reducing the re-encoding loss and (b) the
+multi-objective / harder-parameterisation cases.
+
+## E8 — Phase 3 MULTI-OBJECTIVE: pooled warm-start qLogEHVI (the decisive test)
+
+Runner: [`../../notebooks/run_radialspline_live_mo.py`](../../notebooks/run_radialspline_live_mo.py)
+(+ [`radialspline_reencode_mo.py`](../../notebooks/radialspline_reencode_mo.py), pooled N=6896).
+Run: `results_radialspline_live/pooled_mo_live/` (200 evals, full recording;
+`pareto_vs_hackl.png`). Objectives (T_mean ↑, T_ripple ↓); ModelListGP of two
+DSP-prior GPs; qLogEHVI; **60 warm-start pooled across all 3 families** (1λ=15,
+6λ=26, 3BL=19 — the pooled Pareto front + diversity) + 140 BO iters. 200/200 ok.
+
+Hypervolume (ref=(1.957, −0.622)):
+
+| Pareto front | HV |
+|---|---|
+| **Original Hackl library (real FEA — the true bar)** | **1.541** |
+| Re-encoded warm-start (encoding-degraded) | 1.360 |
+| RadialSpline live MO-BO | **1.405** |
+
+**Findings:**
+1. **BO improves over the (degraded) warm-start** front: HV 1.360 → 1.405 (+3.3%);
+   all 6 final Pareto points are BO-discovered — qLogEHVI works on the rich space.
+2. **But RadialSpline does NOT beat the original Hackl front: −8.8% HV** (1.405 vs
+   1.541). `pareto_vs_hackl.png` shows the Hackl front (SixLambdas 4.42@2.7% …
+   4.56@17.6%; ThreeBrokenLines 4.50@5.95%) **dominating** the RadialSpline front
+   (4.17–4.38 @ 4.2–5.3%), shifted ~0.1–0.15 N·m left at equal ripple.
+3. **The binding handicap is re-encoding fidelity, confirmed twice.** The
+   re-encoded warm-start front (1.360) is already −12% below the original Hackl
+   front (1.541) — *purely from the encode → repair → decode geometry change*
+   (~0.35 mm boundary RMSE → ~9–12% HV, since torque is very sensitive to bridge/
+   channel widths). BO recovered part (→1.405) but cannot reach 1.541 from a
+   degraded start in 114-D.
+
+**Verdict (D7, first-class negative result):** across single-objective (E7,
+−1.9% vs OneLambda / −2.7% vs the global Hackl best **4.557, SixLambdas**) AND
+multi-objective (E8, −8.8% HV), **the unified RadialSpline parameterisation does
+not beat the dedicated Hackl parameterisations.** The optimiser (DSP-GP-BO,
+qLogEHVI) and the pipeline work; the parameterisation's expressiveness is real;
+but the **encoder/decoder fidelity loss dominates** — known-good designs degrade
+~9–12% when re-encoded, and BO can't recover it. *The bottleneck is the
+representation's round-trip fidelity, not BO or the parameterisation's reach.*
+
+## E9 — FEA mesh convergence: the "fidelity loss" is largely a coarse-mesh artifact
+
+Scripts: [`../../notebooks/confirm_2d_fidelity.py`](../../notebooks/confirm_2d_fidelity.py)
+(A/B/C: Hackl vs 2-D-spline vs `r(θ)` re-encode),
+[`../../notebooks/mesh_convergence.py`](../../notebooks/mesh_convergence.py)
+(same geometry, native vs resample, mesh sweep). Figure:
+`results_radialspline_live/mesh_convergence.png`.
+
+**Trigger:** re-sampling the *same* Hackl curve (no shape change) swung FEA torque
+~0.13 N·m at the default 3 mm rotor mesh — a discretisation artifact, not geometry.
+
+**Convergence (OneLambda max-T), Hackl-native T_mean vs rotor mesh:**
+
+| mesh (mm) | 3.0 | 1.5 | 0.75 | 0.50 | 0.35 | 0.25 |
+|---|---|---|---|---|---|---|
+| T_mean | 4.517 | 4.530 | 4.418 | 4.392 | 4.404 | 4.404 |
+| same-shape artifact \|Δ\| | 0.131 | 0.127 | 0.044 | 0.018 | 0.017 | 0.037 |
+
+**Findings:**
+1. **Converged T_mean ≈ 4.40 N·m at mesh ≈ 0.5 mm.** The **3 mm value (4.517) is
+   biased HIGH by ~0.12 N·m (~2.7%)** — coarse mesh fails to resolve the 0.5 mm
+   bridges (note the non-monotonic drop only once mesh < bridge width).
+2. **The same-geometry discretisation artifact collapses 0.13 → ~0.02 by 0.5 mm**
+   → the E7/E8 "re-encoding loss" and the `r(θ)`-vs-2-D differences were largely
+   meshing noise. A ~**0.5–1% residual FEA noise floor** remains even at fine mesh.
+3. **The `r(θ)` "11 mm geometry error" mattered far less than its RMS implied;**
+   conversely a low-RMS smooth 2-D fit can lose torque by *rounding corners*
+   (it wrecked the low-ripple point) — geometry RMS is a poor torque proxy.
+
+**Consequence for the OneLambda/SixLambdas/ThreeBrokenLines baseline comparison:**
+the 3 mm max-torques (4.517 / 4.557 / 4.516) are each inflated ~+0.12 and the
+inter-family gap (~0.04 N·m) sits **at the ~1% residual-noise floor** ⇒ at 3 mm
+the three families are **statistically tied; the apparent ranking is not
+reliable.** Worth flagging to the co-authors: parameterisation comparisons need a
+mesh-converged FEA (~0.5 mm). *Re-evaluation of each family's Pareto front at
+0.5 mm is in progress (`reeval_converged.py`) to settle it.*
+
+**Pipeline fix going forward:** `Design.compute` now takes `mesh_length`; default
+BO/eval should use **~0.5 mm** so all future runs are converged (cost is modest,
+~minutes/eval).
+
 ## Next
 
-- **Phase 3 (live ANSYS)** — real off-manifold result; ~150–250 evals now looks
-  sufficient for OneLambda. Outputs to bayes `~/Public/PFN/` (CLAUDE.md §6).
-- ~~Basis ablation~~ — **done (negative)**: Chebyshev basis did not help; keep
-  B-spline (see E5 above).
-- **MORBO (multi-objective, E6)** stays queued; needs T_ripple re-encoded (E2
-  cached only T_mean).
+- **Settle the baseline** with the 0.5 mm Pareto-front re-eval (E9 in progress);
+  report converged per-family HV with ~1% noise bars.
+- **Re-do E7/E8 conclusions at 0.5 mm** (best designs + Hackl bar) before any
+  RadialSpline-vs-Hackl claim.
+- **Then** the representation question (2-D corner-preserving superset) — but only
+  judged against *converged* FEA, since geometry RMS proved misleading.
+- Switch BO default to mesh ≈ 0.5 mm; ~minutes/eval, still affordable.

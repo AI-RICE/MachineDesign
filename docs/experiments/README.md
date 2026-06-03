@@ -352,3 +352,21 @@ BO/eval should use **~0.5 mm** so all future runs are converged (cost is modest,
 - **Then** the representation question (2-D corner-preserving superset) — but only
   judged against *converged* FEA, since geometry RMS proved misleading.
 - Switch BO default to mesh ≈ 0.5 mm; ~minutes/eval, still affordable.
+
+---
+
+## Figures & data (committed, self-contained)
+
+Figures: [`../figures/`](../figures/) · result CSVs: [`../tables/`](../tables/).
+
+| exp | figure(s) | data |
+|---|---|---|
+| E1 geometry gate | [RadialSpline_random.png](../figures/RadialSpline_random.png), [warmstart](../figures/RadialSpline_warmstart.png) | — |
+| E3 DSP (vanilla HD-BO) | [regret_d25](../figures/regret_hartmann6_d25.png), [regret_d100](../figures/regret_hartmann6_d100.png) | — |
+| E5 SAASBO | [effdim](../figures/effdim_OneLambda.png), [basis_ablation](../figures/basis_ablation_OneLambda.png) | — |
+| E7 live single-obj | [best_trajectory](../figures/best_trajectory.png) | [E7_live_evals.csv](../tables/E7_live_evals.csv) |
+| E8 live multi-obj | [pareto_vs_hackl](../figures/pareto_vs_hackl.png) | [E8_mo_evals.csv](../tables/E8_mo_evals.csv) |
+| E9 mesh convergence | [mesh_convergence](../figures/mesh_convergence.png), [family_pareto_converged](../figures/family_pareto_converged.png), [twod_vs_rtheta](../figures/twod_vs_rtheta.png) | [E9_reeval_converged.csv](../tables/E9_reeval_converged.csv) |
+
+(Figures regenerable from the scripts in `../../notebooks/` and `../../replications/`;
+raw 400-eval ANSYS recordings kept on bayes under `results_radialspline_live/`.)

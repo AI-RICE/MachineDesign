@@ -18,7 +18,7 @@ the session log / `../HANDOFF.md`).
    ledger (P1–P8)**. Source of truth for the parameterisation. Start here.
 2. [METHODS.md](METHODS.md) — surveyed HD-BO / structured-space BO methods,
    ranked by suitability, with **externally-verified** citations.
-3. [experiments/](experiments/) — gate results, figures, and logs (geometry
+3. [experiments/](experiments/) — gate results + [figures/](figures/) + [tables/](tables/) (committed) (geometry
    gate, latent gate).
 
 Decisions are kept **inline in `PARAMETERISATION.md` §1** (single source of

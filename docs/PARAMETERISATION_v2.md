@@ -77,6 +77,18 @@ from the pooled exact re-encodings, **all FEA at the converged mesh**.
 
 ## Progress
 
+**Step 0 — DONE** (`../../notebooks/step0_fidelity.py`). Converged FEA setting =
+**rotor mesh 0.5 mm + airgap (Band) mesh ~0.5 mm**. Airgap refinement moves mean
+torque ≤0.4% (OneLambda) / 0% (SixLambdas); **noise floor (same-shape resample)
+~0.06–0.4%** at this setting — vs ~3% at the old 3 mm default, so design
+differences down to a few tenths of a % are now resolvable. `Design.compute` has
+`mesh_length` + `airgap_mesh` knobs; **v2 pipeline uses (0.5, 0.5)**. Gotcha:
+AEDT mesh ops persist across `compute()` calls (named ops overwrite; absence
+doesn't clear) — the BO loop is unaffected (never assigns airgap; "rotor"
+overwrites by name), but interleaving airgap settings in one session needs a
+mesh-clear. Standing convention: **every v2 FEA call passes explicit
+(mesh_length=0.5, airgap_mesh=0.5)**.
+
 **Step 2 — PASS** (`../../notebooks/bezier_superset_proto.py`; fig
 [`figures/bezier_superset_containment.png`](figures/bezier_superset_containment.png)).
 Corner-aware fit (detect tangent jumps → C⁰ breakpoints → cubic per sub-segment)

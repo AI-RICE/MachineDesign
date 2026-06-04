@@ -146,8 +146,26 @@ within 0.4 pts. The two encoder fixes moved M=6 from **−4.6% → −0.94%**. �
   (as the ICEM GP-EHVI Pareto reeval did). Cheap insurance: raise `n_per` for the
   reported designs only.
 
-- **Pending in Step 4:** broad prior sampler + pooled exact warm-start (skip the
-  ~1% infeasible re-encodes), and wiring the feasibility-constrained acqf.
+**Step 4 — warm-start + BO machinery DONE** (no FEA).
+- **Pooled warm-start** ([`../../notebooks/bezier_reencode_mo.py`](../../notebooks/bezier_reencode_mo.py)
+  → `Bezier_reencoded_pooled.npz`, gitignored/regenerable): **7359 designs** re-encoded
+  to D=108 with both objectives + gen_id; feasible re-encode 1λ 98.5% / 6λ 98.8% /
+  3BL 97.0% (skipped 38/29/74 — logged, not silently dropped). Labels are Hackl FEA
+  torques (within ~0.9% of the Bézier decode per Step 4b).
+- **Prior / feasibility / acqf** ([`../machine_design/bezier_bo.py`](../machine_design/bezier_bo.py)):
+  `warmstart_box` (data-driven box scaled to the warm-start region — the full
+  [0,r_max]^108 box is ~0% feasible), `sample_feasible` (rejection sampler around
+  feasible anchors), `optimize_acqf_feasible` (candidates from perturbing feasible
+  anchors at a range of step sizes → acqf argmax; **the validator is a hard
+  constraint, no second GP**).
+- **End-to-end smoke** ([`../../notebooks/bezier_bo_smoke.py`](../../notebooks/bezier_bo_smoke.py),
+  mock NN objective): DSP-GP ModelListGP + qLogEHVI + the constrained acqf → **15/15
+  proposed candidates feasible (PASS), HV non-decreasing**. Flat HV is the mock
+  ceiling (NN-lookup can't exceed the pooled front it was seeded from) — machinery
+  validated; real improvement needs live FEA (Step 5).
+- **Step 5 needs:** a live runner = `run_radialspline_live_mo.py` with the surrogate
+  loop swapped to `optimize_acqf_feasible` (Bézier has no repair decoder), evaluating
+  decoded barriers via ANSYS at the converged mesh.
 
 
 **Step 0 — DONE** (`../../notebooks/step0_fidelity.py`). Converged FEA setting =

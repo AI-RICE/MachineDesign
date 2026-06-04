@@ -117,6 +117,9 @@ def main():
     ap.add_argument("--mesh", type=float, default=0.5)
     ap.add_argument("--airgap", type=float, default=0.5)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--ref-point", type=float, nargs=2, default=None,
+                    help="fixed HV ref (f1 f2); pin to the bar's for comparability")
+    ap.add_argument("--n-cand", type=int, default=2048, help="feasible candidate pool per acqf step")
     ap.add_argument("--mock", action="store_true", help="local test: NN-lookup objective, no ANSYS")
     args = ap.parse_args()
 
@@ -133,8 +136,11 @@ def main():
 
     ws_idx = select_warmstart(Tm, Tr, gid, args.n_warmstart, args.seed)
     ng = [int((gid[ws_idx] == g).sum()) for g in (0, 1, 2)]
-    fpool = np.column_stack([Tm, -Tr / 100.0])
-    ref = torch.tensor([float(fpool[:, 0].min()) - 0.1, float(fpool[:, 1].min()) - 0.1])
+    if args.ref_point is not None:
+        ref = torch.tensor([float(args.ref_point[0]), float(args.ref_point[1])])
+    else:
+        fpool = np.column_stack([Tm, -Tr / 100.0])
+        ref = torch.tensor([float(fpool[:, 0].min()) - 0.1, float(fpool[:, 1].min()) - 0.1])
 
     json.dump({"run_name": args.run_name, "D": D, "M": M, "mesh": [args.mesh, args.airgap],
                "objectives": "(T_mean, -T_ripple/100)", "n_warmstart": args.n_warmstart,
@@ -209,7 +215,7 @@ def main():
         acq = qLogExpectedHypervolumeImprovement(model=ml, ref_point=ref.tolist(), partitioning=part)
         # anchors = all feasible evaluated designs (fall back to all if none flagged)
         anchors = np.stack(U)
-        cand, val = optimize_acqf_feasible(acq, gen, lo, span, anchors=anchors, rng=rng)
+        cand, val = optimize_acqf_feasible(acq, gen, lo, span, anchors=anchors, rng=rng, n_cand=args.n_cand)
         idx = len(U)
         log(f"--- MO iter {idx - len(ws_idx) + 1}/{args.n_iters} (n={len(U)}) acq={val[0]:.3e} ---", run_dir)
         record(idx, cand[0], do_eval(cand[0]), "bo")

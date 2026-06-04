@@ -198,6 +198,22 @@ captured. Accuracy↔DOF tradeoff (OneLambda): 38 DOF/barrier → 0.19 mm, 50 �
 design note:** for a fixed-D BO vector, use a fixed segment count M per barrier
 (free C⁰ tangents → corners emerge where tangents misalign); ~M=12 → ~0.08 mm.
 
+**Step 1 — bar SET** ([`../../notebooks/run_bar_converged.py`](../../notebooks/run_bar_converged.py),
+8-way 1-core parallel; front in [`tables/bar_converged.csv`](tables/bar_converged.csv)).
+3-family union front re-evaluated on **original Hackl geometry at the converged
+mesh** (0.5/0.5), 200 designs (15 on the 3 mm front + buffer), all solved.
+- **Converged front = 7 designs** (4 SixLambdas + 3 ThreeBrokenLines, **no
+  OneLambda**): T_mean **4.410–4.492**, ripple **2.80–14.87%**. **HV\*_bar = 0.0892**
+  at ref `[4.1375, -0.29265]` (objective = (T_mean, −ripple/100)). **Step 5 must
+  use this exact ref** (`--ref-point`) for HV comparability — the runner's
+  pooled-3mm ref differs.
+- **Mesh confound confirmed:** only 7 of the 15 3 mm-front designs survive at the
+  converged mesh; the 3 mm mesh overstated the top T_mean (design 99: 4.534→4.466).
+- ⚠️ **Near-saturation flag (decision point before Step 5):** T_mean spans only
+  **~1.8%** (4.41–4.49); the front is mostly a ripple trade in a tight T_mean band.
+  Room to *dominate* may be small → the **richer-evaluation escape hatch** (multiple
+  current angles / load points) may be needed before spending Step-5 FEA hours.
+
 ## Standing risks
 - **Feasible region geometry** — if the constraint-GP can't learn it from cheap
   validator labels (thin/disconnected region), fall back to by-construction.

@@ -214,6 +214,31 @@ mesh** (0.5/0.5), 200 designs (15 on the 3 mm front + buffer), all solved.
   Room to *dominate* may be small → the **richer-evaluation escape hatch** (multiple
   current angles / load points) may be needed before spending Step-5 FEA hours.
 
+**Step 5 PILOT — near-saturation CONFIRMED (negative result, D7).** Two paired
+pilots (1 seed, 24 warm-start + 40 qLogEHVI iters, ref pinned to the bar):
+- pilot1 (3 mm-ranked warm-start): HV 0.0782→0.0820 (+4.9%).
+- pilot2 (converged-ranked warm-start, [`bar_to_warmstart.py`](../../notebooks/bar_to_warmstart.py)):
+  HV 0.0796→**0.0797 (+0.1%)** — seeded from the true front, BO adds nothing.
+- **High-fidelity re-eval** ([`reeval_front.py`](../../notebooks/reeval_front.py),
+  n_per=320, strips the decode bias): pilot2's bias-corrected Pareto front =
+  **2 points, both re-encoded warm-start (Hackl)**; the one surviving BO design is
+  dominated by a warm-start point; the front "beats" the bar's low-ripple corner
+  only by **+0.07–0.3% T_mean** (≤ the 0.4% noise floor) → noise, not a win.
+- ⇒ At a single operating point the unified Bézier BO **does not dominate** the
+  3-family bar. Success criterion (a) [dominate] fails; (c) [tie with ONE
+  parameterisation instead of three] holds. The T_mean band is only ~1.8% — too
+  saturated to separate designs.
+
+**Methodology bug found (must fix before any further BO):** the acqf feasibility
+filter runs at the BO decode `n_per=160`; **3 of 4 BO front designs are infeasible
+at n_per=320** (coarse polygon misses self-intersections, BO exploits the
+constraint boundary). Fix: validate feasibility at higher n_per or add a margin to
+min-iron/rib/bridge thresholds.
+
+**Decision pending:** (2) richer-evaluation hatch — re-define the objective over
+multiple current angles / load points so designs separate — vs accept the
+single-op-point negative result.
+
 ## Standing risks
 - **Feasible region geometry** — if the constraint-GP can't learn it from cheap
   validator labels (thin/disconnected region), fall back to by-construction.

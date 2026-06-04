@@ -133,9 +133,21 @@ Final `BezierSupersetGenerator(M=6 → D=108, n_per=160)`. Implementation lesson
   is a hard filter (Shapely simple + min-iron/rib/bridge/shaft). Perturbation
   feasibility around a warm-start: σ=0.1 mm → 34%, σ=0.25 → 13% (thin feasible
   region — the acqf optimiser must filter; flagged as a standing risk).
+**Step 4b — FEA fidelity gate PASS** (`../../notebooks/step4_fea_check.py --M 6`,
+converged mesh 0.5/0.5; log `step4_m6_fixed.log` on bayes). M=6/D=108 re-encode
+vs original Hackl: **worst |ΔT| = 0.94% (PASS <1%)**, all feasible —
+OneLambda −0.55, SixLambdas −0.94, 3BL −0.71, SixLambdas-lowRip −0.24; ripple
+within 0.4 pts. The two encoder fixes moved M=6 from **−4.6% → −0.94%**. ⇒
+**D=108 confirmed** as the warm-start/BO setting; warm-start is lossless to <1%.
+- *Caveat (recorded):* all ΔT are slightly **negative** (~2× the 0.4% noise floor)
+  — residual decode-polygon under-torque. Consistent across Bézier space (no
+  internal BO bias), but a ~0.9% handicap vs a bar on original-Hackl geometry →
+  **re-evaluate final-front designs at higher `n_per`** before any dominate claim
+  (as the ICEM GP-EHVI Pareto reeval did). Cheap insurance: raise `n_per` for the
+  reported designs only.
+
 - **Pending in Step 4:** broad prior sampler + pooled exact warm-start (skip the
-  ~1% infeasible re-encodes), and the **FEA fidelity gate** (Step-4b redo of the
-  −4.6% check with this encoder — the real lossless-warm-start test).
+  ~1% infeasible re-encodes), and wiring the feasibility-constrained acqf.
 
 
 **Step 0 — DONE** (`../../notebooks/step0_fidelity.py`). Converged FEA setting =

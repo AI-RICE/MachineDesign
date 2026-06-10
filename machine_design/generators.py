@@ -35,9 +35,7 @@ def save_params(params, file_name: str) -> None:
 
 class BarrierGenerator(ABC):
     # TODO: rename offset
-    def __init__(
-        self, design: Design, r_stator_end: float, offset: None | float = None, n_curve: int = 500, n_flat: int = 20
-    ) -> None:
+    def __init__(self, design: Design, r_stator_end: float, offset: None | float = None, n_curve: int = 500, n_flat: int = 20) -> None:
         self.r_max = design.rotor_r_max
         self.r_min = design.rotor_r_min
         self.R = self.r_max - r_stator_end
@@ -259,12 +257,7 @@ class AbstractHacklGenerator(BarrierGenerator):
 
         # Formula 33: Polynomial expansion to generate continuous points
         z_vals = np.linspace(0, 1, self.n_curve)[:, None]
-        return (
-            (1 - z_vals) ** 3 * r0
-            + 3 * (1 - z_vals) ** 2 * z_vals * r1
-            + 3 * (1 - z_vals) * z_vals**2 * r2
-            + z_vals**3 * r3
-        )
+        return (1 - z_vals) ** 3 * r0 + 3 * (1 - z_vals) ** 2 * z_vals * r1 + 3 * (1 - z_vals) * z_vals**2 * r2 + z_vals**3 * r3
 
 
 class HacklGenerator_OneLambda(AbstractHacklGenerator):

@@ -27,10 +27,24 @@ class Design:
         return cls(m2d)
 
     def set_parameters(self) -> None:
-        # materials
+        self.setup_name = "Setup1"
+        self.set_iron()
+        self.set_geom_params()
+        self.set_slot_params()
+        self.set_winds_params()
+        self.set_mod_params()
+        self.set_oper_params()
+        self.set_rot_points()
+        self.set_derived_params()
+        self.set_solution_expressions()
+        self.set_udp_par_list_stator()
+        self.set_output_vars()
+        self.set_post_params()
+
+    def set_iron(self):
         self.Fe = "Cogent Power - M350-50A, B-H at 50Hz"
 
-        # main definitions
+    def set_geom_params(self):
         self.geom_params = {
             "DiaStatorGap": "79mm",
             "DiaStatorYoke": "125mm",
@@ -40,7 +54,8 @@ class Design:
             "DiaShaft": "25mm",
             "StackLength": "85mm",
         }
-        # stator slot
+
+    def set_slot_params(self):
         self.slot_params = {
             "Hs0": "0.95mm",
             "Hs1": "0.31mm",
@@ -51,7 +66,8 @@ class Design:
             "Rs": "1.5mm",
             "SetAngle": "10deg",
         }
-        # winding
+
+    def set_winds_params(self):
         self.wind_params = {
             "Layers": "1",
             "ParallelPaths": "1",
@@ -60,17 +76,19 @@ class Design:
             "SpaceLayers": "0.2mm",
             "Nc": "68",  # turns per coil
         }
-        # model parameters
-        PolePairs = 2
-        f = 50  # [Hz]
-        RotSpeed = 60 * f / PolePairs  # [rpm]
+
+    def set_mod_params(self):
+        self.PolePairs = 2
         self.mod_params = {
-            "Poles": f"2*{PolePairs}",
+            "Poles": f"2*{self.PolePairs}",
             "ModelLength": "85mm",
             "SymmetryFactor": "Poles",
             "StatorSkewAngle": "0deg",
         }
-        # operation parameters
+
+    def set_oper_params(self):
+        f = 50  # [Hz]
+        RotSpeed = 60 * f / self.PolePairs  # [rpm]
         self.oper_params = {
             "Im": "1.5*sqrt(2)A",
             "epsI": "pi/4",  # current angle
@@ -80,25 +98,88 @@ class Design:
             "Nper": "1/6",  # number of included periods
             "PointPer": "101",  # number of time points per period
         }
+
+    def set_rot_points(self):
         self.rot_points = [
             ["DiaShaft/2*cos(360deg/SymmetryFactor)", "DiaShaft/2*sin(360deg/SymmetryFactor)", "0mm"],
             ["DiaShaft/2*cos(360deg/(2*SymmetryFactor))", "DiaShaft/2*sin(360deg/(2*SymmetryFactor))", "0mm"],
             ["DiaShaft/2", "0mm", "0mm"],
             ["DiaStatorGap/2-Airgap", "0mm", "0mm"],
-            [
-                "(DiaStatorGap/2-Airgap)*cos(360deg/(2*SymmetryFactor))",
-                "(DiaStatorGap/2-Airgap)*sin(360deg/(2*SymmetryFactor))",
-                "0mm",
-            ],
-            [
-                "(DiaStatorGap/2-Airgap)*cos(360deg/SymmetryFactor)",
-                "(DiaStatorGap/2-Airgap)*sin(360deg/SymmetryFactor)",
-                "0mm",
-            ],
+            ["(DiaStatorGap/2-Airgap)*cos(360deg/(2*SymmetryFactor))", "(DiaStatorGap/2-Airgap)*sin(360deg/(2*SymmetryFactor))", "0mm"],
+            ["(DiaStatorGap/2-Airgap)*cos(360deg/SymmetryFactor)", "(DiaStatorGap/2-Airgap)*sin(360deg/SymmetryFactor)", "0mm"],
         ]
-        self.setup_name = "Setup1"
+
+    def set_derived_params(self):
         self.rotor_r_min = self.mm_to_str("geom_params", "DiaShaft") / 2
         self.rotor_r_max = self.mm_to_str("geom_params", "DiaStatorGap") / 2 - self.mm_to_str("geom_params", "Airgap")
+
+    def set_solution_expressions(self):
+        self.solution_expressions = "Moving1.Torque"
+
+    def set_udp_par_list_stator(self):
+        self.udp_par_list_stator = [
+            ["DiaGap", "DiaStatorGap"],
+            ["DiaYoke", "DiaStatorYoke"],
+            ["Length", "0mm"],
+            ["Skew", "0deg"],
+            ["Slots", "SlotNumber"],
+            ["SlotType", "SlotType"],
+            ["Hs0", "Hs0"],
+            ["Hs01", "0mm"],
+            ["Hs1", "Hs1"],
+            ["Hs2", "Hs2"],
+            ["Bs0", "Bs0"],
+            ["Bs1", "Bs1"],
+            ["Bs2", "Bs2"],
+            ["Rs", "Rs"],
+            ["FilletType", "0"],
+            ["HalfSlot", "0"],
+            ["SegAngle", "0deg"],
+            ["LenRegion", "0mm"],
+            ["InfoCore", "0"],
+        ]
+
+    def set_output_vars(self):
+        self.output_vars = {
+            "pos": "(Moving1.Position -InitPos) * Poles/2",
+            "cos0": "cos(pos)",
+            "cos1": "cos(pos-2*PI/3)",
+            "cos2": "cos(pos-4*PI/3)",
+            "sin0": "sin(pos)",
+            "sin1": "sin(pos-2*PI/3)",
+            "sin2": "sin(pos-4*PI/3)",
+            "Lad": "L(PhaseA,PhaseA)*cos0 + L(PhaseA,PhaseB)*cos1 + L(PhaseA,PhaseC)*cos2",
+            "Laq": "L(PhaseA,PhaseA)*sin0 + L(PhaseA,PhaseB)*sin1 + L(PhaseA,PhaseC)*sin2",
+            "Lbd": "L(PhaseB,PhaseA)*cos0 + L(PhaseB,PhaseB)*cos1 + L(PhaseB,PhaseC)*cos2",
+            "Lbq": "L(PhaseB,PhaseA)*sin0 + L(PhaseB,PhaseB)*sin1 + L(PhaseB,PhaseC)*sin2",
+            "Lcd": "L(PhaseC,PhaseA)*cos0 + L(PhaseC,PhaseB)*cos1 + L(PhaseC,PhaseC)*cos2",
+            "Lcq": "L(PhaseC,PhaseA)*sin0 + L(PhaseC,PhaseB)*sin1 + L(PhaseC,PhaseC)*sin2",
+            "L_d": "(Lad*cos0 + Lbd*cos1 + Lcd*cos2) * 2/3",
+            "L_q": "(Laq*sin0 + Lbq*sin1 + Lcq*sin2) * 2/3",
+            "Flux_d": "(FluxLinkage(PhaseA)*cos0+FluxLinkage(PhaseB)*cos1+FluxLinkage(PhaseC)*cos2)*2/3",
+            "Flux_q": "-(FluxLinkage(PhaseA)*sin0+FluxLinkage(PhaseB)*sin1+FluxLinkage(PhaseC)*sin2)*2/3",
+            "Ui_d": "(InducedVoltage(PhaseA)*cos0+InducedVoltage(PhaseB)*cos1+InducedVoltage(PhaseC)*cos2)*2/3",
+            "Ui_q": "-(InducedVoltage(PhaseA)*sin0+InducedVoltage(PhaseB)*sin1+InducedVoltage(PhaseC)*sin2)*2/3",
+            "I_d": "(InputCurrent(PhaseA)*cos0 + InputCurrent(PhaseB)*cos1 + InputCurrent(PhaseC)*cos2)*2/3",
+            "I_q": "-(InputCurrent(PhaseA)*sin0 + InputCurrent(PhaseB)*sin1 + InputCurrent(PhaseC)*sin2)*2/3",
+            "Irms": "sqrt(I_d^2+I_q^2)/sqrt(2)",
+        }
+
+    def set_post_params(self):
+        self.post_params = {  # reports
+            ("InducedVoltage(PhaseA)", "InducedVoltage(PhaseB)", "InducedVoltage(PhaseC)"): "InducedVoltage",
+            ("Moving1.Torque"): "Torque",
+            ("InputCurrent(PhaseA)", "InputCurrent(PhaseB)", "InputCurrent(PhaseC)"): "Current",
+            (
+                "FluxLinkage(PhaseA)",
+                "FluxLinkage(PhaseB)",
+                "FluxLinkage(PhaseC)",
+            ): "FluxLinkage",
+            ("I_d", "I_q"): "Current_dq",
+            ("Flux_d", "Flux_q"): "FluxLinkage_dq",
+            ("Ui_d", "Ui_q"): "InducedVoltage_dq",
+            ("L_d", "L_q"): "Inductance_dq",
+        }
 
     def create_stator(self) -> None:
         m2d = self.m2d
@@ -168,30 +249,9 @@ class Design:
         modeler.fit_all()
 
         # Stator geometry
-        udp_par_list_stator = [
-            ["DiaGap", "DiaStatorGap"],
-            ["DiaYoke", "DiaStatorYoke"],
-            ["Length", "0mm"],
-            ["Skew", "0deg"],
-            ["Slots", "SlotNumber"],
-            ["SlotType", "SlotType"],
-            ["Hs0", "Hs0"],
-            ["Hs01", "0mm"],
-            ["Hs1", "Hs1"],
-            ["Hs2", "Hs2"],
-            ["Bs0", "Bs0"],
-            ["Bs1", "Bs1"],
-            ["Bs2", "Bs2"],
-            ["Rs", "Rs"],
-            ["FilletType", "0"],
-            ["HalfSlot", "0"],
-            ["SegAngle", "0deg"],
-            ["LenRegion", "0mm"],
-            ["InfoCore", "0"],
-        ]
         stator_id = modeler.create_udp(
             dll="RMxprt/SlotCore.dll",
-            parameters=udp_par_list_stator,
+            parameters=self.udp_par_list_stator,
             library="syslib",
             name="Stator",
             # SolveInside="True",
@@ -211,7 +271,7 @@ class Design:
         coil_id.color = (255, 128, 0)
         coil_id.transparency = 0.0
         modeler.rotate(assignment=coil_id, axis="Z", angle="360deg/SlotNumber/2")
-        coil_id.duplicate_around_axis(axis="Z", angle="360deg/SlotNumber", clones="CoilPitch", create_new_objects=True)
+        coil_id.duplicate_around_axis(axis="Z", angle="360deg/SlotNumber", clones="SlotNumber/Poles", create_new_objects=True)
         id_coils = modeler.get_objects_w_string(string_name="Coil", case_sensitive=True)
 
         # Create section of machine
@@ -259,6 +319,68 @@ class Design:
             assignment="Region",
         )
         m2d.assign_vector_potential(assignment=id_bc_az, vector_value=0, boundary="A0")
+
+        self.assign_stator_coils()
+
+        # Mesh operation
+        m2d.mesh.assign_length_mesh(
+            assignment=id_coils,
+            inside_selection=True,
+            maximum_length=3,
+            maximum_elements=None,
+            name="coils",
+        )
+        m2d.mesh.assign_length_mesh(
+            assignment=stator_id,
+            inside_selection=True,
+            maximum_length=3,
+            maximum_elements=None,
+            name="stator",
+        )
+
+        # core loss
+        m2d.set_core_losses("Stator", core_loss_on_field=False)
+
+        # inductance calculation
+        self.inductance_computation()
+
+        # model depth
+        m2d.model_depth = "StackLength"
+        # symmetry
+        m2d.change_symmetry_multiplier("SymmetryFactor")
+        # Calculation setup
+        setup = m2d.create_setup(name=self.setup_name)
+        setup.props["StopTime"] = "Nper/f"
+        setup.props["TimeStep"] = "1/(f*(PointPer-1))"
+        setup.props["SaveFieldsType"] = "None"
+        setup.props["OutputPerObjectCoreLoss"] = False
+        setup.props["OutputPerObjectSolidLoss"] = True
+        setup.props["OutputError"] = True
+        setup.update()
+        m2d.validate_simple()
+
+        for k, v in self.output_vars.items():
+            m2d.create_output_variable(k, v)
+
+        for k, v in self.post_params.items():
+            expressions = list(k) if isinstance(k, tuple) else [k]  # if multiple report, use list(k). Else, use k
+            m2d.post.create_report(
+                expressions=expressions,
+                setup_sweep_name="",
+                domain="Sweep",
+                variations=None,
+                primary_sweep_variable="Time",
+                secondary_sweep_variable=None,
+                report_category=None,
+                plot_type="Rectangular Plot",
+                context=None,
+                subdesign_id=None,
+                polyline_points=1001,
+                plot_name=v,
+            )
+
+    def assign_stator_coils(self):
+        m2d = self.m2d
 
         # Excitations
         I_A = "Im * cos(2*pi*f*time+epsI)"
@@ -348,110 +470,14 @@ class Design:
         )
         m2d.add_winding_coils(assignment="PhaseC", coils=["CS4", "CS5", "CS6"])
 
-        # Mesh operation
-        m2d.mesh.assign_length_mesh(
-            assignment=id_coils,
-            inside_selection=True,
-            maximum_length=3,
-            maximum_elements=None,
-            name="coils",
-        )
-        m2d.mesh.assign_length_mesh(
-            assignment=stator_id,
-            inside_selection=True,
-            maximum_length=3,
-            maximum_elements=None,
-            name="stator",
-        )
-
-        # core loss
-        m2d.set_core_losses("Stator", core_loss_on_field=False)
-
-        # inductance calculation
-        m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=False)
-        # model depth
-        m2d.model_depth = "StackLength"
-        # symmetry
-        m2d.change_symmetry_multiplier("SymmetryFactor")
-        # Calculation setup
-        setup = m2d.create_setup(name=self.setup_name)
-        setup.props["StopTime"] = "Nper/f"
-        setup.props["TimeStep"] = "1/(f*(PointPer-1))"
-        setup.props["SaveFieldsType"] = "None"
-        setup.props["OutputPerObjectCoreLoss"] = False
-        setup.props["OutputPerObjectSolidLoss"] = True
-        setup.props["OutputError"] = True
-        setup.update()
-        m2d.validate_simple()
-
-        # ooutput variables
-        output_vars = {
-            "pos": "(Moving1.Position -InitPos) * Poles/2",
-            "cos0": "cos(pos)",
-            "cos1": "cos(pos-2*PI/3)",
-            "cos2": "cos(pos-4*PI/3)",
-            "sin0": "sin(pos)",
-            "sin1": "sin(pos-2*PI/3)",
-            "sin2": "sin(pos-4*PI/3)",
-            "Lad": "L(PhaseA,PhaseA)*cos0 + L(PhaseA,PhaseB)*cos1 + L(PhaseA,PhaseC)*cos2",
-            "Laq": "L(PhaseA,PhaseA)*sin0 + L(PhaseA,PhaseB)*sin1 + L(PhaseA,PhaseC)*sin2",
-            "Lbd": "L(PhaseB,PhaseA)*cos0 + L(PhaseB,PhaseB)*cos1 + L(PhaseB,PhaseC)*cos2",
-            "Lbq": "L(PhaseB,PhaseA)*sin0 + L(PhaseB,PhaseB)*sin1 + L(PhaseB,PhaseC)*sin2",
-            "Lcd": "L(PhaseC,PhaseA)*cos0 + L(PhaseC,PhaseB)*cos1 + L(PhaseC,PhaseC)*cos2",
-            "Lcq": "L(PhaseC,PhaseA)*sin0 + L(PhaseC,PhaseB)*sin1 + L(PhaseC,PhaseC)*sin2",
-            "L_d": "(Lad*cos0 + Lbd*cos1 + Lcd*cos2) * 2/3",
-            "L_q": "(Laq*sin0 + Lbq*sin1 + Lcq*sin2) * 2/3",
-            "Flux_d": "(FluxLinkage(PhaseA)*cos0+FluxLinkage(PhaseB)*cos1+FluxLinkage(PhaseC)*cos2)*2/3",
-            "Flux_q": "-(FluxLinkage(PhaseA)*sin0+FluxLinkage(PhaseB)*sin1+FluxLinkage(PhaseC)*sin2)*2/3",
-            "Ui_d": "(InducedVoltage(PhaseA)*cos0+InducedVoltage(PhaseB)*cos1+InducedVoltage(PhaseC)*cos2)*2/3",
-            "Ui_q": "-(InducedVoltage(PhaseA)*sin0+InducedVoltage(PhaseB)*sin1+InducedVoltage(PhaseC)*sin2)*2/3",
-            "I_d": "(InputCurrent(PhaseA)*cos0 + InputCurrent(PhaseB)*cos1 + InputCurrent(PhaseC)*cos2)*2/3",
-            "I_q": "-(InputCurrent(PhaseA)*sin0 + InputCurrent(PhaseB)*sin1 + InputCurrent(PhaseC)*sin2)*2/3",
-            "Irms": "sqrt(I_d^2+I_q^2)/sqrt(2)",
-        }
-        for k, v in output_vars.items():
-            m2d.create_output_variable(k, v)
-
-        # Definitions for plots
-        post_params = {  # reports
-            ("InducedVoltage(PhaseA)", "InducedVoltage(PhaseB)", "InducedVoltage(PhaseC)"): "InducedVoltage",
-            ("Moving1.Torque"): "Torque",
-            ("InputCurrent(PhaseA)", "InputCurrent(PhaseB)", "InputCurrent(PhaseC)"): "Current",
-            (
-                "FluxLinkage(PhaseA)",
-                "FluxLinkage(PhaseB)",
-                "FluxLinkage(PhaseC)",
-            ): "FluxLinkage",
-            ("I_d", "I_q"): "Current_dq",
-            ("Flux_d", "Flux_q"): "FluxLinkage_dq",
-            ("Ui_d", "Ui_q"): "InducedVoltage_dq",
-            ("L_d", "L_q"): "Inductance_dq",
-        }
-        # Create Report
-        for k, v in post_params.items():
-            expressions = list(k) if isinstance(k, tuple) else [k]  # if multiple report, use list(k). Else, use k
-            m2d.post.create_report(
-                expressions=expressions,
-                setup_sweep_name="",
-                domain="Sweep",
-                variations=None,
-                primary_sweep_variable="Time",
-                secondary_sweep_variable=None,
-                report_category=None,
-                plot_type="Rectangular Plot",
-                context=None,
-                subdesign_id=None,
-                polyline_points=1001,
-                plot_name=v,
-            )
+    def inductance_computation(self):
+        self.m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=False)
 
     def add_rotor(self) -> None:
         modeler = self.m2d.modeler
         assert isinstance(modeler, Modeler2D)
 
-        rotor_id = modeler.create_polyline(
-            points=self.rot_points, segment_type=["Arc", "Line", "Arc"], cover_surface=True, name="Rotor"
-        )
+        rotor_id = modeler.create_polyline(points=self.rot_points, segment_type=["Arc", "Line", "Arc"], cover_surface=True, name="Rotor")
         self.rotor_id = rotor_id
         rotor_id.material_name = self.Fe
         rotor_id.color = (192, 192, 192)  # rgb
@@ -470,15 +496,14 @@ class Design:
 
         # Convert them into a string format and interpolate
         points_str = [[str(y) for y in x] for x in barrier_points]
-        barrier_id = modeler.create_polyline(
-            points=points_str, segment_type=segment_type, cover_surface=True, name="Barrier"
-        )
+        barrier_id = modeler.create_polyline(points=points_str, segment_type=segment_type, cover_surface=True, name="Barrier")
 
         # Remove the barrier
         self.rotor_id.subtract(barrier_id)
         modeler.delete(barrier_id)
 
-    def compute(self, NUM_CORES: int = 1):
+    # TODO: change the other arguments to kwargs
+    def compute(self, *args, NUM_CORES: int = 1):
         m2d = self.m2d
         assert m2d.mesh is not None
         assert m2d.post is not None
@@ -493,12 +518,14 @@ class Design:
         # core loss rotor
         m2d.set_core_losses("Rotor", core_loss_on_field=False)
 
+        self.set_variables(*args)
+
         # Analyze
         m2d.analyze_setup(self.setup_name, use_auto_settings=False, cores=NUM_CORES)
 
-        solutions = m2d.post.get_solution_data(expressions="Moving1.Torque", primary_sweep_variable="Time")
+        solutions = m2d.post.get_solution_data(expressions=self.solution_expressions, primary_sweep_variable="Time")
         try:
-            result = solutions.data_magnitude()
+            result = self.extract_results(solutions)
         except AttributeError:
             result = None
 
@@ -506,6 +533,12 @@ class Design:
         self.m2d.odesign.DeleteFullVariation("All", False)
 
         return result
+
+    def set_variables(self, *args):
+        pass
+
+    def extract_results(self, solutions):
+        return solutions.data_magnitude()
 
     def delete_rotor(self) -> None:
         assert isinstance(self.m2d.modeler, Modeler2D)

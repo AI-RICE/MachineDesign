@@ -138,7 +138,7 @@ class Design:
             ["LenRegion", "0mm"],
             ["InfoCore", "0"],
         ]
-    
+
     def set_output_vars(self):
         self.output_vars = {
             "pos": "(Moving1.Position -InitPos) * Poles/2",
@@ -381,7 +381,7 @@ class Design:
 
     def assign_stator_coils(self):
         m2d = self.m2d
-        
+
         # Excitations
         I_A = "Im * cos(2*pi*f*time+epsI)"
         I_B = "Im * cos(2*pi*f*time-120deg+epsI)"
@@ -472,14 +472,12 @@ class Design:
 
     def inductance_computation(self):
         self.m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=False)
-        
+
     def add_rotor(self) -> None:
         modeler = self.m2d.modeler
         assert isinstance(modeler, Modeler2D)
 
-        rotor_id = modeler.create_polyline(
-            points=self.rot_points, segment_type=["Arc", "Line", "Arc"], cover_surface=True, name="Rotor"
-        )
+        rotor_id = modeler.create_polyline(points=self.rot_points, segment_type=["Arc", "Line", "Arc"], cover_surface=True, name="Rotor")
         self.rotor_id = rotor_id
         rotor_id.material_name = self.Fe
         rotor_id.color = (192, 192, 192)  # rgb
@@ -498,9 +496,7 @@ class Design:
 
         # Convert them into a string format and interpolate
         points_str = [[str(y) for y in x] for x in barrier_points]
-        barrier_id = modeler.create_polyline(
-            points=points_str, segment_type=segment_type, cover_surface=True, name="Barrier"
-        )
+        barrier_id = modeler.create_polyline(points=points_str, segment_type=segment_type, cover_surface=True, name="Barrier")
 
         # Remove the barrier
         self.rotor_id.subtract(barrier_id)
@@ -543,7 +539,7 @@ class Design:
 
     def extract_results(self, solutions):
         return solutions.data_magnitude()
-    
+
     def delete_rotor(self) -> None:
         assert isinstance(self.m2d.modeler, Modeler2D)
         self.m2d.modeler.delete(self.rotor_id)

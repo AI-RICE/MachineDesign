@@ -47,8 +47,8 @@ for i in range(0, n_designs):
             params = generator.random_parameters()
             generator.set_parameters(params)
             barriers = generator.generate_barriers()
-            magnets = generator.generate_magnets(barriers)
             # barriers = generator.split_barriers(barriers)
+            magnets = generator.generate_magnets(barriers)
             feasible = generator.feasible_barriers(barriers)
             if feasible:
                 break
@@ -67,13 +67,13 @@ for i in range(0, n_designs):
             TorAvg, _, TorRippleRms = analyze_results(Tor)
 
         # Delete the rotor
-        design.delete_rotor()
+        # design.delete_rotor()
 
         # Potentially save the design
         if plot_design:
             title = f"Torque mean value: {np.round(TorAvg, 2)} Nm, ripple relative value: {np.round(TorRippleRms, 2)} %"
             file_name = f"{path_results}/design_{generator.name}_{i}"
-            plot_barriers(barriers, design, title=title, file_name=f"{file_name}.png")
+            plot_barriers(barriers, magnets, design, title=title, file_name=f"{file_name}.png")
             save_params(params, f"{file_name}.pkl")
 
         metadata_new = {

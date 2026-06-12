@@ -32,7 +32,7 @@ class Design:
     def set_parameters(self) -> None:
         # materials
         self.Fe = "Cogent Power - M350-50A, B-H at 50Hz"
-        self.PM = "ferrite"
+        self.PM = "NdFebCustom"
 
         # main definitions
         self.geom_params = {
@@ -104,10 +104,35 @@ class Design:
         self.rotor_r_min = self.mm_to_str("geom_params", "DiaShaft") / 2
         self.rotor_r_max = self.mm_to_str("geom_params", "DiaStatorGap") / 2 - self.mm_to_str("geom_params", "Airgap")
 
+    def _create_pm_material(self) -> None:
+        params = [
+            f"NAME:{self.PM}",
+            "CoordinateSystemType:=", "Cartesian",
+            "BulkOrSurfaceType:=", 1,
+            ["NAME:PhysicsTypes", "set:=", ["Electromagnetic"]],
+            ["NAME:AttachedData"],
+            ["NAME:magnetic_coercivity",
+             "property_type:=", "VectorProperty",
+             "Magnitude:=", "900000A_per_meter",
+             "DirComp1:=", "1",
+             "DirComp2:=", "0",
+             "DirComp3:=", "0"],
+            "conductivity:=", "0",
+            "relative_permeability:=", "1.05",
+            "mass_density:=", "7500",
+        ]
+        mgr = self.m2d.materials.odefinition_manager
+        if self.PM.lower() in self.m2d.materials.material_keys:
+            mgr.EditMaterial(self.PM, params)
+        else:
+            mgr.AddMaterial(params)
+
     def create_stator(self) -> None:
         m2d = self.m2d
         modeler = m2d.modeler
         assert isinstance(modeler, Modeler2D)
+
+        self._create_pm_material()
 
         # Define design variables from the created dictionaries.
         modeler.model_units = "mm"
@@ -488,66 +513,80 @@ class Design:
         modeler = self.m2d.modeler
         assert isinstance(modeler, Modeler2D)
 
-        current_rotor = getattr(self, "rotor_id", None)
-        if current_rotor is not getattr(self, "_magnet_rotor_id", None):
-            stale = modeler.get_objects_w_string("Magnet", case_sensitive=True)
-            if stale:
-                modeler.delete(stale)
-            self._magnet_rotor_id = current_rotor
+        self._create_pm_material()
+
+        if isinstance(mag, (list, tuple)):
+            mag = mag[-1] if len(mag) > 1 else mag[0]
+
+        mag = np.asarray(mag)
+        if mag.ndim != 2 or len(mag) == 0:
+            return
 
         center = mag.mean(axis=0)
         pts_centered = mag - center
 
-        _, _, Vt = np.linalg.svd(pts_centered, full_matrices=False)
-
         r = np.linalg.norm(center)
-        radial = center / r
-        if abs(np.dot(Vt[0], radial)) > abs(np.dot(Vt[1], radial)):
-            long_axis = Vt[1]   # Vt[1] is more tangential
-        else:
-            long_axis = Vt[0]   # Vt[0] is more tangential (normal case)
-        short_axis = np.array([-long_axis[1], long_axis[0]])
+        if r < 1e-10:
+            return
+        radial     = center / r
+        long_axis  = np.array([-radial[1], radial[0]])
+        short_axis = radial
 
-        angle_deg = np.degrees(np.arctan2(long_axis[1], long_axis[0]))
-
-        # Length = extent along long axis, width = extent along short (radial) axis
         proj_long  = pts_centered @ long_axis
         proj_short = pts_centered @ short_axis
         mag_length = proj_long.max()  - proj_long.min()
         mag_width  = proj_short.max() - proj_short.min()
 
-        length_scale = 0.85
-        width_scale  = 0.55
+        length_scale = 0.7
+        width_scale  = 0.35
+
+        if mag_length < 0.1 or mag_width < 0.1:
+            return
+
+        hl = mag_length * length_scale / 2
+        hw = mag_width  * width_scale  / 2
+        angle_deg = np.degrees(np.arctan2(long_axis[1], long_axis[0]))
 
         mag_id = modeler.create_rectangle(
-            origin=[
-                f"{-mag_length * length_scale / 2}mm",
-                f"{-mag_width  * width_scale  / 2}mm",
-                "0mm",
-            ],
-            sizes=[
-                f"{mag_length * length_scale}mm",
-                f"{mag_width  * width_scale}mm",
-                "0mm",
-            ],
+            origin=[f"{-hl}mm", f"{-hw}mm", "0mm"],
+            sizes=[f"{2*hl}mm", f"{2*hw}mm", "0mm"],
             name="Magnet",
         )
-
         mag_id.rotate(axis="Z", angle=angle_deg)
         mag_id.move([f"{center[0]}mm", f"{center[1]}mm", "0mm"])
 
         mag_id.material_name = self.PM
-        mag_id.solve_inside = True   # required for PM material in rotating Band region
+        mag_id.solve_inside = True
         mag_id.color = (255, 0, 0)
+        mag_id.transparency = 0.0
 
-        # Assign magnetization direction (radial, pointing outward from center).
-        # Without this the Maxwell 2D solver cannot process the PM and fails.
-        self.m2d.assign_coercivity(
-            assignment=[mag_id.name],
-            coordinate_system="Global",
-            x_component=str(round(radial[0], 6)),
-            y_component=str(round(radial[1], 6)),
-            name=f"Coercivity_{mag_id.name}",
+        if not hasattr(self, "_motion_objects"):
+            self._motion_objects = ["Band"]
+
+        name = mag_id.name
+        if name not in self._motion_objects:
+            self._motion_objects.append(name)
+
+        self.m2d.omodelsetup.EditMotionSetup(
+            "MotionSetup1",
+            [
+                "NAME:MotionSetup1",
+                "Move Type:=", "Rotate",
+                "Coordinate System:=", "Global",
+                "Axis:=", "Z",
+                "Is Positive:=", True,
+                "InitPos:=", "InitPos",
+                "HasRotateLimit:=", False,
+                "NegativePos:=", "0deg",
+                "PositivePos:=", "360deg",
+                "NonCylindrical:=", False,
+                "Consider Mechanical Transient:=", False,
+                "Angular Velocity:=", "RotSpeed",
+                "Moment of Inertia:=", "1",
+                "Damping:=", "0",
+                "Load Torque:=", "0NewtonMeter",
+                "Objects:=", self._motion_objects,
+            ],
         )
 
     def compute(self, NUM_CORES: int = 1):
@@ -562,7 +601,6 @@ class Design:
             maximum_elements=None,
             name="rotor",
         )
-        # core loss rotor
         m2d.set_core_losses("Rotor", core_loss_on_field=False)
 
         # Analyze
@@ -581,7 +619,12 @@ class Design:
 
     def delete_rotor(self) -> None:
         assert isinstance(self.m2d.modeler, Modeler2D)
-        self.m2d.modeler.delete(self.rotor_id)
+        modeler = self.m2d.modeler
+        magnets = modeler.get_objects_w_string("Magnet", case_sensitive=True)
+        if magnets:
+            modeler.delete(magnets)
+        modeler.delete(self.rotor_id)
+        self._magnet_rotor_id = None
 
     def save_design(self, file_name: str, **kwargs) -> None:
         show = kwargs.pop("show", False)

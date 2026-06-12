@@ -221,7 +221,7 @@ class FourStupid(BarrierGenerator):
             center_half_span = full_half_span * (1 - 2 * margin)
 
             center_mask = np.abs(angles - 45) < center_half_span
-            magnets.append(mag_pts[center_mask])
+            magnets.append([mag_pts[center_mask]])
 
         return magnets
 

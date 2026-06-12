@@ -14,13 +14,15 @@ def rotate(x, y, alpha, **kwargs):
     return xy_rot[0], xy_rot[1]
 
 
-def plot_barriers(barriers, design, title=None, file_name=None):
+def plot_barriers(barriers, magnets, design, title=None, file_name=None):
     plt.figure()
     alphas = np.linspace(0 * np.pi, 2 * np.pi / 4, 100)
     for r in [design.rotor_r_min, design.rotor_r_max]:
         plt.plot(r * np.cos(alphas), r * np.sin(alphas))
     for barrier in barriers:
         plt.plot(barrier[:, 0], barrier[:, 1])
+    for magnet in magnets:
+        plt.plot(magnet[:, 0], magnet[:, 1])
     plt.axis("equal")
     if title is not None:
         plt.title(title)

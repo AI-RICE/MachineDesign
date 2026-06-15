@@ -177,3 +177,4 @@ checkpoints/
 # M4.5: FEA emulators + paired sweep traces (large; rebuild via m4_5_* scripts)
 emulators/
 sweeps/
+*.pid

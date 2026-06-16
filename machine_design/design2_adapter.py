@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 
 
-CURRENT_KEYS = ["I_d1", "I_q1", "I_d3", "I_q3"]
+CURRENT_KEYS = ["I_d1", "I_q1", "I_d3", "I_q3"] # I_s on page3
 VOLTAGE_KEYS = ["V_d1", "V_q1", "V_d3", "V_q3"]
 FLUX_E_KEYS = ["Flux_e_d1", "Flux_e_q1", "Flux_e_d3", "Flux_e_q3"]
 
@@ -17,10 +17,10 @@ INDUCTANCE_KEYS = [
 ]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True) #read only
 class Design2SIResult:
-    raw: dict[str, float]
-    si: dict[str, float]
+    raw: dict[str, float] # AEDT raw output
+    si: dict[str, float]  # SI-converted values
 
     current_dq: np.ndarray   # A, [Id1, Iq1, Id3, Iq3]
     voltage_dq: np.ndarray   # V, [Vd1, Vq1, Vd3, Vq3]
@@ -30,9 +30,13 @@ class Design2SIResult:
 
 
 def output_to_raw_dict(solution_expressions: list[str], out) -> dict[str, float]:
+    # Convert output to a numpy array of floats
+    # and convert to a dictionary with keys from solution_expressions.
     values = np.asarray(out, dtype=float)
+    # convert output to a numpy array of floats
 
     if len(solution_expressions) != values.size:
+       # Check for length mismatch and raise an error if it occurs
         raise ValueError(
             f"Length mismatch: {len(solution_expressions)} expressions, "
             f"but output has {values.size} values."
@@ -42,10 +46,12 @@ def output_to_raw_dict(solution_expressions: list[str], out) -> dict[str, float]
         key: float(value)
         for key, value in zip(solution_expressions, values)
     }
-
+    # Convert to a dictionary with keys from solution_expressions and values from the output
 
 def _require_keys(res: dict[str, float], keys: list[str]) -> None:
+    # Check that all required keys are present in the result dictionary.
     missing = [key for key in keys if key not in res]
+    # find missing keys and raise an error if any are missing
     if missing:
         raise KeyError(f"Missing required Design2 result keys: {missing}")
 
@@ -65,31 +71,40 @@ def convert_raw_to_si(res_raw: dict[str, float]) -> dict[str, float]:
         res_raw,
         CURRENT_KEYS + VOLTAGE_KEYS + FLUX_E_KEYS + INDUCTANCE_KEYS,
     )
+    # Check that all required keys are present in the result dictionary.
 
     res_si = dict(res_raw)
+    # create a new dictionary to store the SI values
 
     for key in CURRENT_KEYS:
-        res_si[key] = res_raw[key] * 1e-3
+        res_si[key] = res_raw[key] * 1e-3 
+        # convert mA to A
 
     for key in VOLTAGE_KEYS:
         res_si[key] = res_raw[key]
+        # convert V to V
 
     for key in FLUX_E_KEYS:
         res_si[key] = res_raw[key]
+        # convert Wb to Wb
 
     for key in INDUCTANCE_KEYS:
         res_si[key] = res_raw[key] * 1e-9
+        # convert nH to H
 
     if "Moving1.Torque" in res_raw:
         res_si["Moving1.Torque"] = res_raw["Moving1.Torque"]
+        # convert Nm to Nm
 
     if "Torque_dq" in res_raw:
         res_si["Torque_dq"] = res_raw["Torque_dq"]
+        # convert Nm to Nm
 
     return res_si
 
 
 def build_Ls(res_si: dict[str, float]) -> np.ndarray:
+    # Build the Ls 4*4 matrix from the SI values.
     return np.array(
         [
             [res_si["Ld1"],    res_si["Ld1q1"],  res_si["Ld1d3"],  res_si["Ld1q3"]],
@@ -103,8 +118,10 @@ def build_Ls(res_si: dict[str, float]) -> np.ndarray:
 
 def build_design2_si_result(res_raw: dict[str, float]) -> Design2SIResult:
     res_si = convert_raw_to_si(res_raw)
+    # Convert AEDT raw output to SI units and build the Ls matrix.
 
     return Design2SIResult(
+        # Create a Design2SIResult object with the raw and SI values.
         raw=res_raw,
         si=res_si,
         current_dq=np.array([res_si[k] for k in CURRENT_KEYS], dtype=float),
@@ -113,57 +130,3 @@ def build_design2_si_result(res_raw: dict[str, float]) -> Design2SIResult:
         Ls=build_Ls(res_si),
         torque_nm=float(res_si.get("Moving1.Torque", np.nan)),
     )
-
-
-# =============================================================================
-# Minimal print helpers
-# Keep these names so existing notebooks do not break.
-# =============================================================================
-
-def print_raw_result(result: Design2SIResult) -> None:
-    # Intentionally quiet.
-    return
-
-
-def print_si_result(result: Design2SIResult) -> None:
-    # Intentionally quiet.
-    return
-
-
-def print_current_optimization_inputs(result: Design2SIResult) -> None:
-    print("\nDesign2 SI summary")
-    print("------------------")
-    print(f"current_dq [A] = {result.current_dq}")
-    print(f"voltage_dq [V] = {result.voltage_dq}")
-    print(f"torque_nm      = {result.torque_nm:.8g}")
-    print(f"diag(Ls) [H]   = {np.diag(result.Ls)}")
-
-
-def print_consistency_checks(result: Design2SIResult, pole_pairs: int = 2) -> None:
-    # Intentionally quiet. Keep this function only for notebook compatibility.
-    return
-
-
-def print_warnings(result: Design2SIResult) -> None:
-    problems = []
-
-    if not np.all(np.isfinite(result.current_dq)):
-        problems.append("current_dq contains non-finite values.")
-
-    if not np.all(np.isfinite(result.voltage_dq)):
-        problems.append("voltage_dq contains non-finite values.")
-
-    if not np.all(np.isfinite(result.flux_e)):
-        problems.append("flux_e contains non-finite values.")
-
-    if not np.all(np.isfinite(result.Ls)):
-        problems.append("Ls contains non-finite values.")
-
-    if not np.isfinite(result.torque_nm):
-        problems.append("torque_nm is not finite.")
-
-    if problems:
-        print("\nWarnings")
-        print("--------")
-        for item in problems:
-            print(f"- {item}")

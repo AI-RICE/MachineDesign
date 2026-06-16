@@ -11,12 +11,11 @@ from machine_design.design2_adapter import (
 )
 from machine_design.current_setpoints_bridge import (
     build_current_setpoint_bridge,
-    evaluate_current_point,
     solve_min_current_for_torque,
 )
 
 
-aedt_version = "2025.1"
+aedt_version = "2025.2"
 project_name = "Design2_smoke_adapter"
 design_name = "Design01"
 num_cores = 4
@@ -27,12 +26,10 @@ CURRENT_SETPOINT = (0.0, 5.0, 1e-6, 0.0)
 NC_VALUE = "113"
 NPER = "1"
 POINT_PER = "201"
-
+# Speed (rpm)
 SPEED_RPM_FOR_BRIDGE_TEST = 0.0
-
-OPEN_AEDT_GUI = False
-KEEP_PROJECT_OPEN = False
-DELETE_ROTOR_AT_END = True
+# whether to send I_new to Ansys 
+VERIFY_I_NEW_IN_ANSYS = True
 
 
 SAFE_SOLUTION_EXPRESSIONS = [
@@ -50,17 +47,20 @@ SAFE_SOLUTION_EXPRESSIONS = [
     "Lq3",
 
     "Torque_dq",
-    "Moving1.Torque",
+    "Moving1.Torque", # Ansys Moving1.Torque
 ]
 
+#avoid atan2(0,0)
+def regularize_currents(curr, eps: float = 1e-6):
+    Id1, Iq1, Id3, Iq3 = [float(x) for x in curr]
 
-def fmt_array(x) -> str:
-    return np.array2string(
-        np.asarray(x, dtype=float),
-        precision=6,
-        suppress_small=False,
-    )
+    if abs(Id1) < eps and abs(Iq1) < eps:
+        Id1 = eps
 
+    if abs(Id3) < eps and abs(Iq3) < eps:
+        Id3 = eps
+
+    return Id1, Iq1, Id3, Iq3
 
 def main() -> None:
     path_data = os.path.join(os.getcwd(), "data")
@@ -76,7 +76,7 @@ def main() -> None:
             design_name,
             aedt_version,
             design_cls=Design2,
-            non_graphical=not OPEN_AEDT_GUI,
+            non_graphical=True,
             new_desktop=True,
             close_on_exit=False,
         )
@@ -85,41 +85,26 @@ def main() -> None:
 
         design.solution_expressions = SAFE_SOLUTION_EXPRESSIONS
 
-        design.m2d.variable_manager["Nc"] = NC_VALUE
-        design.m2d.variable_manager["Nper"] = NPER
-        design.m2d.variable_manager["PointPer"] = POINT_PER
+        design.m2d["Nc"] = NC_VALUE
+        design.m2d["Nper"] = NPER
+        design.m2d["PointPer"] = POINT_PER
 
         Id1, Iq1, Id3, Iq3 = CURRENT_SETPOINT
 
-        print("\nDesign2 bridge smoke test")
-        print("-------------------------")
-        print(f"AEDT file: {file_name_aedt}")
-        print(f"Current setpoint [A]: ({Id1}, {Iq1}, {Id3}, {Iq3})")
-        print(f"Settings: Nc={NC_VALUE}, Nper={NPER}, PointPer={POINT_PER}")
-
-        out = design.compute(
-            Id1,
-            Iq1,
-            Id3,
-            Iq3,
-            NUM_CORES=num_cores,
-        )
+        out = design.compute( Id1,  Iq1, Id3, Iq3, NUM_CORES=num_cores)
 
         if out is None:
-            print("\nFAILED: no result returned from Design2.compute().")
+            print("FAILED: no result returned from Design2.compute().")
             return
 
         res_raw = output_to_raw_dict(design.solution_expressions, out)
         result = build_design2_si_result(res_raw)
+        # real SI results obtained from Ansys
 
-        print("\nDesign2 result")
-        print("--------------")
-        print(f"current_dq [A] = {fmt_array(result.current_dq)}")
-        print(f"voltage_dq [V] = {fmt_array(result.voltage_dq)}")
         print(f"Maxwell torque = {result.torque_nm:.8g} Nm")
 
         # Use zero fixed flux for this interface smoke test.
-        # Flux_e is not yet verified as a fixed PM/excitation flux.
+        # Flux_e is not verified as a fixed PM/excitation flux.
         bridge = build_current_setpoint_bridge(
             result,
             R_stat_ohm=0.19,
@@ -131,12 +116,7 @@ def main() -> None:
             flux_override=np.zeros(4),
             use_design2_flux_e=False,
         )
-
-        eval_initial = evaluate_current_point(
-            bridge,
-            result.current_dq,
-            speed_rpm=SPEED_RPM_FOR_BRIDGE_TEST,
-        )
+        #create bridge with results from SI results....,used bellow
 
         I_new, success = solve_min_current_for_torque(
             bridge,
@@ -145,37 +125,30 @@ def main() -> None:
             initial_guess=result.current_dq,
         )
 
-        print("\nTereza current_setpoints")
-        print("------------------------")
-        print(f"initial model torque = {float(eval_initial['torque_nm']):.8g} Nm")
-        print(f"optimizer success    = {success}")
-        print(f"I_new [A]            = {fmt_array(I_new)}")
+        print(f"optimizer success = {success}")
+        print(f"I_new [A] = {I_new}")
 
-        if success:
-            eval_new = evaluate_current_point(
-                bridge,
-                I_new,
-                speed_rpm=SPEED_RPM_FOR_BRIDGE_TEST,
-            )
-            print(f"new model torque     = {float(eval_new['torque_nm']):.8g} Nm")
-            print(f"new current peak     = {float(eval_new['curr_peak_A']):.8g} A")
-            print(f"new voltage peak     = {float(eval_new['volt_peak_V']):.8g} V")
+        if success and VERIFY_I_NEW_IN_ANSYS:
 
-        print("\nBridge smoke test completed.")
-        print("Note: I_new verifies the interface only; it is not yet a Maxwell-validated optimum.")
+            Id1_new, Iq1_new, Id3_new, Iq3_new = regularize_currents(I_new)
 
-        if OPEN_AEDT_GUI and KEEP_PROJECT_OPEN:
-            input("Press Enter when ready to cleanup...")
+            out_new = design.compute( Id1_new, Iq1_new, Id3_new, Iq3_new, NUM_CORES=num_cores, )
+            # cpoute with I_new in Ansys, verify torque and currents.
+
+            if out_new is None:
+                print("Ansys verification failed: no result returned for I_new.")
+            else:
+                res_raw_new = output_to_raw_dict(design.solution_expressions, out_new)
+                result_new = build_design2_si_result(res_raw_new)
+                print(f"Ansys I_new torque = {result_new.torque_nm:.8g} Nm")
 
     finally:
         if design is not None:
-            if DELETE_ROTOR_AT_END:
                 try:
                     design.delete_rotor()
                 except Exception as exc:
                     print(f"Warning: failed to delete rotor: {exc}")
 
-            if not KEEP_PROJECT_OPEN:
                 try:
                     design.close_project()
                 except Exception as exc:

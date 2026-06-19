@@ -33,7 +33,15 @@ class Design2(Design):
             "InitPos": "-45deg",
             "f": f"{f}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
-            "Nper": "1/10",  # number of included periods
+            # One full electrical period. The "ideal" minimal window is 1/(2*m)
+            # = 1/10 (one torque-ripple period under m-phase + half-wave
+            # symmetry), but measured FEA shows that symmetry is not exact once
+            # dq3 is injected: vs a full period the 1/10 window biases mean
+            # torque by ~0.7% (and underestimates ripple ~3%), and the bias
+            # *grows with dq3 content* -- which would distort any dq1/dq3
+            # separability comparison. Full period removes that dependence.
+            "Nper": "1",  # number of included electrical periods
+
             "PointPer": "101",  # number of time points per period
         }
 

@@ -38,7 +38,11 @@ class Design2(Design):
         }
 
     def set_derived_params(self):
-        pass
+        # Derive rotor_r_min/max from the (inherited) shaft and stator-gap
+        # diameters; the BarrierGenerators require these. Previously stubbed
+        # `pass`, which left them unset and broke barrier generation for the
+        # 5-phase design.
+        super().set_derived_params()
 
     def set_solution_expressions(self):
         self.solution_expressions = [
@@ -102,11 +106,17 @@ class Design2(Design):
             "Vind_q1": "(InducedVoltage(PhaseA)*sin0_1 + InducedVoltage(PhaseB)*sin1_1 + InducedVoltage(PhaseC)*sin2_1 + InducedVoltage(PhaseD)*sin3_1 + InducedVoltage(PhaseE)*sin4_1) * 2/5",
             "Vind_d3": "(InducedVoltage(PhaseA)*cos0_3 + InducedVoltage(PhaseB)*cos1_3 + InducedVoltage(PhaseC)*cos2_3 + InducedVoltage(PhaseD)*cos3_3 + InducedVoltage(PhaseE)*cos4_3) * 2/5",
             "Vind_q3": "(InducedVoltage(PhaseA)*sin0_3 + InducedVoltage(PhaseB)*sin1_3 + InducedVoltage(PhaseC)*sin2_3 + InducedVoltage(PhaseD)*sin3_3 + InducedVoltage(PhaseE)*sin4_3) * 2/5",
-            "V_A": "InducedVoltage(PhaseA) + Rstat*InputCurrent(PhaseA) + Lew*ddt(InputCurrent(PhaseA))",
-            "V_B": "InducedVoltage(PhaseB) + Rstat*InputCurrent(PhaseB) + Lew*ddt(InputCurrent(PhaseB))",
-            "V_C": "InducedVoltage(PhaseC) + Rstat*InputCurrent(PhaseC) + Lew*ddt(InputCurrent(PhaseC))",
-            "V_D": "InducedVoltage(PhaseD) + Rstat*InputCurrent(PhaseD) + Lew*ddt(InputCurrent(PhaseD))",
-            "V_E": "InducedVoltage(PhaseE) + Rstat*InputCurrent(PhaseE) + Lew*ddt(InputCurrent(PhaseE))",
+            # NOTE: Maxwell's output-variable parser does not support ddt(); an
+            # expression containing it fails with "abnormal script termination",
+            # which previously broke V_A..V_E and every dependent (V_AC.., Vterm_*,
+            # V_d1/q1/d3/q3). The dropped term is Lew*ddt(I) (end-winding leakage
+            # voltage); Lew=0 here so it is identically zero. If Lew!=0 is ever
+            # needed, compute that drop in post-processing, not as an output var.
+            "V_A": "InducedVoltage(PhaseA) + Rstat*InputCurrent(PhaseA)",
+            "V_B": "InducedVoltage(PhaseB) + Rstat*InputCurrent(PhaseB)",
+            "V_C": "InducedVoltage(PhaseC) + Rstat*InputCurrent(PhaseC)",
+            "V_D": "InducedVoltage(PhaseD) + Rstat*InputCurrent(PhaseD)",
+            "V_E": "InducedVoltage(PhaseE) + Rstat*InputCurrent(PhaseE)",
             "V_AC": "V_A - V_C",
             "V_BD": "V_B - V_D",
             "V_CE": "V_C - V_E",

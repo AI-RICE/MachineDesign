@@ -282,6 +282,9 @@ def main():
     p.add_argument("--n-evals-s2", type=int, default=32)
     p.add_argument("--n-init-h1", type=int, default=20)
     p.add_argument("--n-evals-h1", type=int, default=50)
+    p.add_argument("--tr-geom", type=float, default=0.15, help="h1 geometry trust-region half-width (normalized)")
+    p.add_argument("--tr-cur", type=float, default=0.20, help="h1 current trust-region half-width (normalized)")
+    p.add_argument("--tag", default="", help="suffix for h1 checkpoint/summary, e.g. 'wide'")
     args = p.parse_args()
 
     os.makedirs(OUT, exist_ok=True)
@@ -326,18 +329,20 @@ def main():
     elif args.stage == "h1":
         s2 = json.load(open(f"{OUT}/stage2_best.json"))
         center = {"geom": np.array(s2["geom_norm"]), "cur_norm": np.array(s2["cur_norm"])}
-        dim, decode = make_decoder("h1", center=center)
+        dim, decode = make_decoder("h1", center=center, tr_geom=args.tr_geom, tr_cur=args.tr_cur)
+        tag = f"_{args.tag}" if args.tag else ""
         p0 = 0.5 * np.ones(dim)  # u=0.5 maps to the trust-region centre = P0
         U, Y, best = run_bo("h1", dim, decode, ctx, args.n_init_h1, args.n_evals_h1,
-                            f"{OUT}/h1.npz", args.seed, init_u=[p0])
+                            f"{OUT}/h1{tag}.npz", args.seed, init_u=[p0])
         t_seq = s2["T_seq"]
         t_h1 = float(Y[best])
         dT = t_h1 - t_seq
         gn, phi1, rho, delta = decode(U[best])
         geom_move = float(np.linalg.norm(gn - center["geom"]))
         json.dump({"T_seq": t_seq, "T_h1": t_h1, "dT": dT, "dT_pct": 100 * dT / t_seq,
-                   "geom_move_norm": geom_move, "rho_h1": float(rho)},
-                  open(f"{OUT}/h1_summary.json", "w"), indent=2)
+                   "geom_move_norm": geom_move, "rho_h1": float(rho),
+                   "tr_geom": args.tr_geom, "tr_cur": args.tr_cur},
+                  open(f"{OUT}/h1{tag}_summary.json", "w"), indent=2)
         print(f"[h1] DONE  T_seq={t_seq:.4f}  T_h1={t_h1:.4f}  dT={dT:.4f} Nm "
               f"({100*dT/t_seq:.2f}%)  geom_move={geom_move:.3f}")
 

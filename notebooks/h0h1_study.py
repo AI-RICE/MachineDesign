@@ -271,7 +271,7 @@ def open_design(ctx, project):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--stage", required=True, choices=["stage1", "stage2", "h1"])
+    p.add_argument("--stage", required=True, choices=["stage1", "stage2", "h1", "probe"])
     p.add_argument("--mock", action="store_true")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--num-cores", type=int, default=4)
@@ -300,6 +300,26 @@ def main():
 
     ctx = dict(mock=args.mock, gen=gen, lb=lb, ub=ub, design=gen_design,
                num_cores=args.num_cores, aedt_version=args.aedt_version)
+
+    if args.stage == "probe":
+        # Re-evaluate the H0 endpoint P0 = (G*, c*) and report mean torque AND
+        # ripple (which the optimization so far ignored). Grounds the R_max choice.
+        s2 = json.load(open(f"{OUT}/stage2_best.json"))
+        gn = np.array(s2["geom_norm"])
+        barriers = build_barriers(gen, gn, lb, ub)
+        assert barriers is not None, "G* came out infeasible?!"
+        Id1, Iq1, Id3, Iq3, _, _ = setpoint_from_params(s2["phi1"], s2["rho"], s2["delta"])
+        gen_design.add_rotor()
+        for b in barriers:
+            gen_design.add_rotor_barrier(b)
+        Tor = gen_design.compute(Id1, Iq1, Id3, Iq3, NUM_CORES=args.num_cores)
+        Tmean, _, Tripple = analyze_results(np.asarray(Tor, float))
+        gen_design.delete_rotor()
+        print(f"[probe] P0  T_mean={Tmean:.4f} Nm  ripple={Tripple:.3f} %  "
+              f"(rho={s2['rho']:.3f}, T_seq stored={s2['T_seq']:.4f})")
+        gen_design.save_project()
+        gen_design.close_project()
+        return
 
     if args.stage == "stage1":
         dim, decode = make_decoder("stage1")

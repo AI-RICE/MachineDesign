@@ -71,7 +71,7 @@ class Design2(Design):
         self.output_vars = {
             "PolePairs": "2",
             "RotSign": "1",
-            "Rstat": "0.19",
+            "Rstat": "19",
             "Lew": "0",
             "theta_el": "RotSign*(Moving1.Position - InitPos) * PolePairs - pi",
             "cos0_1": "cos(1*(theta_el - 2*PI*0/5))",

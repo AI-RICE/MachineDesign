@@ -15,9 +15,8 @@ from machine_design import (
     plot_barriers,
     save_params,
 )
-
 aedt_version = "2026.1"
-n_designs = 1
+n_designs = 2
 r_stator_end = 0.7
 offset = 0.7 / 2
 num_cores = 4
@@ -59,6 +58,8 @@ for i in range(0, n_designs):
             design.add_rotor_barrier(barrier)
             design.add_rotor_magnet(magnets)
 
+        design.motion_setup()
+
         # Compute the torque
         Tor = design.compute(num_cores)
         if Tor is None:
@@ -67,7 +68,8 @@ for i in range(0, n_designs):
             TorAvg, _, TorRippleRms = analyze_results(Tor)
 
         # Delete the rotor
-        # design.delete_rotor()
+        design.delete_motion_setup()
+        design.delete_rotor()
 
         # Potentially save the design
         if plot_design:

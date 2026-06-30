@@ -3,12 +3,14 @@ import os
 import numpy as np
 from ansys.aedt.core import Desktop, Maxwell2d
 from ansys.aedt.core.modeler.modeler_2d import Modeler2D
+from pyro import module
 
 
 class Design:
     def __init__(self, m2d: Maxwell2d) -> None:
         self.set_parameters()
         self.m2d = m2d
+        self._motion_band = None
 
     @classmethod
     def create(cls, project_name: str, design_name: str, file_name: str, **kwargs) -> "Design":
@@ -27,7 +29,10 @@ class Design:
         m2d = Maxwell2d()
         m2d.set_active_design("Design01")
 
-        return cls(m2d)
+        obj = cls(m2d)
+        # obj._motion_setup_done = True
+        # obj._post_processing_done = True
+        return obj
 
     def set_parameters(self) -> None:
         # materials
@@ -122,17 +127,15 @@ class Design:
             "mass_density:=", "7500",
         ]
         mgr = self.m2d.materials.odefinition_manager
-        if self.PM.lower() in self.m2d.materials.material_keys:
-            mgr.EditMaterial(self.PM, params)
-        else:
+        try:
             mgr.AddMaterial(params)
+        except Exception:
+            pass  # material already exists in AEDT
 
     def create_stator(self) -> None:
         m2d = self.m2d
         modeler = m2d.modeler
         assert isinstance(modeler, Modeler2D)
-
-        self._create_pm_material()
 
         # Define design variables from the created dictionaries.
         modeler.model_units = "mm"
@@ -173,15 +176,15 @@ class Design:
         )
 
         # motion setup
-        m2d.assign_rotate_motion(
-            assignment="Band",
-            coordinate_system="Global",
-            axis="Z",
-            positive_movement=True,
-            start_position="InitPos",
-            angular_velocity="RotSpeed",
-            has_rotation_limits=False,
-        )
+        # m2d.assign_rotate_motion(
+        #     assignment="Band",
+        #     coordinate_system="Global",
+        #     axis="Z",
+        #     positive_movement=True,
+        #     start_position="InitPos",
+        #     angular_velocity="RotSpeed",
+        #     has_rotation_limits=False,
+        # )
 
         # Together
         vacuum_obj_id = [
@@ -413,66 +416,6 @@ class Design:
         setup.update()
         m2d.validate_simple()
 
-        # ooutput variables
-        output_vars = {
-            "pos": "(Moving1.Position -InitPos) * Poles/2",
-            "cos0": "cos(pos)",
-            "cos1": "cos(pos-2*PI/3)",
-            "cos2": "cos(pos-4*PI/3)",
-            "sin0": "sin(pos)",
-            "sin1": "sin(pos-2*PI/3)",
-            "sin2": "sin(pos-4*PI/3)",
-            "Lad": "L(PhaseA,PhaseA)*cos0 + L(PhaseA,PhaseB)*cos1 + L(PhaseA,PhaseC)*cos2",
-            "Laq": "L(PhaseA,PhaseA)*sin0 + L(PhaseA,PhaseB)*sin1 + L(PhaseA,PhaseC)*sin2",
-            "Lbd": "L(PhaseB,PhaseA)*cos0 + L(PhaseB,PhaseB)*cos1 + L(PhaseB,PhaseC)*cos2",
-            "Lbq": "L(PhaseB,PhaseA)*sin0 + L(PhaseB,PhaseB)*sin1 + L(PhaseB,PhaseC)*sin2",
-            "Lcd": "L(PhaseC,PhaseA)*cos0 + L(PhaseC,PhaseB)*cos1 + L(PhaseC,PhaseC)*cos2",
-            "Lcq": "L(PhaseC,PhaseA)*sin0 + L(PhaseC,PhaseB)*sin1 + L(PhaseC,PhaseC)*sin2",
-            "L_d": "(Lad*cos0 + Lbd*cos1 + Lcd*cos2) * 2/3",
-            "L_q": "(Laq*sin0 + Lbq*sin1 + Lcq*sin2) * 2/3",
-            "Flux_d": "(FluxLinkage(PhaseA)*cos0+FluxLinkage(PhaseB)*cos1+FluxLinkage(PhaseC)*cos2)*2/3",
-            "Flux_q": "-(FluxLinkage(PhaseA)*sin0+FluxLinkage(PhaseB)*sin1+FluxLinkage(PhaseC)*sin2)*2/3",
-            "Ui_d": "(InducedVoltage(PhaseA)*cos0+InducedVoltage(PhaseB)*cos1+InducedVoltage(PhaseC)*cos2)*2/3",
-            "Ui_q": "-(InducedVoltage(PhaseA)*sin0+InducedVoltage(PhaseB)*sin1+InducedVoltage(PhaseC)*sin2)*2/3",
-            "I_d": "(InputCurrent(PhaseA)*cos0 + InputCurrent(PhaseB)*cos1 + InputCurrent(PhaseC)*cos2)*2/3",
-            "I_q": "-(InputCurrent(PhaseA)*sin0 + InputCurrent(PhaseB)*sin1 + InputCurrent(PhaseC)*sin2)*2/3",
-            "Irms": "sqrt(I_d^2+I_q^2)/sqrt(2)",
-        }
-        for k, v in output_vars.items():
-            m2d.create_output_variable(k, v)
-
-        # Definitions for plots
-        post_params = {  # reports
-            ("InducedVoltage(PhaseA)", "InducedVoltage(PhaseB)", "InducedVoltage(PhaseC)"): "InducedVoltage",
-            ("Moving1.Torque"): "Torque",
-            ("InputCurrent(PhaseA)", "InputCurrent(PhaseB)", "InputCurrent(PhaseC)"): "Current",
-            (
-                "FluxLinkage(PhaseA)",
-                "FluxLinkage(PhaseB)",
-                "FluxLinkage(PhaseC)",
-            ): "FluxLinkage",
-            ("I_d", "I_q"): "Current_dq",
-            ("Flux_d", "Flux_q"): "FluxLinkage_dq",
-            ("Ui_d", "Ui_q"): "InducedVoltage_dq",
-            ("L_d", "L_q"): "Inductance_dq",
-        }
-        # Create Report
-        for k, v in post_params.items():
-            expressions = list(k) if isinstance(k, tuple) else [k]  # if multiple report, use list(k). Else, use k
-            m2d.post.create_report(
-                expressions=expressions,
-                setup_sweep_name="",
-                domain="Sweep",
-                variations=None,
-                primary_sweep_variable="Time",
-                secondary_sweep_variable=None,
-                report_category=None,
-                plot_type="Rectangular Plot",
-                context=None,
-                subdesign_id=None,
-                polyline_points=1001,
-                plot_name=v,
-            )
 
     def add_rotor(self) -> None:
         modeler = self.m2d.modeler
@@ -560,34 +503,92 @@ class Design:
         mag_id.color = (255, 0, 0)
         mag_id.transparency = 0.0
 
-        if not hasattr(self, "_motion_objects"):
-            self._motion_objects = ["Band"]
+    def _add_post_processing(self) -> None:
+        if getattr(self, '_post_processing_done', False):
+            return
+        self._post_processing_done = True
+        m2d = self.m2d
+        output_vars = {
+            "pos": "(Moving1.Position -InitPos) * Poles/2",
+            "cos0": "cos(pos)",
+            "cos1": "cos(pos-2*PI/3)",
+            "cos2": "cos(pos-4*PI/3)",
+            "sin0": "sin(pos)",
+            "sin1": "sin(pos-2*PI/3)",
+            "sin2": "sin(pos-4*PI/3)",
+            "Lad": "L(PhaseA,PhaseA)*cos0 + L(PhaseA,PhaseB)*cos1 + L(PhaseA,PhaseC)*cos2",
+            "Laq": "L(PhaseA,PhaseA)*sin0 + L(PhaseA,PhaseB)*sin1 + L(PhaseA,PhaseC)*sin2",
+            "Lbd": "L(PhaseB,PhaseA)*cos0 + L(PhaseB,PhaseB)*cos1 + L(PhaseB,PhaseC)*cos2",
+            "Lbq": "L(PhaseB,PhaseA)*sin0 + L(PhaseB,PhaseB)*sin1 + L(PhaseB,PhaseC)*sin2",
+            "Lcd": "L(PhaseC,PhaseA)*cos0 + L(PhaseC,PhaseB)*cos1 + L(PhaseC,PhaseC)*cos2",
+            "Lcq": "L(PhaseC,PhaseA)*sin0 + L(PhaseC,PhaseB)*sin1 + L(PhaseC,PhaseC)*sin2",
+            "L_d": "(Lad*cos0 + Lbd*cos1 + Lcd*cos2) * 2/3",
+            "L_q": "(Laq*sin0 + Lbq*sin1 + Lcq*sin2) * 2/3",
+            "Flux_d": "(FluxLinkage(PhaseA)*cos0+FluxLinkage(PhaseB)*cos1+FluxLinkage(PhaseC)*cos2)*2/3",
+            "Flux_q": "-(FluxLinkage(PhaseA)*sin0+FluxLinkage(PhaseB)*sin1+FluxLinkage(PhaseC)*sin2)*2/3",
+            "Ui_d": "(InducedVoltage(PhaseA)*cos0+InducedVoltage(PhaseB)*cos1+InducedVoltage(PhaseC)*cos2)*2/3",
+            "Ui_q": "-(InducedVoltage(PhaseA)*sin0+InducedVoltage(PhaseB)*sin1+InducedVoltage(PhaseC)*sin2)*2/3",
+            "I_d": "(InputCurrent(PhaseA)*cos0 + InputCurrent(PhaseB)*cos1 + InputCurrent(PhaseC)*cos2)*2/3",
+            "I_q": "-(InputCurrent(PhaseA)*sin0 + InputCurrent(PhaseB)*sin1 + InputCurrent(PhaseC)*sin2)*2/3",
+            "Irms": "sqrt(I_d^2+I_q^2)/sqrt(2)",
+        }
+        for k, v in output_vars.items():
+            m2d.create_output_variable(k, v)
 
-        name = mag_id.name
-        if name not in self._motion_objects:
-            self._motion_objects.append(name)
+        post_params = {
+            ("InducedVoltage(PhaseA)", "InducedVoltage(PhaseB)", "InducedVoltage(PhaseC)"): "InducedVoltage",
+            ("Moving1.Torque"): "Torque",
+            ("InputCurrent(PhaseA)", "InputCurrent(PhaseB)", "InputCurrent(PhaseC)"): "Current",
+            (
+                "FluxLinkage(PhaseA)",
+                "FluxLinkage(PhaseB)",
+                "FluxLinkage(PhaseC)",
+            ): "FluxLinkage",
+            ("I_d", "I_q"): "Current_dq",
+            ("Flux_d", "Flux_q"): "FluxLinkage_dq",
+            ("Ui_d", "Ui_q"): "InducedVoltage_dq",
+            ("L_d", "L_q"): "Inductance_dq",
+        }
+        existing_reports = {r.plot_name for r in m2d.post.plots}
+        for k, v in post_params.items():
+            if v in existing_reports:
+                continue
+            expressions = list(k) if isinstance(k, tuple) else [k]
+            m2d.post.create_report(
+                expressions=expressions,
+                setup_sweep_name="",
+                domain="Sweep",
+                variations=None,
+                primary_sweep_variable="Time",
+                secondary_sweep_variable=None,
+                report_category=None,
+                plot_type="Rectangular Plot",
+                context=None,
+                subdesign_id=None,
+                polyline_points=1001,
+                plot_name=v,
+            )
 
-        self.m2d.omodelsetup.EditMotionSetup(
-            "MotionSetup1",
-            [
-                "NAME:MotionSetup1",
-                "Move Type:=", "Rotate",
-                "Coordinate System:=", "Global",
-                "Axis:=", "Z",
-                "Is Positive:=", True,
-                "InitPos:=", "InitPos",
-                "HasRotateLimit:=", False,
-                "NegativePos:=", "0deg",
-                "PositivePos:=", "360deg",
-                "NonCylindrical:=", False,
-                "Consider Mechanical Transient:=", False,
-                "Angular Velocity:=", "RotSpeed",
-                "Moment of Inertia:=", "1",
-                "Damping:=", "0",
-                "Load Torque:=", "0NewtonMeter",
-                "Objects:=", self._motion_objects,
-            ],
+    def delete_motion_setup(self) -> None:
+        module = self.m2d.odesign.GetModule("ModelSetup")
+        existing = list(module.GetMotionSetupNames())
+        if existing:
+            module.DeleteMotionSetup(existing)
+        self._motion_band = None
+
+    def motion_setup(self) -> None:
+        self.delete_motion_setup()
+
+        self._motion_band = self.m2d.assign_rotate_motion(
+            assignment="Band",
+            coordinate_system="Global",
+            axis="Z",
+            positive_movement=True,
+            start_position="InitPos",
+            angular_velocity="RotSpeed",
+            has_rotation_limits=False,
         )
+        self._add_post_processing()
 
     def compute(self, NUM_CORES: int = 1):
         m2d = self.m2d
@@ -625,6 +626,7 @@ class Design:
             modeler.delete(magnets)
         modeler.delete(self.rotor_id)
         self._magnet_rotor_id = None
+        # self._motion_setup_done = False
 
     def save_design(self, file_name: str, **kwargs) -> None:
         show = kwargs.pop("show", False)

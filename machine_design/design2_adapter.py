@@ -81,7 +81,8 @@ def convert_raw_to_si(res_raw: dict[str, float]) -> dict[str, float]:
         # convert mA to A
 
     for key in VOLTAGE_KEYS:
-        res_si[key] = res_raw[key]
+        if key in res_raw:
+            res_si[key] = res_raw[key]
         # convert V to V
 
     for key in FLUX_E_KEYS:
@@ -125,7 +126,7 @@ def build_design2_si_result(res_raw: dict[str, float]) -> Design2SIResult:
         raw=res_raw,
         si=res_si,
         current_dq=np.array([res_si[k] for k in CURRENT_KEYS], dtype=float),
-        voltage_dq=np.array([res_si[k] for k in VOLTAGE_KEYS], dtype=float),
+        voltage_dq=np.array([res_si.get(k, 0.0) for k in VOLTAGE_KEYS], dtype=float),
         flux_e=np.array([res_si[k] for k in FLUX_E_KEYS], dtype=float),
         Ls=build_Ls(res_si),
         torque_nm=float(res_si.get("Moving1.Torque", np.nan)),

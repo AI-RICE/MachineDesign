@@ -75,12 +75,12 @@ for barrier in barriers:
     design.add_rotor_barrier(barrier)
 
 print(f"[run2] solving: Id1={args.id1} Iq1={args.iq1} Id3={args.id3} Iq3={args.iq3} A, cores={args.num_cores}")
-Tor = design.compute(args.id1, args.iq1, args.id3, args.iq3, NUM_CORES=args.num_cores)
+res = design.compute(args.id1, args.iq1, args.id3, args.iq3, NUM_CORES=args.num_cores)
 
-if Tor is None:
-    print("[run2] compute() returned None — torque not extracted")
+if res is None or res.get("Tor") is None:
+    print("[run2] compute() returned no torque")
 else:
-    Tor = np.asarray(Tor, dtype=float)
+    Tor = np.asarray(res["Tor"], dtype=float)
     T_mean, T_se, T_ripple = analyze_results(Tor)
     print(f"[run2] SOLVED  nper={args.nper}  T_mean={T_mean:.4f} Nm  ripple={T_ripple:.3f} %  n_pts={Tor.size}")
 

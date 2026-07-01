@@ -158,8 +158,8 @@ def eval_torque(geom_norm, phi1, rho, delta, ctx):
     for b in barriers:
         design.add_rotor_barrier(b)
     try:
-        Tor = design.compute(Id1, Iq1, Id3, Iq3, NUM_CORES=ctx["num_cores"])
-        tmean, _, _ = analyze_results(np.asarray(Tor, float))
+        res = design.compute(Id1, Iq1, Id3, Iq3, NUM_CORES=ctx["num_cores"])
+        tmean, _, _ = analyze_results(np.asarray(res["Tor"], float))
         ok = np.isfinite(tmean)
         tmean = float(tmean) if ok else PENALTY
     except Exception as e:  # noqa: BLE001
@@ -312,8 +312,8 @@ def main():
         gen_design.add_rotor()
         for b in barriers:
             gen_design.add_rotor_barrier(b)
-        Tor = gen_design.compute(Id1, Iq1, Id3, Iq3, NUM_CORES=args.num_cores)
-        Tmean, _, Tripple = analyze_results(np.asarray(Tor, float))
+        res = gen_design.compute(Id1, Iq1, Id3, Iq3, NUM_CORES=args.num_cores)
+        Tmean, _, Tripple = analyze_results(np.asarray(res["Tor"], float))
         gen_design.delete_rotor()
         print(f"[probe] P0  T_mean={Tmean:.4f} Nm  ripple={Tripple:.3f} %  "
               f"(rho={s2['rho']:.3f}, T_seq stored={s2['T_seq']:.4f})")

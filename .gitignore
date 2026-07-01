@@ -2,6 +2,9 @@ data/
 results*/
 results_*.npz
 nohup.out
+*.done
+*.out
+__sync*/
 .vscode/settings.json
 
 # Byte-compiled / optimized / DLL files
@@ -135,6 +138,7 @@ venv/
 venv2/
 venv_5f/
 results_h0h1/
+results_h0h1_par/
 ENV/
 env.bak/
 venv.bak/

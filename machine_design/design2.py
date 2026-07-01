@@ -33,15 +33,18 @@ class Design2(Design):
             "InitPos": "-45deg",
             "f": f"{f}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
-            # One full electrical period. The "ideal" minimal window is 1/(2*m)
-            # = 1/10 (one torque-ripple period under m-phase + half-wave
-            # symmetry), but measured FEA shows that symmetry is not exact once
-            # dq3 is injected: vs a full period the 1/10 window biases mean
-            # torque by ~0.7% (and underestimates ripple ~3%), and the bias
-            # *grows with dq3 content* -- which would distort any dq1/dq3
-            # separability comparison. Full period removes that dependence.
+            # Full electrical period at PointPer=101 (~100 steps) = a COARSE
+            # FEA fidelity, kept for BO throughput (1-core, K-way parallel).
+            # NOTE: the "dq3-dependent short-window bias" we first attributed to
+            # broken m-phase symmetry turned out to be a RESOLUTION artifact, not
+            # physics. At a converged mesh (rotor + airgap 0.5 mm, ported from
+            # ReluctanceDrive/newparam via compute(mesh_length=, airgap_mesh=))
+            # and PointPer >= 201, the torque is genuinely Te/(2m)-periodic and
+            # the 1/10 window is unbiased (<0.05%). At this 3 mm / 101 setting the
+            # MEAN torque carries a ~0.5-1.5% resolution bias (mildly operating-
+            # point-dependent), so final results need converged-fidelity
+            # re-confirmation (see paper caveats and docs/setup-bayes.md).
             "Nper": "1",  # number of included electrical periods
-
             "PointPer": "101",  # number of time points per period
         }
 
@@ -58,6 +61,10 @@ class Design2(Design):
             "V_q1",
             "V_d3",
             "V_q3",
+            "Flux_d1",
+            "Flux_q1",
+            "Flux_d3",
+            "Flux_q3",
             "Flux_e_d1",
             "Flux_e_q1",
             "Flux_e_d3",
@@ -83,8 +90,8 @@ class Design2(Design):
         self.output_vars = {
             "PolePairs": "2",
             "RotSign": "1",
-            "Rstat": "19",
-            "Lew": "0",
+            "Rstat": "19",   # phase resistance consistent with Nc=113 (the 0.19 was a mistake: it decoupled R from the winding/back-EMF)
+            "Lew": "0",      # end-winding leakage inductance [H] — set by set_derived_params() analytical estimate
             "theta_el": "RotSign*(Moving1.Position - InitPos) * PolePairs - pi",
             "cos0_1": "cos(1*(theta_el - 2*PI*0/5))",
             "sin0_1": "sin(-1*(theta_el - 2*PI*0/5))",
@@ -202,123 +209,15 @@ class Design2(Design):
         }
 
     def assign_stator_coils(self):
-        m2d = self.m2d
-
-        # Excitations
+        # Excitations: fundamental + 3rd harmonic; phase k shifted by -360/m*k deg.
         I_A = "Im1*cos(2*pi*f*time+epsI1-pi) + Im3*cos(3*(2*pi*f*time)+epsI3-pi)"
         I_B = "Im1*cos(2*pi*f*time-72deg+epsI1-pi) + Im3*cos(3*(2*pi*f*time-72deg)+epsI3-pi)"
         I_C = "Im1*cos(2*pi*f*time-144deg+epsI1-pi) + Im3*cos(3*(2*pi*f*time-144deg)+epsI3-pi)"
         I_D = "Im1*cos(2*pi*f*time-216deg+epsI1-pi) + Im3*cos(3*(2*pi*f*time-216deg)+epsI3-pi)"
         I_E = "Im1*cos(2*pi*f*time-288deg+epsI1-pi) + Im3*cos(3*(2*pi*f*time-288deg)+epsI3-pi)"
-        m2d.assign_coil
-        # Define phase windings
-        m2d.assign_coil(
-            assignment=["Coil"],
-            conductors_number="Nc",
-            polarity="Positive",
-            name="CS1",
-        )
-        m2d.assign_coil(
-            assignment=["Coil_1"],
-            conductors_number="Nc",
-            polarity="Negative",
-            name="CS2",
-        )
-        m2d.assign_coil(
-            assignment=["Coil_2"],
-            conductors_number="Nc",
-            polarity="Negative",
-            name="CS3",
-        )
-        m2d.assign_coil(
-            assignment=["Coil_3"],
-            conductors_number="Nc",
-            polarity="Positive",
-            name="CS4",
-        )
-        m2d.assign_coil(
-            assignment=["Coil_4"],
-            conductors_number="Nc",
-            polarity="Positive",
-            name="CS5",
-        )
-        m2d.assign_coil(
-            assignment=["Coil_5"],
-            conductors_number="Nc",
-            polarity="Negative",
-            name="CS6",
-        )
-        m2d.assign_coil(
-            assignment=["Coil_6"],
-            conductors_number="Nc",
-            polarity="Negative",
-            name="CS7",
-        )
-        m2d.assign_coil(
-            assignment=["Coil_7"],
-            conductors_number="Nc",
-            polarity="Positive",
-            name="CS8",
-        )
-        m2d.assign_coil(
-            assignment=["Coil_8"],
-            conductors_number="Nc",
-            polarity="Positive",
-            name="CS9",
-        )
-        m2d.assign_coil(
-            assignment=["Coil_9"],
-            conductors_number="Nc",
-            polarity="Negative",
-            name="CS10",
-        )
-
-        m2d.assign_winding(
-            assignment=None,
-            winding_type="Current",
-            is_solid=False,
-            current=I_A,
-            parallel_branches="ParallelPaths",
-            name="PhaseA",
-        )
-        m2d.assign_winding(
-            assignment=None,
-            winding_type="Current",
-            is_solid=False,
-            current=I_B,
-            parallel_branches="ParallelPaths",
-            name="PhaseB",
-        )
-        m2d.assign_winding(
-            assignment=None,
-            winding_type="Current",
-            is_solid=False,
-            current=I_C,
-            parallel_branches="ParallelPaths",
-            name="PhaseC",
-        )
-        m2d.assign_winding(
-            assignment=None,
-            winding_type="Current",
-            is_solid=False,
-            current=I_D,
-            parallel_branches="ParallelPaths",
-            name="PhaseD",
-        )
-        m2d.assign_winding(
-            assignment=None,
-            winding_type="Current",
-            is_solid=False,
-            current=I_E,
-            parallel_branches="ParallelPaths",
-            name="PhaseE",
-        )
-
-        m2d.add_winding_coils(assignment="PhaseA", coils=["CS1", "CS10"])
-        m2d.add_winding_coils(assignment="PhaseB", coils=["CS4", "CS5"])
-        m2d.add_winding_coils(assignment="PhaseC", coils=["CS8", "CS9"])
-        m2d.add_winding_coils(assignment="PhaseD", coils=["CS2", "CS3"])
-        m2d.add_winding_coils(assignment="PhaseE", coils=["CS6", "CS7"])
+        # winding layout (coil->phase->polarity) generated by winding.py;
+        # belt_offset=1 reproduces the original 40-slot/5-phase map exactly.
+        self.assign_stator_coils_generic([I_A, I_B, I_C, I_D, I_E], belt_offset=1)
 
     def inductance_computation(self):
         self.m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=True)
@@ -330,14 +229,33 @@ class Design2(Design):
         self.m2d.variable_manager["Iq3"] = f"{Iq3}A"
 
     def extract_results(self, solutions):
-        # TODO: this works only because torque is the last one in the array
-        out = np.zeros(len(self.solution_expressions))
-        for i, expr in enumerate(self.solution_expressions):
+        # Return both the torque time-series (for mean/ripple) and the
+        # period-mean of every dq quantity (for voltage / flux / current,
+        # used by the voltage-limit machinery). data[:-1] drops the duplicated
+        # endpoint of the one-period window.
+        means = {}
+        tor = None
+        for expr in self.solution_expressions:
             data = solutions.data_real(expr)
-            val = float(np.mean(data[:-1]))
+            means[expr] = float(np.mean(data[:-1]))
+            if expr == "Moving1.Torque":
+                tor = np.asarray(data, dtype=float)
+        return {"Tor": tor, "means": means}
 
-            if expr.startswith("L_"):
-                val /= 1e9
 
-            out[i] = val
-        return data
+class Design2_60(Design2):
+    """5-phase machine on a 60-slot common stator (slot widths scaled ~x0.66 from
+    the 40-slot design to fit the bore pitch). Validated to build/mesh/solve."""
+
+    def set_geom_params(self):
+        super().set_geom_params()
+        self.geom_params["SlotNumber"] = "60"
+
+    def set_slot_params(self):
+        super().set_slot_params()
+        self.slot_params.update(Bs0="1.5mm", Bs1="2.0mm", Bs2="2.85mm",
+                                Rs="1.0mm", SetAngle="6deg")
+
+    def set_winds_params(self):
+        super().set_winds_params()
+        self.wind_params["CoilPitch"] = "15"

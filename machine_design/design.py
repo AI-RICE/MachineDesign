@@ -2,6 +2,8 @@ import numpy as np
 from ansys.aedt.core import Desktop, Maxwell2d
 from ansys.aedt.core.modeler.modeler_2d import Modeler2D
 
+from .winding import coil_name, phase_groups, sector_winding
+
 
 class Design:
     def __init__(self, m2d: Maxwell2d) -> None:
@@ -379,96 +381,38 @@ class Design:
                 plot_name=v,
             )
 
-    def assign_stator_coils(self):
+    def assign_stator_coils_generic(self, phase_currents, belt_offset=1):
+        """Generic winding assignment driven by winding.py. `phase_currents` is a
+        list of m current-expression strings (one per phase); the coil->phase->
+        polarity layout is generated from (SlotNumber, PolePairs, m). Reproduces
+        the hardcoded layouts when m and belt_offset match (5-phase: offset 1)."""
         m2d = self.m2d
+        m = len(phase_currents)
+        Q = int(str(self.geom_params["SlotNumber"]))
+        p = self.PolePairs
+        layout = sector_winding(Q, p, m, belt_offset)
+        cs_of_coil = {}
+        for k, (_ph, sg) in enumerate(layout):
+            cn, cs = coil_name(k), f"CS{k + 1}"
+            m2d.assign_coil(assignment=[cn], conductors_number="Nc",
+                            polarity=("Positive" if sg > 0 else "Negative"), name=cs)
+            cs_of_coil[cn] = cs
+        groups = phase_groups(Q, p, m, belt_offset)
+        letters = "ABCDEFG"
+        for j, cur in enumerate(phase_currents):
+            ph_name = f"Phase{letters[j]}"
+            m2d.assign_winding(assignment=None, winding_type="Current", is_solid=False,
+                               current=cur, parallel_branches="ParallelPaths", name=ph_name)
+            m2d.add_winding_coils(assignment=ph_name,
+                                  coils=[cs_of_coil[cn] for cn, _pol in groups[j]])
 
-        # Excitations
+    def assign_stator_coils(self):
+        # 3-phase fundamental excitation; phase k shifted by -120*k deg.
         I_A = "Im * cos(2*pi*f*time+epsI)"
         I_B = "Im * cos(2*pi*f*time-120deg+epsI)"
         I_C = "Im * cos(2*pi*f*time-240deg+epsI)"
-
-        # Define phase windings
-        m2d.assign_coil(
-            assignment=["Coil"],
-            conductors_number="Nc",
-            polarity="Positive",
-            name="CS1",
-        )
-        m2d.assign_coil(
-            assignment=["Coil_1"],
-            conductors_number="Nc",
-            polarity="Positive",
-            name="CS2",
-        )
-        m2d.assign_coil(
-            assignment=["Coil_2"],
-            conductors_number="Nc",
-            polarity="Positive",
-            name="CS3",
-        )
-        m2d.assign_winding(
-            assignment=None,
-            winding_type="Current",
-            is_solid=False,
-            current=I_A,
-            parallel_branches="ParallelPaths",
-            name="PhaseA",
-        )
-        m2d.add_winding_coils(assignment="PhaseA", coils=["CS1", "CS2", "CS3"])
-        m2d.assign_coil(
-            assignment=["Coil_6"],
-            conductors_number="Nc",
-            polarity="Positive",
-            name="CS7",
-        )
-        m2d.assign_coil(
-            assignment=["Coil_7"],
-            conductors_number="Nc",
-            polarity="Positive",
-            name="CS8",
-        )
-        m2d.assign_coil(
-            assignment=["Coil_8"],
-            conductors_number="Nc",
-            polarity="Positive",
-            name="CS9",
-        )
-        m2d.assign_winding(
-            assignment=None,
-            winding_type="Current",
-            is_solid=False,
-            current=I_B,
-            parallel_branches="ParallelPaths",
-            name="PhaseB",
-        )
-        m2d.add_winding_coils(assignment="PhaseB", coils=["CS7", "CS8", "CS9"])
-        m2d.assign_coil(
-            assignment=["Coil_3"],
-            conductors_number="Nc",
-            polarity="Negative",
-            name="CS4",
-        )
-        m2d.assign_coil(
-            assignment=["Coil_4"],
-            conductors_number="Nc",
-            polarity="Negative",
-            name="CS5",
-        )
-        m2d.assign_coil(
-            assignment=["Coil_5"],
-            conductors_number="Nc",
-            polarity="Negative",
-            name="CS6",
-        )
-        m2d.assign_winding(
-            assignment=None,
-            winding_type="Current",
-            is_solid=False,
-            current=I_C,
-            parallel_branches="ParallelPaths",
-            name="PhaseC",
-        )
-        m2d.add_winding_coils(assignment="PhaseC", coils=["CS4", "CS5", "CS6"])
+        # belt_offset=0 reproduces the legacy 36-slot/3-phase map exactly.
+        self.assign_stator_coils_generic([I_A, I_B, I_C], belt_offset=0)
 
     def inductance_computation(self):
         self.m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=False)
@@ -503,7 +447,7 @@ class Design:
         modeler.delete(barrier_id)
 
     # TODO: change the other arguments to kwargs
-    def compute(self, *args, NUM_CORES: int = 1):
+    def compute(self, *args, NUM_CORES: int = 1, mesh_length: float = 3.0, airgap_mesh: float | None = None):
         m2d = self.m2d
         assert m2d.mesh is not None
         assert m2d.post is not None
@@ -511,10 +455,18 @@ class Design:
         m2d.mesh.assign_length_mesh(
             assignment=self.rotor_id,
             inside_selection=True,
-            maximum_length=3,
+            maximum_length=mesh_length,
             maximum_elements=None,
             name="rotor",
         )
+        if airgap_mesh is not None:
+            m2d.mesh.assign_length_mesh(
+                assignment="Band",
+                inside_selection=True,
+                maximum_length=airgap_mesh,
+                maximum_elements=None,
+                name="airgap",
+            )
         # core loss rotor
         m2d.set_core_losses("Rotor", core_loss_on_field=False)
 
@@ -563,3 +515,29 @@ class Design:
         if not val.endswith("mm"):
             raise Exception("val must end with mm")
         return float(val[:-2])
+
+
+class Design_60(Design):
+    """3-phase machine on the common 60-slot stator (same slot params as
+    Design2_60). Driven by (Id, Iq) -> Im, epsI; returns {Tor} for the eval path.
+    dq3 args (if any) are ignored (3-phase has no torque-producing 3rd harmonic)."""
+
+    def set_geom_params(self):
+        super().set_geom_params()
+        self.geom_params["SlotNumber"] = "60"
+
+    def set_slot_params(self):
+        super().set_slot_params()
+        self.slot_params.update(Bs0="1.5mm", Bs1="2.0mm", Bs2="2.85mm",
+                                Rs="1.0mm", SetAngle="6deg")
+
+    def set_winds_params(self):
+        super().set_winds_params()
+        self.wind_params["CoilPitch"] = "15"
+
+    def set_variables(self, Id, Iq, *_ignored):
+        self.m2d["Im"] = f"{float(np.hypot(Id, Iq))}A"
+        self.m2d["epsI"] = f"{float(np.arctan2(Iq, Id))}rad"
+
+    def extract_results(self, solutions):
+        return {"Tor": np.asarray(solutions.data_real("Moving1.Torque"), float), "means": {}}

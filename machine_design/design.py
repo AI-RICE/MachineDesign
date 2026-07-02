@@ -11,6 +11,8 @@ class Design:
         self.set_parameters()
         self.m2d = m2d
         self._motion_band = None
+        self._magnet_names = []
+        self._magnet_angles = []
 
     @classmethod
     def create(cls, project_name: str, design_name: str, file_name: str, **kwargs) -> "Design":
@@ -110,32 +112,24 @@ class Design:
         self.rotor_r_max = self.mm_to_str("geom_params", "DiaStatorGap") / 2 - self.mm_to_str("geom_params", "Airgap")
 
     def _create_pm_material(self) -> None:
-        params = [
-            f"NAME:{self.PM}",
-            "CoordinateSystemType:=", "Cartesian",
-            "BulkOrSurfaceType:=", 1,
-            ["NAME:PhysicsTypes", "set:=", ["Electromagnetic"]],
-            ["NAME:AttachedData"],
-            ["NAME:magnetic_coercivity",
-             "property_type:=", "VectorProperty",
-             "Magnitude:=", "900000A_per_meter",
-             "DirComp1:=", "1",
-             "DirComp2:=", "0",
-             "DirComp3:=", "0"],
-            "conductivity:=", "0",
-            "relative_permeability:=", "1.05",
-            "mass_density:=", "7500",
-        ]
-        mgr = self.m2d.materials.odefinition_manager
-        try:
-            mgr.AddMaterial(params)
-        except Exception:
-            pass  # material already exists in AEDT
+        if self.PM in self.m2d.materials.material_keys:
+            return
+        
+        mat = self.m2d.materials.add_material(self.PM)
+        mat.permeability = 1.05
+        mat.conductivity = 0
+        mat.mass_density = 7500
+        mat.set_magnetic_coercivity(
+            value=900000,   # A/m
+            x=1, y=0, z=0 
+        )
 
     def create_stator(self) -> None:
         m2d = self.m2d
         modeler = m2d.modeler
         assert isinstance(modeler, Modeler2D)
+
+        self._create_pm_material()
 
         # Define design variables from the created dictionaries.
         modeler.model_units = "mm"
@@ -451,12 +445,16 @@ class Design:
         self.rotor_id.subtract(barrier_id)
         modeler.delete(barrier_id)
 
+    def assign_magnet_cs(self, magnet_names: str, angle_deg: float) -> None:
+        cs_name = "MagnetCS"
+        self._create_magnet_cs(cs_name, angle_deg)
+        for name in magnet_names:
+            self.m2d.modeler[name].part_coordinate_system = cs_name
+
 
     def add_rotor_magnet(self, mag: np.ndarray, segment_type=None) -> None:
         modeler = self.m2d.modeler
         assert isinstance(modeler, Modeler2D)
-
-        self._create_pm_material()
 
         if isinstance(mag, (list, tuple)):
             mag = mag[-1] if len(mag) > 1 else mag[0]
@@ -502,6 +500,38 @@ class Design:
         mag_id.solve_inside = True
         mag_id.color = (255, 0, 0)
         mag_id.transparency = 0.0
+
+        cs_angle_deg = np.degrees(np.arctan2(radial[1], radial[0]))
+
+        self._magnet_names.append(mag_id.name)
+        self._magnet_angles.append(cs_angle_deg)
+
+    def _create_magnet_cs(self, name: str, angle_deg: float) -> None:
+        self.m2d.modeler.create_coordinate_system(
+            origin=[0, 0, 0],
+            name=name,
+            mode="axis",
+            x_pointing=[
+                float(np.cos(np.radians(angle_deg))),
+                float(np.sin(np.radians(angle_deg))),
+                0
+            ],
+            y_pointing=[
+                float(-np.sin(np.radians(angle_deg))),
+                float(np.cos(np.radians(angle_deg))),
+                0
+            ],
+        )
+
+    def assign_magnet_orientations(self) -> None:
+        for name, angle_deg in zip(self._magnet_names, self._magnet_angles):
+            cs_name = f"CS_{name}"
+            self._create_magnet_cs(cs_name, angle_deg)
+            self.m2d.modeler[name].part_coordinate_system = cs_name
+        
+        # Reset seznamů pro příští cyklus
+        self._magnet_names = []
+        self._magnet_angles = []
 
     def _add_post_processing(self) -> None:
         if getattr(self, '_post_processing_done', False):

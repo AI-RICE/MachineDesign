@@ -1,6 +1,7 @@
 import numpy as np
 
 from .design import Design
+from ansys.aedt.core.modeler.modeler_2d import Modeler2D
 
 
 class Design2(Design):
@@ -310,6 +311,101 @@ class Design2(Design):
         self.m2d.variable_manager["Iq1"] = f"{Iq1}A"
         self.m2d.variable_manager["Id3"] = f"{Id3}A"
         self.m2d.variable_manager["Iq3"] = f"{Iq3}A"
+
+    def _create_pm_material(self) -> None:
+        params = [
+            f"NAME:{self.PM}",
+            "CoordinateSystemType:=", "Cartesian",
+            "BulkOrSurfaceType:=", 1,
+            ["NAME:PhysicsTypes", "set:=", ["Electromagnetic"]],
+            ["NAME:AttachedData"],
+            ["NAME:magnetic_coercivity",
+             "property_type:=", "VectorProperty",
+             "Magnitude:=", "900000A_per_meter",
+             "DirComp1:=", "1",
+             "DirComp2:=", "0",
+             "DirComp3:=", "0"],
+            "conductivity:=", "0",
+            "relative_permeability:=", "1.05",
+            "mass_density:=", "7500",
+        ]
+        mgr = self.m2d.materials.odefinition_manager
+        try:
+            mgr.AddMaterial(params)
+        except Exception:
+            pass
+
+    def add_magnets(self, generator, barriers: list[np.ndarray]) -> None:
+        modeler = self.m2d.modeler
+        assert isinstance(modeler, Modeler2D)
+
+        self._create_pm_material()
+
+        if isinstance(mag, (list, tuple)):
+            mag = mag[-1] if len(mag) > 1 else mag[0]
+
+        mag = np.asarray(mag)
+        if mag.ndim != 2 or len(mag) == 0:
+            return
+
+        center = mag.mean(axis=0)
+        pts_centered = mag - center
+
+        r = np.linalg.norm(center)
+        if r < 1e-10:
+            return
+        radial     = center / r
+        long_axis  = np.array([-radial[1], radial[0]])
+        short_axis = radial
+
+        proj_long  = pts_centered @ long_axis
+        proj_short = pts_centered @ short_axis
+        mag_length = proj_long.max()  - proj_long.min()
+        mag_width  = proj_short.max() - proj_short.min()
+
+        length_scale = 0.7
+        width_scale  = 0.35
+
+        if mag_length < 0.1 or mag_width < 0.1:
+            return
+
+        hl = mag_length * length_scale / 2
+        hw = mag_width  * width_scale  / 2
+        angle_deg = np.degrees(np.arctan2(long_axis[1], long_axis[0]))
+
+        mag_id = modeler.create_rectangle(
+            origin=[f"{-hl}mm", f"{-hw}mm", "0mm"],
+            sizes=[f"{2*hl}mm", f"{2*hw}mm", "0mm"],
+            name="Magnet",
+        )
+        mag_id.rotate(axis="Z", angle=angle_deg)
+        mag_id.move([f"{center[0]}mm", f"{center[1]}mm", "0mm"])
+
+        mag_id.material_name = self.PM
+        mag_id.solve_inside = True
+        mag_id.color = (255, 0, 0)
+        mag_id.transparency = 0.0
+
+    def delete_motion_setup(self) -> None:
+        module = self.m2d.odesign.GetModule("ModelSetup")
+        existing = list(module.GetMotionSetupNames())
+        if existing:
+            module.DeleteMotionSetup(existing)
+        self._motion_band = None
+
+    def motion_setup(self) -> None:
+        self.delete_motion_setup()
+
+        self._motion_band = self.m2d.assign_rotate_motion(
+            assignment="Band",
+            coordinate_system="Global",
+            axis="Z",
+            positive_movement=True,
+            start_position="InitPos",
+            angular_velocity="RotSpeed",
+            has_rotation_limits=False,
+        )
+        self._add_post_processing()
 
     def extract_results(self, solutions):
         # TODO: this works only because torque is the last one in the array

@@ -46,10 +46,12 @@ I_MAX = 10.0       # A, peak phase current limit
 BIG_RIPPLE = 999.0
 BIG_VOLT = 9999.0
 R_STATOR = 19.0   # phase resistance consistent with Nc=113 (the earlier 0.19 decoupled R from the winding — a mistake)
-# End-winding leakage inductance [H/phase], analytic estimate (Pyrhonen: lambda_ew~0.3,
-# l_w~2.5*tau_p, D=79mm, Nc=113, q=2, p=2 -> ~1.4mH). 2D FEA cannot capture it (end
-# turns are out of plane); added in post-processing as psi += Lew*I / V_d-=w*Lew*Iq.
-LEW_H = 1.44e-3
+# End-winding leakage inductance [H/phase] = 2.4 mH (measured value; supersedes the earlier
+# ~1.4 mH Pyrhonen analytic estimate for D=79mm, Nc=113, q=2, p=2). 2D FEA cannot capture it
+# (end turns are out of plane), so it is added ANALYTICALLY in post-processing as
+# psi += Lew*I and V_d -= h*w*Lew*Iq / V_q += h*w*Lew*Id -- NOT via deriv()/ddt() in an FEA
+# output var, which is unsupported by the AEDT 2024.2 parser and breaks get_solution_data.
+LEW_H = 2.4e-3
 POLE_PAIRS = 2
 
 # dq current box: dq1 in the motoring quadrant, dq3 injection either sign.

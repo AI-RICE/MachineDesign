@@ -2,7 +2,20 @@ data/
 results*/
 results_*.npz
 nohup.out
+*.done
+*.out
+__sync*/
 .vscode/settings.json
+
+# one-off bayes launch / session scripts (superseded by SLURM sbatch + detach.sh)
+*_launch.sh
+*_relaunch.sh
+cleanup_session.sh
+commit_plan.sh
+relaunch_gen1b.sh
+# data blobs / stray run outputs (not source)
+geom_shapes*.json
+notebooks/*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

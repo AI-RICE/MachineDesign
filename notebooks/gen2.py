@@ -141,13 +141,19 @@ def worker_main(args):
                     tm, _, rp = H.analyze_results(np.asarray(r["Tor"], float))
                     if not (np.isfinite(tm) and np.isfinite(rp)):
                         raise ValueError("non-finite T/ripple")
+                    # dq flux linkages (speed-independent; compute() returns their period-mean
+                    # in r["means"]) -> used downstream for the analytic voltage constraint
+                    mm = r["means"]
+                    flux = [float(mm[k]) for k in ("Flux_d1", "Flux_q1", "Flux_d3", "Flux_q3")]
                 except Exception as e:  # noqa: BLE001
                     print(f"  [w{args.worker_id}] FEA FAIL g{gid}: {e}", flush=True)
                     tm, rp, ok = H.PENALTY, P.BIG_RIPPLE, False
+                    flux = [0.0, 0.0, 0.0, 0.0]
                 nok += int(ok)
                 # ok flag (5th field): failed solves are DROPPED at collection so a silent
                 # solver-license failure never poisons the joint GP with T=0/ripple=999.
-                rows.append([dq, float(tm), float(rp), ipk_of(dq), int(ok)])
+                # Fields 6-9 = flux linkages (Fd1,Fq1,Fd3,Fq3) for the voltage constraint.
+                rows.append([dq, float(tm), float(rp), ipk_of(dq), int(ok)] + flux)
             design.delete_rotor()
         out[gid] = rows
         print(f"  [w{args.worker_id}] g{gid}: {nok}/{len(rows)} ok", flush=True)

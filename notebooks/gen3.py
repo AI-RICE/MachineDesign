@@ -44,6 +44,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="results/gen3")
     ap.add_argument("--demands", default="4,8,6")
+    ap.add_argument("--speeds", default="25,16,63", help="per-demand ELECTRICAL Hz (voltage)")
+    ap.add_argument("--v-max", type=float, default=400.0, help="peak phase voltage limit [V]")
     ap.add_argument("--fhz", type=float, default=50.0)
     ap.add_argument("--n-seed", type=int, default=64)
     ap.add_argument("--n-rounds", type=int, default=8)
@@ -63,6 +65,8 @@ def main():
     os.makedirs(args.out, exist_ok=True)
     np.random.seed(args.seed); torch.manual_seed(args.seed)
     demands = [float(x) for x in args.demands.split(",")]
+    omegas = [2.0 * math.pi * float(f) for f in args.speeds.split(",")]  # elec rad/s per demand
+    assert len(omegas) == len(demands), "--speeds must have one entry per --demands"
     meta = dict(slots=args.slots, phases=args.phases, wide=args.wide, fhz=args.fhz,
                 ncores=args.ncores, aedt_version=args.aedt_version)
     print(f"[gen3] pathwise-Thompson MOO (torch-isolated select); demands={demands} "
@@ -85,14 +89,16 @@ def main():
         return ICUR_LB + np.asarray(u) * (ICUR_UB - ICUR_LB)
 
     ckpt = f"{args.out}/gen3.npz"
-    Xg, Xi, T, R = [], [], [], []
+    Xg, Xi, T, R, FL = [], [], [], [], []   # FL = flux linkages [Fd1,Fq1,Fd3,Fq3] per point
     if os.path.exists(ckpt):
         z = np.load(ckpt, allow_pickle=True)
         Xg, Xi, T, R = list(z["Xg"]), list(z["Xi"]), list(z["T"]), list(z["R"])
+        FL = list(z["FL"]) if "FL" in z else [[0.0, 0.0, 0.0, 0.0]] * len(T)
         print(f"[gen3] resume {len(T)} FEA points", flush=True)
 
     def save():
-        np.savez(ckpt, Xg=np.array(Xg), Xi=np.array(Xi), T=np.array(T), R=np.array(R))
+        np.savez(ckpt, Xg=np.array(Xg), Xi=np.array(Xi), T=np.array(T), R=np.array(R),
+                 FL=np.array(FL))
 
     def run_jobs(pairs, tag):
         g_list, g_key, jobs = [], {}, []
@@ -110,7 +116,8 @@ def main():
                 if len(row) > 4 and not row[4]:
                     n_fail += 1; continue
                 ui = (np.asarray(dq, float) - ICUR_LB) / (ICUR_UB - ICUR_LB)
-                Xg.append(gn); Xi.append(ui); T.append(tm); R.append(rp); n_ok += 1
+                flux = list(map(float, row[5:9])) if len(row) >= 9 else [0.0, 0.0, 0.0, 0.0]
+                Xg.append(gn); Xi.append(ui); T.append(tm); R.append(rp); FL.append(flux); n_ok += 1
         save()
         if n_fail:
             print(f"[gen3] {tag}: {n_ok} ok, {n_fail} failed solves dropped", flush=True)
@@ -136,9 +143,11 @@ def main():
         """Write the job, run the torch-isolated selection subprocess, return its json dict."""
         jobf = f"{args.out}/seljob_{tag}.npz"; outf = f"{args.out}/selout_{tag}.json"
         np.savez(jobf, Xg=np.array(Xg), Xi=np.array(Xi), T=np.array(T), R=np.array(R),
-                 Gcand=np.array(Gcand), Icand_u=Icand_u, ipk_cand=ipk_cand, loss_cand=loss_cand,
-                 icur_lb=ICUR_LB, icur_ub=ICUR_UB, demands=np.array(demands), theta=theta,
-                 i_max=I_MAX, lam=LAM, n_paths=n_paths, q=args.q, seed=args.seed)
+                 FL=np.array(FL), Gcand=np.array(Gcand), Icand_u=Icand_u, Icand_dq=Icand_dq,
+                 ipk_cand=ipk_cand, loss_cand=loss_cand, icur_lb=ICUR_LB, icur_ub=ICUR_UB,
+                 demands=np.array(demands), omegas=np.array(omegas), theta=theta,
+                 i_max=I_MAX, lam=LAM, r_stator=P.R_STATOR, lew=P.LEW_H, v_max=args.v_max,
+                 n_paths=n_paths, q=args.q, seed=args.seed)
         env = dict(os.environ, OMP_NUM_THREADS="1", MKL_THREADING_LAYER="SEQUENTIAL",
                    KMP_DUPLICATE_LIB_OK="TRUE")
         subprocess.run([sys.executable, SELECT_PY, jobf, outf], check=True, env=env)

@@ -30,6 +30,7 @@ from gpytorch.priors import LogNormalPrior
 
 SQRT2, SQRT3 = math.sqrt(2.0), math.sqrt(3.0)
 _THETA = None
+_VGRID = np.linspace(0.0, 2.0 * math.pi, 181, endpoint=False)  # theta grid for exact V-peak
 
 
 def dsp_gp(X, Y):  # identical kernel/prior to gen2.dsp_gp
@@ -57,13 +58,19 @@ def ptp_of(R, T):
 
 
 def voltage_bound(fd1, fq1, fd3, fq3, dq, omega, R, Lew):
-    """Conservative peak phase voltage |V1|+|V3| (triangle bound on the 1st+3rd waveform).
-    dq voltage of harmonic h: V_d = R*Id - h*w*(psi_q + Lew*Iq); V_q = R*Iq + h*w*(psi_d + Lew*Id).
-    fd*/fq* and dq[k] broadcast together (dq[k] shaped to match the flux arrays)."""
+    """EXACT peak phase voltage: max over theta of the combined 1st+3rd waveform (not the
+    |V1|+|V3| triangle bound, which over-rejects near-limit designs). dq voltage of harmonic h:
+    V_d = R*Id - h*w*(psi_q + Lew*Iq); V_q = R*Iq + h*w*(psi_d + Lew*Id). fd*/fq* and dq[k]
+    broadcast together; the running max over _VGRID avoids a [n_theta,G,NI] tensor."""
     Id1, Iq1, Id3, Iq3 = dq
     Vd1 = R * Id1 - omega * (fq1 + Lew * Iq1); Vq1 = R * Iq1 + omega * (fd1 + Lew * Id1)
     Vd3 = R * Id3 - 3.0 * omega * (fq3 + Lew * Iq3); Vq3 = R * Iq3 + 3.0 * omega * (fd3 + Lew * Id3)
-    return np.hypot(Vd1, Vq1) + np.hypot(Vd3, Vq3)
+    Vm1, p1 = np.hypot(Vd1, Vq1), np.arctan2(Vq1, Vd1)
+    Vm3, p3 = np.hypot(Vd3, Vq3), np.arctan2(Vq3, Vd3)
+    mx = np.zeros_like(np.asarray(Vm1, dtype=float))
+    for th in _VGRID:
+        np.maximum(mx, np.abs(Vm1 * np.cos(th + p1) + Vm3 * np.cos(3.0 * th + p3)), out=mx)
+    return mx
 
 
 def paretoA_objectives(surf, ipk_cand, loss_cand, dq_cand, demands, omegas, i_max, lam,

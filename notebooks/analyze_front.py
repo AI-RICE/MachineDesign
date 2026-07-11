@@ -6,11 +6,12 @@ import math
 import numpy as np
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else "results/gen3_500w_v"
+VMAX = float(sys.argv[2]) if len(sys.argv) > 2 else 400.0
 z = np.load(f"{OUT}/gen3.npz", allow_pickle=True)
 Xg, Xi, T, R, FL = [np.array(z[k]) for k in ("Xg", "Xi", "T", "R", "FL")]
 LB = np.array([0, 0, -0.39, -0.39]); UB = np.array([1.3, 1.3, 0.39, 0.39])
 dq_of = lambda u: LB + u * (UB - LB)
-DEM = [4.0, 8.0, 2.5]; SPD = [25.0, 16.0, 63.0]; VMAX = 400.0; RS = 19.0; LEW = 2.4e-3; IMAX = 1.3
+DEM = [4.0, 8.0, 2.5]; SPD = [25.0, 16.0, 63.0]; RS = 19.0; LEW = 2.4e-3; IMAX = 1.3
 OMEGA = [2 * math.pi * f for f in SPD]
 TH = np.asarray(z["theta"], float) if "theta" in z else np.linspace(0, 2 * math.pi, 361)
 

@@ -1,26 +1,26 @@
 import os
 import shutil
-import numpy as np
-import h5py
 import time
 from multiprocessing import Pool
 
-from ansys.aedt.core import Desktop, Maxwell2d
-
 import calculate_combination
+import h5py
+import numpy as np
+from ansys.aedt.core import Desktop, Maxwell2d
 
 # =========================================================
 # CONFIGURATION
 # =========================================================
-AEDT_VERSION = os.getenv('AEDT_VERSION', '2026.1')
+AEDT_VERSION = os.getenv("AEDT_VERSION", "2026.1")
 
 PATH = "d:\\DATA\\Test"
-PROJECT_DIR = os.getenv('ANSYS_PROJECT_DIR', PATH)
+PROJECT_DIR = os.getenv("ANSYS_PROJECT_DIR", PATH)
 BASE_PROJECT = "SynRM_orig"
 DESIGN_NAME = "Design02_def_Idq"
 SETUP_NAME = "Setup1"
 
-N_WORKERS = 22 # less then number of logical processors
+N_WORKERS = 22  # less then number of logical processors
+
 
 # =========================================================
 # PROJECT COPY
@@ -34,6 +34,7 @@ def copy_project(worker_id):
 
     return dst_name
 
+
 # =========================================================
 # WORKER
 # =========================================================
@@ -43,17 +44,9 @@ def worker(args):
 
     project_name = copy_project(worker_id)
 
-    desktop = Desktop(
-        specified_version=AEDT_VERSION,
-        non_graphical=True,
-        new_desktop=True,
-        close_on_exit=False
-    )
+    desktop = Desktop(specified_version=AEDT_VERSION, non_graphical=True, new_desktop=True, close_on_exit=False)
 
-    app = Maxwell2d(
-        project=project_name,
-        design=DESIGN_NAME
-    )
+    app = Maxwell2d(project=project_name, design=DESIGN_NAME)
 
     results = calculate_combination.main(app, task_chunk, SETUP_NAME)
 
@@ -67,8 +60,8 @@ def worker(args):
 # =========================================================
 def run():
 
-    Id_vec = np.arange(0.0, 3.2, 0.2) #16 values
-    Iq_vec = np.arange(0.0, 3.2, 0.2) #16 values
+    Id_vec = np.arange(0.0, 3.2, 0.2)  # 16 values
+    Iq_vec = np.arange(0.0, 3.2, 0.2)  # 16 values
 
     tasks = []
     for i, Id in enumerate(Id_vec):
@@ -76,7 +69,7 @@ def run():
             tasks.append((Id, Iq, i, j))
 
     chunk_size = int(np.ceil(len(tasks) / N_WORKERS))
-    chunks = [tasks[i:i + chunk_size] for i in range(0, len(tasks), chunk_size)]
+    chunks = [tasks[i : i + chunk_size] for i in range(0, len(tasks), chunk_size)]
 
     args = [(i, chunk) for i, chunk in enumerate(chunks)]
 
@@ -93,13 +86,7 @@ def run():
     data_out = np.array(rows)
 
     header = "Id,Iq,Flux_d,Flux_q,Flux_e_d,Flux_e_q,L_d,L_q,L_dq,L_qd,Torque"
-    np.savetxt(
-        "results_grid.csv",
-        data_out,
-        delimiter=",",
-        header=header,
-        comments=""
-    )
+    np.savetxt("results_grid.csv", data_out, delimiter=",", header=header, comments="")
 
     with h5py.File("results_grid.h5", "w") as f:
         f.create_dataset("Id", data=Id_vec)
@@ -116,9 +103,9 @@ def run():
 # =========================================================
 if __name__ == "__main__":
     start = time.perf_counter()
-    
+
     run()
-    
+
     end = time.perf_counter()
 
     print(f"Time of calculation: {end - start:.6f} s")

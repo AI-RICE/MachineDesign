@@ -1,26 +1,18 @@
 import numpy as np
 
+
 def main(m2d, task_chunk, setup_name):
 
-    def run_simulation(Id,Iq):
+    def run_simulation(Id, Iq):
         m2d.variable_manager["Id"] = f"{Id}A"
         m2d.variable_manager["Iq"] = f"{Iq}A"
 
         m2d.save_project()
         m2d.analyze_setup(setup_name, use_auto_settings=False, cores=1, tasks=1)
 
-        expressions = [
-            "I_d1", "I_q1",
-            "Flux_d1", "Flux_q1",
-            "Flux_e_d1", "Flux_e_q1",
-            "Ld1", "Lq1", "Ld1q1", "Lq1d1",
-            "Moving1.Torque"
-        ]
+        expressions = ["I_d1", "I_q1", "Flux_d1", "Flux_q1", "Flux_e_d1", "Flux_e_q1", "Ld1", "Lq1", "Ld1q1", "Lq1d1", "Moving1.Torque"]
 
-        sols = m2d.post.get_solution_data(
-            expressions=expressions,
-            primary_sweep_variable="Time"
-        )
+        sols = m2d.post.get_solution_data(expressions=expressions, primary_sweep_variable="Time")
 
         out = np.zeros(len(expressions))
 
@@ -34,7 +26,7 @@ def main(m2d, task_chunk, setup_name):
             out[i] = val
 
         return out
-    
+
     # --- chunk processing ---
     results_local = []
     total = len(task_chunk)

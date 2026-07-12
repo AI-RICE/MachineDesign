@@ -50,6 +50,8 @@ def main():
                     help="treat winding turns as a free per-design analytic transformer "
                          "(feasible iff one Nc satisfies all points' I and V limits)")
     ap.add_argument("--nc-base", type=float, default=113.0, help="turns the FEA/flux is built at")
+    ap.add_argument("--lew", type=float, default=None,
+                    help="end-winding leakage [H] for the voltage bound; default h0h1_par.LEW_H")
     ap.add_argument("--fhz", type=float, default=50.0)
     ap.add_argument("--n-seed", type=int, default=64)
     ap.add_argument("--n-rounds", type=int, default=8)
@@ -150,7 +152,8 @@ def main():
                  FL=np.array(FL), Gcand=np.array(Gcand), Icand_u=Icand_u, Icand_dq=Icand_dq,
                  ipk_cand=ipk_cand, loss_cand=loss_cand, icur_lb=ICUR_LB, icur_ub=ICUR_UB,
                  demands=np.array(demands), omegas=np.array(omegas), theta=theta,
-                 i_max=I_MAX, lam=LAM, r_stator=P.R_STATOR, lew=P.LEW_H, v_max=args.v_max,
+                 i_max=I_MAX, lam=LAM, r_stator=P.R_STATOR,
+                 lew=(args.lew if args.lew is not None else P.LEW_H), v_max=args.v_max,
                  turns_free=int(args.turns_free), nc_base=args.nc_base,
                  n_paths=n_paths, q=args.q, seed=args.seed)
         env = dict(os.environ, OMP_NUM_THREADS="1", MKL_THREADING_LAYER="SEQUENTIAL",
@@ -170,10 +173,11 @@ def main():
                 pairs.append((Gcand[gi], Icand_u[j]))
         run_jobs(pairs, f"r{rnd}")
         json.dump(varlog, open(f"{args.out}/gen3_varlog.json", "w"), indent=2)
-        cov = vl.get("hv_cov")
+        pf = [round(x, 2) for x in vl.get("p_feasible_picks", [])]
         print(f"[gen3] round {rnd}: +{len(pairs)} FEA (total {len(T)})  "
-              f"HV_mean={vl['hv_mean']:.3g} HV_cov={cov if cov is None else round(cov,3)} "
-              f"top-geom-agree={vl['top_geom_agreement']:.2f} |front|={len(last_front)}", flush=True)
+              f"inc_front={vl.get('inc_front_size')} feas_frac={vl.get('mean_feasible_frac'):.2f} "
+              f"n_pos_ehvi={vl.get('n_positive_ehvi')} p_feas_picks={pf} "
+              f"|front|={len(last_front)}", flush=True)
 
     # ---- final confirmed front (front-only select over ALL data; no Matheron) ----
     sel = run_select([feasible_g()], 0, "final")   # 1 dummy Gcand (unused when n_paths=0)

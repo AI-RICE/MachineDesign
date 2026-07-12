@@ -139,6 +139,78 @@ def greedy_hv_batch(cand_obj, ref, q):
     return chosen
 
 
+def _front_ab(front_lr):
+    """(loss,ripple) list -> non-dominated front as (a ascending loss, b descending ripple)."""
+    if len(front_lr) == 0:
+        return np.empty(0), np.empty(0)
+    O = np.asarray(front_lr, float)
+    nd = is_non_dominated(torch.tensor(-O, dtype=torch.double)).numpy()
+    O = O[nd]; O = O[np.argsort(O[:, 0])]
+    return O[:, 0].copy(), O[:, 1].copy()
+
+
+def hvi_2d(ql, qr, a, b, rL, rR):
+    """Vectorized 2-D hypervolume improvement (MINIMIZATION) of query points (ql,qr) over an
+    incumbent front (a ascending loss, b descending ripple), reference (rL,rR). Exact:
+    HVI = area{ x in [ql,rL], y in [qr,rR] NOT already dominated by any incumbent }. This handles
+    a query that itself DOMINATES incumbent points (it then subsumes, not adds, their area).
+    Computed as the query box minus the incumbent-dominated staircase clipped into that box."""
+    ql = np.asarray(ql, float); qr = np.asarray(qr, float)
+    inside = (ql < rL) & (qr < rR)
+    box = np.maximum(0.0, rL - ql) * np.maximum(0.0, rR - qr)
+    if len(a) == 0:
+        return np.where(inside, box, 0.0)
+    cx = np.maximum(a[:, None], ql[None, :])                  # [n,G] incumbent loss clipped into box
+    cy = np.maximum(b[:, None], qr[None, :])                  # [n,G] incumbent ripple clipped into box
+    cx_next = np.empty_like(cx); cx_next[:-1] = cx[1:]; cx_next[-1] = rL
+    width = np.clip(np.minimum(cx_next, rL) - cx, 0.0, None)  # a asc -> cx non-decreasing (valid strips)
+    height = np.clip(rR - cy, 0.0, None)                      # b desc -> cy non-increasing
+    covered = np.sum(width * height, axis=0)                  # area of box already dominated
+    return np.where(inside, np.maximum(0.0, box - covered), 0.0)
+
+
+def constrained_ehvi_batch(CL, MR, FE, inc_front, q):
+    """Gardner-style constrained acquisition, Thompson/MC form. CL,MR,FE are [n_paths, G] arrays
+    of the per-path derived cycle-loss, max-ripple and FEASIBILITY of each candidate geometry.
+    alpha(g) = mean_s[ 1{FE_s(g)} * HVI(CL_s(g),MR_s(g) | incumbent feasible front) ]
+             = E[ HVI * feasibility-indicator ]  = EHVI(g) * P(feasible)(g)  (Gardner 2014),
+    estimated on coherent posterior sample PATHS rather than a plug-in mean. Greedy q-batch with
+    an expected-feasible-objective fantasy so picks are diverse. The incumbent front is the
+    FEA-confirmed feasible Pareto front, so the acquisition *enriches that front*."""
+    n_paths, G = CL.shape
+    p_feas = FE.mean(0)
+    ls, rs = [], []
+    if len(inc_front):
+        I = np.asarray(inc_front, float); ls.append(I[:, 0]); rs.append(I[:, 1])
+    fin = FE & np.isfinite(CL) & np.isfinite(MR)
+    if fin.any():
+        ls.append(CL[fin]); rs.append(MR[fin])
+    rL = (np.concatenate(ls).max() if ls else 1.0) * 1.05
+    rR = (np.concatenate(rs).max() if rs else 1.0) * 1.05
+    front = [tuple(x) for x in (np.asarray(inc_front, float)[:, :2] if len(inc_front) else [])]
+    picked, ehvi_hist, ehvi_full = [], [], None
+    for it in range(q):
+        a, b = _front_ab(front)
+        acc = np.zeros(G)
+        for s in range(n_paths):
+            acc += np.where(FE[s], hvi_2d(CL[s], MR[s], a, b, rL, rR), 0.0)
+        ehvi = acc / n_paths
+        if it == 0:
+            ehvi_full = ehvi.copy()
+        if picked:
+            ehvi[picked] = -1.0
+        g = int(np.argmax(ehvi))
+        if ehvi[g] <= 1e-12:
+            break
+        picked.append(g); ehvi_hist.append(float(ehvi[g]))
+        fm = FE[:, g]
+        if fm.any():                                          # fantasy: expected feasible objective
+            front.append((float(CL[fm, g].mean()), float(MR[fm, g].mean())))
+    return picked, dict(ref=[float(rL), float(rR)], ehvi=ehvi_hist,
+                        p_feasible=[float(p_feas[g]) for g in picked],
+                        ehvi_full=(ehvi_full if ehvi_full is not None else np.zeros(G)))
+
+
 def confirmed_front(Xg, Xi, T, R, FL, dq_of, demands, omegas, i_max, Rs, Lew, v_max,
                     turns_free=False, nc_base=113.0):
     """Non-dominated (cycle_loss, max_ptp[Nm], ripple%[, Nc_lo, Nc_hi]) over FEA-confirmed
@@ -240,26 +312,24 @@ def main():
         S = [eval_paths_chunked(p) for p in paths]           # [T, ptp, Fd1,Fq1,Fd3,Fq3] each [n,NG,NI]
     S[1] = np.clip(S[1], 0.0, None)                            # ptp >= 0
 
-    cand_gi, cand_obj, path_hv, path_argmin = [], [], [], []
+    # ---- Gardner-style constrained EHVI (P(feasible)-weighted), Thompson/MC form ----
+    # Per path, derive (cycle-loss, max-ripple, FEASIBLE) for EVERY candidate geometry. The
+    # feasibility mask (torque, Ipk, voltage; turns-free: a valid winding exists) now GATES the
+    # acquisition rather than being discarded: alpha(g) = mean_s[1{feas}*HVI] = EHVI*P(feasible).
+    CL = np.empty((n_paths, NG)); MR = np.empty((n_paths, NG)); FE = np.zeros((n_paths, NG), bool)
     for s in range(n_paths):
         surf = (S[0][s], S[1][s], S[2][s], S[3][s], S[4][s], S[5][s])
-        cl, mr, _ = paretoA_objectives(surf, ipk_cand, loss_cand, Icand_dq, demands, omegas,
-                                       i_max, lam, Rs, Lew, v_max, turns_free=turns_free, nc_base=nc_base)
-        obj = np.stack([cl, mr], 1); path_argmin.append(int(np.argmin(cl)))
-        nd = is_non_dominated(torch.tensor(-obj, dtype=torch.double)).numpy()
-        for gi in np.where(nd)[0]:
-            cand_gi.append(int(gi)); cand_obj.append(obj[gi])
-        path_hv.append(obj[nd])
-    cand_obj = np.array(cand_obj); ref = cand_obj.max(0) * 1.05
-    hvs = np.array([hv_of(o, ref) for o in path_hv])
-    hv_mean, hv_sd = float(hvs.mean()), float(hvs.std())
-    agree = float(np.mean(np.array(path_argmin) == np.bincount(path_argmin).argmax()))
-    varlog = dict(n_paths=n_paths, hv_mean=hv_mean, hv_sd=hv_sd,
-                  hv_cov=(hv_sd / hv_mean if hv_mean > 0 else None),
-                  top_geom_agreement=agree, n_pareto_cand=int(len(cand_obj)))
-
-    pick = greedy_hv_batch(cand_obj, ref, q)
-    picked_gi = list(dict.fromkeys(cand_gi[i] for i in pick))
+        cl, mr, fe = paretoA_objectives(surf, ipk_cand, loss_cand, Icand_dq, demands, omegas,
+                                        i_max, lam, Rs, Lew, v_max, turns_free=turns_free, nc_base=nc_base)
+        CL[s] = cl; MR[s] = mr; FE[s] = fe
+    inc = confirmed_front(Xg, Xi, T, R, FL, dq_of, demands, omegas, i_max, Rs, Lew, v_max,
+                          turns_free=turns_free, nc_base=nc_base)
+    inc_front = [(row[0], row[1]) for row in inc]
+    picked_gi, acq = constrained_ehvi_batch(CL, MR, FE, inc_front, q)
+    varlog = dict(n_paths=n_paths, method="constrained_ehvi_gardner",
+                  inc_front_size=len(inc_front), mean_feasible_frac=float(FE.mean()),
+                  n_positive_ehvi=int(np.sum(acq["ehvi_full"] > 1e-12)),
+                  ehvi_picks=acq["ehvi"], p_feasible_picks=acq["p_feasible"], ref=acq["ref"])
     # per picked geometry: per-demand loss-optimal current under the posterior MEAN (T + flux),
     # honouring the same T/Ipk/voltage feasibility used in selection. Posterior mean evaluated
     # ONLY at the picked geometries' rows (never the full grid) to keep memory bounded.

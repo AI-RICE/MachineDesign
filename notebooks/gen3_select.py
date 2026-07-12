@@ -31,6 +31,7 @@ from gpytorch.priors import LogNormalPrior
 SQRT2, SQRT3 = math.sqrt(2.0), math.sqrt(3.0)
 _THETA = None
 _VGRID = np.linspace(0.0, 2.0 * math.pi, 181, endpoint=False)  # theta grid for exact V-peak
+_NCGRID = np.arange(55.0, 161.0, 5.0)                          # candidate winding counts (turns-free)
 
 
 def dsp_gp(X, Y):  # identical kernel/prior to gen2.dsp_gp
@@ -74,23 +75,45 @@ def voltage_bound(fd1, fq1, fd3, fq3, dq, omega, R, Lew):
 
 
 def paretoA_objectives(surf, ipk_cand, loss_cand, dq_cand, demands, omegas, i_max, lam,
-                       R, Lew, v_max):
+                       R, Lew, v_max, turns_free=False, nc_base=113.0):
     """surf = (Ts, PTPs, Fd1, Fq1, Fd3, Fq3), each [G, NI]. Returns (cycle_loss[G],
-    max_ripple[G], feas[G]). Per demand k: min penalised loss over currents s.t. T>=Tk,
-    Ipk<=Imax, V_pk(omega_k)<=Vmax; ripple read off there."""
+    max_ripple[G], feas[G]). Per demand k pick min-loss current with T>=Tk; ripple read there.
+    Feasibility:
+      fixed turns  -> also require Ipk<=Imax and V_pk(omega_k)<=Vmax at every point.
+      turns free   -> Ipk/Vpk are at base turns Nc0; a single winding Nc must satisfy ALL
+                      points: Nc in [Nc0*max_k(Ipk_k/Imax), Nc0*min_k(Vmax/Vpk_k)] must be
+                      non-empty (V~Nc, I~1/Nc; torque/ripple/loss turns-invariant)."""
     Ts, PTPs, Fd1, Fq1, Fd3, Fq3 = surf
-    pen_ipk = lam * np.clip(ipk_cand - i_max, 0.0, None)
     G = Ts.shape[0]; K = len(demands); ar = np.arange(G)
-    Fk = np.empty((K, G)); Rk = np.empty((K, G)); feask = np.ones((K, G), bool)
-    for k, (Tk, wk) in enumerate(zip(demands, omegas)):
-        dqc = [dq_cand[:, j][None, :] for j in range(4)]                  # each [1, NI] -> [G,NI]
-        Vpk = voltage_bound(Fd1, Fq1, Fd3, Fq3, dqc, wk, R, Lew)          # [G, NI]
-        pen = (loss_cand[None, :] + pen_ipk[None, :] + lam * np.clip(Tk - Ts, 0.0, None)
-               + lam * np.clip(Vpk - v_max, 0.0, None))
-        j = np.argmin(pen, axis=1)
-        Fk[k] = pen[ar, j]; Rk[k] = PTPs[ar, j]
-        feask[k] = (Ts[ar, j] >= Tk) & (ipk_cand[j] <= i_max) & (Vpk[ar, j] <= v_max)
-    return Fk.mean(0), Rk.max(0), feask.all(0)
+    Vb = [voltage_bound(Fd1, Fq1, Fd3, Fq3, [dq_cand[:, c][None, :] for c in range(4)], wk, R, Lew)
+          for wk in omegas]                                              # base-turns Vpk per demand [G,NI]
+    if not turns_free:
+        pen_ipk = lam * np.clip(ipk_cand - i_max, 0.0, None)
+        Fk = np.empty((K, G)); Rk = np.empty((K, G)); feask = np.ones((K, G), bool)
+        for k, Tk in enumerate(demands):
+            pen = (loss_cand[None, :] + pen_ipk[None, :] + lam * np.clip(Tk - Ts, 0.0, None)
+                   + lam * np.clip(Vb[k] - v_max, 0.0, None))
+            j = np.argmin(pen, axis=1)
+            Fk[k] = pen[ar, j]; Rk[k] = PTPs[ar, j]
+            feask[k] = (Ts[ar, j] >= Tk) & (ipk_cand[j] <= i_max) & (Vb[k][ar, j] <= v_max)
+        return Fk.mean(0), Rk.max(0), feask.all(0)
+    # turns free: best over the winding-count grid. At Nc the base peak current/voltage rescale
+    # by (nc_base/Nc) and (Nc/nc_base); the per-Nc inner properly field-weakens each point.
+    best_cl = np.full(G, np.inf); best_mr = np.zeros(G); feas_any = np.zeros(G, bool)
+    for Nc in _NCGRID:
+        s = nc_base / Nc
+        clk = np.zeros(G); mrk = np.zeros(G); feas_all = np.ones(G, bool)
+        for k, Tk in enumerate(demands):
+            ip_nc = ipk_cand * s; V_nc = Vb[k] / s
+            pen = (loss_cand[None, :] + lam * np.clip(Tk - Ts, 0.0, None)
+                   + lam * np.clip(ip_nc[None, :] - i_max, 0.0, None) + lam * np.clip(V_nc - v_max, 0.0, None))
+            j = np.argmin(pen, axis=1)
+            clk += pen[ar, j] / K; mrk = np.maximum(mrk, PTPs[ar, j])
+            feas_all &= (Ts[ar, j] >= Tk) & (ip_nc[j] <= i_max) & (V_nc[ar, j] <= v_max)
+        better = clk < best_cl
+        best_mr = np.where(better, mrk, best_mr); best_cl = np.where(better, clk, best_cl)
+        feas_any |= feas_all
+    return best_cl, best_mr, feas_any
 
 
 def hv_of(obj, ref):
@@ -116,35 +139,56 @@ def greedy_hv_batch(cand_obj, ref, q):
     return chosen
 
 
-def confirmed_front(Xg, Xi, T, R, FL, dq_of, demands, omegas, i_max, Rs, Lew, v_max):
-    """Non-dominated (cycle_loss, max_ptp[Nm], ripple%) over FEA-confirmed geometries, with
-    the voltage bound enforced per operating point using the ACTUAL FEA flux."""
+def confirmed_front(Xg, Xi, T, R, FL, dq_of, demands, omegas, i_max, Rs, Lew, v_max,
+                    turns_free=False, nc_base=113.0):
+    """Non-dominated (cycle_loss, max_ptp[Nm], ripple%[, Nc_lo, Nc_hi]) over FEA-confirmed
+    geometries, voltage bound per point from the ACTUAL FEA flux. turns_free: feasibility is a
+    non-empty common-winding window [Nc0*max(ipk/Imax), Nc0*min(Vmax/Vpk)] rather than fixed
+    turns; the window is reported so each finalist's required turns count is known."""
     Xg = np.array(Xg); FL = np.array(FL); key = {}
     for i in range(len(T)):
         key.setdefault(tuple(np.round(Xg[i], 6)), []).append(i)
-    obj, pct = [], []
+    K = len(demands); obj, pct, ncw = [], [], []
     for _g, ids in key.items():
         dq = np.array([dq_of(Xi[i]) for i in ids])
         tt = np.array([T[i] for i in ids]); rr = np.array([R[i] for i in ids])
         fl = FL[ids]; ptp = ptp_of(rr, tt); ll = np.sum(dq ** 2, axis=1)
         ip = np.array([peak_current(dq[j]) for j in range(len(dq))])
-        cl, mp, mpct, ok = 0.0, 0.0, 0.0, True
-        for Tk, wk in zip(demands, omegas):
-            vpk = voltage_bound(fl[:, 0], fl[:, 1], fl[:, 2], fl[:, 3],
-                                [dq[:, 0], dq[:, 1], dq[:, 2], dq[:, 3]], wk, Rs, Lew)
-            fe = (ip <= i_max) & (tt >= Tk) & (vpk <= v_max)
-            if not fe.any():
-                ok = False; break
-            j = int(np.where(fe)[0][np.argmin(ll[fe])]); cl += ll[j] / len(demands)
-            if ptp[j] > mp:
-                mp, mpct = ptp[j], rr[j]
-        if ok:
-            obj.append((cl, mp)); pct.append(mpct)
+        vb = [voltage_bound(fl[:, 0], fl[:, 1], fl[:, 2], fl[:, 3],
+                            [dq[:, 0], dq[:, 1], dq[:, 2], dq[:, 3]], wk, Rs, Lew) for wk in omegas]
+        if not turns_free:
+            cl, mp, mpct, ok = 0.0, 0.0, 0.0, True
+            for k, Tk in enumerate(demands):
+                fe = (ip <= i_max) & (tt >= Tk) & (vb[k] <= v_max)
+                if not fe.any():
+                    ok = False; break
+                j = int(np.where(fe)[0][np.argmin(ll[fe])]); cl += ll[j] / K
+                if ptp[j] > mp:
+                    mp, mpct = ptp[j], rr[j]
+            if ok:
+                obj.append((cl, mp)); pct.append(mpct); ncw.append((nc_base, nc_base))
+            continue
+        # turns free: best feasible over the winding-count grid (field-weakens per Nc)
+        best = None
+        for Nc in _NCGRID:
+            s = nc_base / Nc; cl, mp, mpct, ok = 0.0, 0.0, 0.0, True
+            for k, Tk in enumerate(demands):
+                fe = (ip * s <= i_max) & (tt >= Tk) & (vb[k] / s <= v_max)
+                if not fe.any():
+                    ok = False; break
+                j = int(np.where(fe)[0][np.argmin(ll[fe])]); cl += ll[j] / K
+                if ptp[j] > mp:
+                    mp, mpct = ptp[j], rr[j]
+            if ok and (best is None or cl < best[0]):
+                best = (cl, mp, mpct, Nc)
+        if best is not None:
+            obj.append((best[0], best[1])); pct.append(best[2]); ncw.append((best[3], best[3]))
     if not obj:
         return []
     O = np.array(obj); pct = np.array(pct)
     nd = is_non_dominated(torch.tensor(-O, dtype=torch.double)).numpy()
-    return [[float(O[i, 0]), float(O[i, 1]), float(pct[i])] for i in np.where(nd)[0]]
+    return [[float(O[i, 0]), float(O[i, 1]), float(pct[i]), round(ncw[i][0], 1), round(ncw[i][1], 1)]
+            for i in np.where(nd)[0]]
 
 
 def peak_current(dq):
@@ -165,6 +209,8 @@ def main():
     i_max = float(z["i_max"]); lam = float(z["lam"])
     Rs = float(z["r_stator"]); Lew = float(z["lew"]); v_max = float(z["v_max"])
     n_paths, q, seed = int(z["n_paths"]), int(z["q"]), int(z["seed"])
+    turns_free = bool(int(z["turns_free"])) if "turns_free" in z else False
+    nc_base = float(z["nc_base"]) if "nc_base" in z else 113.0
     global _THETA
     _THETA = z["theta"]
     NG, NI = len(Gcand), len(Icand_u)
@@ -174,7 +220,8 @@ def main():
         return icur_lb + np.asarray(u) * (icur_ub - icur_lb)
 
     if n_paths == 0:                     # front-only mode (final report; no GP/Matheron)
-        front = confirmed_front(Xg, Xi, T, R, FL, dq_of, demands, omegas, i_max, Rs, Lew, v_max)
+        front = confirmed_front(Xg, Xi, T, R, FL, dq_of, demands, omegas, i_max, Rs, Lew, v_max,
+                                turns_free=turns_free, nc_base=nc_base)
         json.dump(dict(picks=[], varlog={}, front=front), open(outp, "w"))
         return
 
@@ -197,7 +244,7 @@ def main():
     for s in range(n_paths):
         surf = (S[0][s], S[1][s], S[2][s], S[3][s], S[4][s], S[5][s])
         cl, mr, _ = paretoA_objectives(surf, ipk_cand, loss_cand, Icand_dq, demands, omegas,
-                                       i_max, lam, Rs, Lew, v_max)
+                                       i_max, lam, Rs, Lew, v_max, turns_free=turns_free, nc_base=nc_base)
         obj = np.stack([cl, mr], 1); path_argmin.append(int(np.argmin(cl)))
         nd = is_non_dominated(torch.tensor(-obj, dtype=torch.double)).numpy()
         for gi in np.where(nd)[0]:
@@ -228,12 +275,16 @@ def main():
             idxs = []
             for Tk, wk in zip(demands, omegas):
                 vpk = voltage_bound(muF[0][pi], muF[1][pi], muF[2][pi], muF[3][pi], dqc, wk, Rs, Lew)
-                pen = (loss_cand + pen_ipk + lam * np.clip(Tk - muT[pi], 0.0, None)
-                       + lam * np.clip(vpk - v_max, 0.0, None))
+                if turns_free:                        # turns absorbs I/V; choose min-loss meeting T
+                    pen = loss_cand + lam * np.clip(Tk - muT[pi], 0.0, None)
+                else:
+                    pen = (loss_cand + pen_ipk + lam * np.clip(Tk - muT[pi], 0.0, None)
+                           + lam * np.clip(vpk - v_max, 0.0, None))
                 idxs.append(int(np.argmin(pen)))
             picks.append([gi, idxs])
 
-    front = confirmed_front(Xg, Xi, T, R, FL, dq_of, demands, omegas, i_max, Rs, Lew, v_max)
+    front = confirmed_front(Xg, Xi, T, R, FL, dq_of, demands, omegas, i_max, Rs, Lew, v_max,
+                            turns_free=turns_free, nc_base=nc_base)
     json.dump(dict(picks=picks, varlog=varlog, front=front), open(outp, "w"))
 
 

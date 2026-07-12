@@ -46,6 +46,10 @@ def main():
     ap.add_argument("--demands", default="4,8,6")
     ap.add_argument("--speeds", default="25,16,63", help="per-demand ELECTRICAL Hz (voltage)")
     ap.add_argument("--v-max", type=float, default=400.0, help="peak phase voltage limit [V]")
+    ap.add_argument("--turns-free", action="store_true",
+                    help="treat winding turns as a free per-design analytic transformer "
+                         "(feasible iff one Nc satisfies all points' I and V limits)")
+    ap.add_argument("--nc-base", type=float, default=113.0, help="turns the FEA/flux is built at")
     ap.add_argument("--fhz", type=float, default=50.0)
     ap.add_argument("--n-seed", type=int, default=64)
     ap.add_argument("--n-rounds", type=int, default=8)
@@ -147,6 +151,7 @@ def main():
                  ipk_cand=ipk_cand, loss_cand=loss_cand, icur_lb=ICUR_LB, icur_ub=ICUR_UB,
                  demands=np.array(demands), omegas=np.array(omegas), theta=theta,
                  i_max=I_MAX, lam=LAM, r_stator=P.R_STATOR, lew=P.LEW_H, v_max=args.v_max,
+                 turns_free=int(args.turns_free), nc_base=args.nc_base,
                  n_paths=n_paths, q=args.q, seed=args.seed)
         env = dict(os.environ, OMP_NUM_THREADS="1", MKL_THREADING_LAYER="SEQUENTIAL",
                    KMP_DUPLICATE_LIB_OK="TRUE")
@@ -173,14 +178,20 @@ def main():
     # ---- final confirmed front (front-only select over ALL data; no Matheron) ----
     sel = run_select([feasible_g()], 0, "final")   # 1 dummy Gcand (unused when n_paths=0)
     front = sorted(sel["front"])
-    json.dump({"demands": demands, "n_fea": len(T),
-               "front_cycle_loss": [f[0] for f in front],
-               "front_max_ptp_nm": [f[1] for f in front],
-               "front_ripple_pct_at_worst": [f[2] for f in front]},
-              open(f"{args.out}/gen3_front.json", "w"), indent=2)
+    out = {"demands": demands, "v_max": args.v_max, "turns_free": bool(args.turns_free),
+           "nc_base": args.nc_base, "n_fea": len(T),
+           "front_cycle_loss": [f[0] for f in front],
+           "front_max_ptp_nm": [f[1] for f in front],
+           "front_ripple_pct_at_worst": [f[2] for f in front]}
+    if args.turns_free:                              # rows carry the required winding window
+        out["front_nc_lo"] = [f[3] for f in front]
+        out["front_nc_hi"] = [f[4] for f in front]
+    json.dump(out, open(f"{args.out}/gen3_front.json", "w"), indent=2)
     print(f"[gen3] DONE {len(T)} FEA points; confirmed front of {len(front)} points", flush=True)
-    print("[gen3] front (cycle_loss, max_ptp_Nm, ripple%): "
-          + "  ".join(f"({a:.2f},{b:.2f},{c:.2f})" for a, b, c in front), flush=True)
+    tag = "cycle_loss, max_ptp_Nm, ripple%" + (", Nc[lo,hi]" if args.turns_free else "")
+    print(f"[gen3] front ({tag}): "
+          + "  ".join((f"({f[0]:.2f},{f[1]:.2f},{f[2]:.1f},[{f[3]:.0f}-{f[4]:.0f}])" if args.turns_free
+                       else f"({f[0]:.2f},{f[1]:.2f},{f[2]:.1f})") for f in front), flush=True)
 
 
 if __name__ == "__main__":

@@ -342,15 +342,35 @@ def main():
         muT = muA[:, 0].reshape(len(picked_gi), NI)
         muF = [muA[:, 2 + j].reshape(len(picked_gi), NI) for j in range(4)]
         for pi, gi in enumerate(picked_gi):
-            idxs = []
-            for Tk, wk in zip(demands, omegas):
-                vpk = voltage_bound(muF[0][pi], muF[1][pi], muF[2][pi], muF[3][pi], dqc, wk, Rs, Lew)
-                if turns_free:                        # turns absorbs I/V; choose min-loss meeting T
-                    pen = loss_cand + lam * np.clip(Tk - muT[pi], 0.0, None)
-                else:
-                    pen = (loss_cand + pen_ipk + lam * np.clip(Tk - muT[pi], 0.0, None)
-                           + lam * np.clip(vpk - v_max, 0.0, None))
-                idxs.append(int(np.argmin(pen)))
+            vbk = [voltage_bound(muF[0][pi], muF[1][pi], muF[2][pi], muF[3][pi], dqc, wk, Rs, Lew)
+                   for wk in omegas]                              # base-turns Vpk over the current pool
+            if turns_free:
+                # Dispatch the FEASIBILITY-WITNESS currents (fixes the old voltage-blind dispatch that
+                # always FEA'd the MTPA current -> ~600-690 V at P3 -> every good geometry recorded
+                # infeasible). Sweep the winding grid; per demand take the min-loss current feasible at
+                # that Nc (Ipk & VOLTAGE aware -> field-weakened at high speed); FEA the set at the best
+                # (min cycle-loss) feasible Nc -- the same operating point the turns-free feasibility
+                # definition uses, so confirmed_front can actually confirm it.
+                best, bestv = None, None
+                for Nc in _NCGRID:
+                    s = nc_base / Nc; jk = []; cl = 0.0; viol = 0.0; ok = True
+                    for k, Tk in enumerate(demands):
+                        pen = (loss_cand + lam * np.clip(Tk - muT[pi], 0.0, None)
+                               + lam * np.clip(ipk_cand * s - i_max, 0.0, None)
+                               + lam * np.clip(vbk[k] / s - v_max, 0.0, None))
+                        j = int(np.argmin(pen)); jk.append(j); cl += loss_cand[j] / len(demands)
+                        viol += (max(0.0, Tk - muT[pi][j]) + max(0.0, ipk_cand[j] * s - i_max)
+                                 + max(0.0, vbk[k][j] / s - v_max))
+                        ok &= (muT[pi][j] >= Tk) and (ipk_cand[j] * s <= i_max) and (vbk[k][j] / s <= v_max)
+                    if ok and (best is None or cl < best[0]):
+                        best = (cl, jk)
+                    if bestv is None or viol < bestv[0]:
+                        bestv = (viol, jk)
+                idxs = best[1] if best is not None else bestv[1]  # feasible-at-Nc set, else least-infeasible
+            else:
+                idxs = [int(np.argmin(loss_cand + pen_ipk + lam * np.clip(Tk - muT[pi], 0.0, None)
+                                      + lam * np.clip(vbk[k] - v_max, 0.0, None)))
+                        for k, Tk in enumerate(demands)]
             picks.append([gi, idxs])
 
     front = confirmed_front(Xg, Xi, T, R, FL, dq_of, demands, omegas, i_max, Rs, Lew, v_max,

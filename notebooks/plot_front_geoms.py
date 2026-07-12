@@ -16,7 +16,7 @@ from matplotlib.patches import Polygon
 import h0h1_par as P
 import h0h1_study as H
 
-POOLS = ["results/gen3_500w_v", "results/gen3_500w_v500"]
+POOLS = ["results/gen3_500w_gardner"]   # 220-geom pool: 208 union + 12 from the corrected constrained-EHVI run
 R0, LEW0, IMAX, NC0 = 19.0, 2.4e-3, 1.3, 113.0
 LB = np.array([0.0, 0.0, -0.39, -0.39]); UB = np.array([1.3, 1.3, 0.39, 0.39])
 DEM = [4.0, 8.0, 2.5]; OMEGA = [2 * math.pi * f for f in (25.0, 16.0, 63.0)]

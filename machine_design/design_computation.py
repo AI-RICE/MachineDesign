@@ -39,21 +39,11 @@ class ComputationBase(ABC):
     @abstractmethod
     def extract_results(self, solutions): ...
 
-    def assign_motion(self, m2d: Maxwell2d, band_name: str = "Band") -> None:
-        m2d.assign_rotate_motion(
-            assignment=band_name,
-            coordinate_system="Global",
-            axis="Z",
-            positive_movement=True,
-            start_position="InitPos",
-            angular_velocity="RotSpeed",
-            has_rotation_limits=False,
-        )
-
-    def create_setup(self, m2d: Maxwell2d) -> None:
+    def push_variables(self, m2d: Maxwell2d) -> None:
         for k, v in self.oper_params.items():
             m2d[k] = v
 
+    def create_setup(self, m2d: Maxwell2d) -> None:
         self.assign_stator_coils(m2d)
         self.inductance_computation(m2d)
 

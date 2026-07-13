@@ -100,8 +100,8 @@ class Design:
     # --- Orchestration ---
 
     def create_stator(self) -> None:
+        self.computation.push_variables(self.m2d)
         self.geometry.build_stator(self.m2d)
-        self.computation.assign_motion(self.m2d, band_name="Band")
         self.computation.create_setup(self.m2d)
 
     def add_rotor(self) -> None:

@@ -199,6 +199,17 @@ class Geometry(GeometryBase):
             name="Shaft",
         )
 
+        # motion setup
+        m2d.assign_rotate_motion(
+            assignment="Band",
+            coordinate_system="Global",
+            axis="Z",
+            positive_movement=True,
+            start_position="InitPos",
+            angular_velocity="RotSpeed",
+            has_rotation_limits=False,
+        )
+
         # Together
         vacuum_obj_id = [
             shaft_id,

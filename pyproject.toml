@@ -43,6 +43,10 @@ packages = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "ansys: requires a running Ansys Electronics Desktop session and a license seat; excluded by default",
+]
+addopts = "-m 'not ansys'"
 
 [tool.ruff]
 line-length = 250

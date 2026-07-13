@@ -53,15 +53,13 @@ class GeometryBase(ABC):
         obj.color = color
         obj.transparency = transparency
 
-    def _set_appearances(self, m2d: Maxwell2d, vacuum_obj_id=None) -> None:
-        if vacuum_obj_id is not None:
-            for item in vacuum_obj_id:
-                self._set_appearance(item, (0, 255, 255), 0.95)
+    def set_appearances(self, m2d: Maxwell2d) -> None:
+        for item in [self.shaft_id, self.region_id, self.band_id]:
+            self._set_appearance(item, (0, 255, 255), 0.95)
         self._set_appearance(self.stator_id, (192, 192, 192), 0.0)
         for name in self.id_coils:
             self._set_appearance(m2d.modeler[name], (255, 128, 0), 0.0)
-        if hasattr(self, "rotor_id"):
-            self._set_appearance(self.rotor_id, (192, 192, 192), 0.0)
+        self._set_appearance(self.rotor_id, (192, 192, 192), 0.0)
 
     def build_rotor(self, m2d: Maxwell2d) -> None:
         modeler = m2d.modeler
@@ -70,7 +68,6 @@ class GeometryBase(ABC):
         rotor_id = modeler.create_polyline(points=self.rot_points, segment_type=["Arc", "Line", "Arc"], cover_surface=True, name="Rotor")
         self.rotor_id = rotor_id
         rotor_id.material_name = self.Fe
-        self._set_appearances(m2d)
 
     def add_rotor_barrier(self, m2d: Maxwell2d, barrier_points, segment_type=None) -> None:
         modeler = m2d.modeler
@@ -281,11 +278,10 @@ class Geometry(GeometryBase):
     def build_stator(self, m2d: Maxwell2d) -> None:
         self._push_stator_variables(m2d)
         shaft_id, region_id, band_id = self._build_vacuum_regions(m2d)
-        vacuum_obj_id = [shaft_id, region_id, band_id]  # put shaft first
         self._assign_rotor_motion(m2d)
         stator_id = self._build_stator_core(m2d)
         id_coils = self._build_stator_coils(m2d)
-        self._split_for_symmetry(m2d, [stator_id] + vacuum_obj_id)
+        self._split_for_symmetry(m2d, [stator_id, shaft_id, region_id, band_id])
         self._assign_boundary_conditions(m2d)
         self._assign_stator_mesh(m2d, stator_id, id_coils)
 
@@ -293,9 +289,10 @@ class Geometry(GeometryBase):
         m2d.set_core_losses("Stator", core_loss_on_field=False)
 
         self.stator_id = stator_id
+        self.shaft_id = shaft_id
+        self.region_id = region_id
         self.band_id = band_id
         self.id_coils = id_coils
-        self._set_appearances(m2d, vacuum_obj_id)
 
     def _assign_rotor_motion(self, m2d: Maxwell2d) -> None:
         m2d.assign_rotate_motion(

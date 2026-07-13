@@ -82,6 +82,115 @@ class GeometryBase(ABC):
         assert isinstance(m2d.modeler, Modeler2D)
         m2d.modeler.delete(self.rotor_id)
 
+    def _push_stator_variables(self, m2d: Maxwell2d) -> None:
+        modeler = m2d.modeler
+        assert isinstance(modeler, Modeler2D)
+
+        modeler.model_units = "mm"
+        for k, v in self.geom_params.items():
+            m2d[k] = v
+        for k, v in self.wind_params.items():
+            m2d[k] = v
+        for k, v in self.slot_params.items():
+            m2d[k] = v
+        for k, v in self.mod_params.items():
+            m2d[k] = v
+
+    def _build_vacuum_regions(self, m2d: Maxwell2d):
+        modeler = m2d.modeler
+        assert isinstance(modeler, Modeler2D)
+
+        # Outer region
+        region_id = modeler.create_circle(
+            origin=[0, 0, 0],
+            radius="DiaStatorYoke/2",
+            # num_sides="SegAngle",
+            is_covered=True,
+            name="Region",
+        )
+        # Band
+        band_id = modeler.create_circle(
+            origin=[0, 0, 0],
+            radius="(DiaStatorGap - (1.0 * Airgap))/2",
+            # num_sides="mapping_angle",
+            is_covered=True,
+            name="Band",
+        )
+        # Shaft
+        shaft_id = modeler.create_circle(
+            origin=[0, 0, 0],
+            radius="DiaShaft/2",
+            is_covered=True,
+            name="Shaft",
+        )
+
+        # Together
+        vacuum_obj_id = [
+            shaft_id,
+            region_id,
+            band_id,
+        ]  # put shaft first
+        for item in vacuum_obj_id:
+            item.color = (0, 255, 255)
+            item.transparency = 0.95
+
+        # Fit all view
+        modeler.fit_all()
+
+        return band_id, vacuum_obj_id
+
+    def _split_for_symmetry(self, m2d: Maxwell2d, object_list) -> None:
+        modeler = m2d.modeler
+        assert isinstance(modeler, Modeler2D)
+
+        modeler.create_coordinate_system(
+            origin=[0, 0, 0],
+            reference_cs="Global",
+            name="Section",
+            mode="axis",
+            x_pointing=["cos(360deg/SymmetryFactor)", "sin(360deg/SymmetryFactor)", 0],
+            y_pointing=["-sin(360deg/SymmetryFactor)", "cos(360deg/SymmetryFactor)", 0],
+        )
+        modeler.set_working_coordinate_system("Section")
+        modeler.split(assignment=object_list, plane="ZX", sides="NegativeOnly")
+        modeler.set_working_coordinate_system("Global")
+        modeler.split(assignment=object_list, plane="ZX", sides="PositiveOnly")
+
+    def _assign_boundary_conditions(self, m2d: Maxwell2d) -> None:
+        modeler = m2d.modeler
+        assert isinstance(modeler, Modeler2D)
+
+        # Symmetrical boundary conditions
+        pos_1 = "DiaStatorGap/4"
+        id_bc_1 = modeler.get_edgeid_from_position(position=[pos_1, 0, 0], assignment="Region")
+        id_bc_2 = modeler.get_edgeid_from_position(
+            position=[
+                pos_1 + "*cos((360deg/SymmetryFactor))",
+                pos_1 + "*sin((360deg/SymmetryFactor))",
+                0,
+            ],
+            assignment="Region",
+        )
+        m2d.assign_master_slave(
+            independent=id_bc_1,
+            dependent=id_bc_2,
+            reverse_master=True,
+            reverse_slave=False,
+            same_as_master=False,
+            boundary="Symmetry",
+        )
+        # Zero vector potential
+        pos_2 = "(DiaStatorYoke/2)"
+        id_bc_az = modeler.get_edgeid_from_position(
+            position=[
+                pos_2 + "*cos((360deg/SymmetryFactor/2))",
+                pos_2 + "*sin((360deg/SymmetryFactor)/2)",
+                0,
+            ],
+            assignment="Region",
+        )
+        m2d.assign_vector_potential(assignment=id_bc_az, vector_value=0, boundary="A0")
+
 
 class Geometry(GeometryBase):
     def set_iron(self):
@@ -183,63 +292,6 @@ class Geometry(GeometryBase):
         self.band_id = band_id
         self.id_coils = id_coils
 
-    def _push_stator_variables(self, m2d: Maxwell2d) -> None:
-        modeler = m2d.modeler
-        assert isinstance(modeler, Modeler2D)
-
-        modeler.model_units = "mm"
-        for k, v in self.geom_params.items():
-            m2d[k] = v
-        for k, v in self.wind_params.items():
-            m2d[k] = v
-        for k, v in self.slot_params.items():
-            m2d[k] = v
-        for k, v in self.mod_params.items():
-            m2d[k] = v
-
-    def _build_vacuum_regions(self, m2d: Maxwell2d):
-        modeler = m2d.modeler
-        assert isinstance(modeler, Modeler2D)
-
-        # Outer region
-        region_id = modeler.create_circle(
-            origin=[0, 0, 0],
-            radius="DiaStatorYoke/2",
-            # num_sides="SegAngle",
-            is_covered=True,
-            name="Region",
-        )
-        # Band
-        band_id = modeler.create_circle(
-            origin=[0, 0, 0],
-            radius="(DiaStatorGap - (1.0 * Airgap))/2",
-            # num_sides="mapping_angle",
-            is_covered=True,
-            name="Band",
-        )
-        # Shaft
-        shaft_id = modeler.create_circle(
-            origin=[0, 0, 0],
-            radius="DiaShaft/2",
-            is_covered=True,
-            name="Shaft",
-        )
-
-        # Together
-        vacuum_obj_id = [
-            shaft_id,
-            region_id,
-            band_id,
-        ]  # put shaft first
-        for item in vacuum_obj_id:
-            item.color = (0, 255, 255)
-            item.transparency = 0.95
-
-        # Fit all view
-        modeler.fit_all()
-
-        return band_id, vacuum_obj_id
-
     def _assign_rotor_motion(self, m2d: Maxwell2d) -> None:
         m2d.assign_rotate_motion(
             assignment="Band",
@@ -285,58 +337,6 @@ class Geometry(GeometryBase):
         id_coils = modeler.get_objects_w_string(string_name="Coil", case_sensitive=True)
 
         return id_coils
-
-    def _split_for_symmetry(self, m2d: Maxwell2d, object_list) -> None:
-        modeler = m2d.modeler
-        assert isinstance(modeler, Modeler2D)
-
-        modeler.create_coordinate_system(
-            origin=[0, 0, 0],
-            reference_cs="Global",
-            name="Section",
-            mode="axis",
-            x_pointing=["cos(360deg/SymmetryFactor)", "sin(360deg/SymmetryFactor)", 0],
-            y_pointing=["-sin(360deg/SymmetryFactor)", "cos(360deg/SymmetryFactor)", 0],
-        )
-        modeler.set_working_coordinate_system("Section")
-        modeler.split(assignment=object_list, plane="ZX", sides="NegativeOnly")
-        modeler.set_working_coordinate_system("Global")
-        modeler.split(assignment=object_list, plane="ZX", sides="PositiveOnly")
-
-    def _assign_boundary_conditions(self, m2d: Maxwell2d) -> None:
-        modeler = m2d.modeler
-        assert isinstance(modeler, Modeler2D)
-
-        # Symmetrical boundary conditions
-        pos_1 = "DiaStatorGap/4"
-        id_bc_1 = modeler.get_edgeid_from_position(position=[pos_1, 0, 0], assignment="Region")
-        id_bc_2 = modeler.get_edgeid_from_position(
-            position=[
-                pos_1 + "*cos((360deg/SymmetryFactor))",
-                pos_1 + "*sin((360deg/SymmetryFactor))",
-                0,
-            ],
-            assignment="Region",
-        )
-        m2d.assign_master_slave(
-            independent=id_bc_1,
-            dependent=id_bc_2,
-            reverse_master=True,
-            reverse_slave=False,
-            same_as_master=False,
-            boundary="Symmetry",
-        )
-        # Zero vector potential
-        pos_2 = "(DiaStatorYoke/2)"
-        id_bc_az = modeler.get_edgeid_from_position(
-            position=[
-                pos_2 + "*cos((360deg/SymmetryFactor/2))",
-                pos_2 + "*sin((360deg/SymmetryFactor)/2)",
-                0,
-            ],
-            assignment="Region",
-        )
-        m2d.assign_vector_potential(assignment=id_bc_az, vector_value=0, boundary="A0")
 
     def _assign_stator_mesh(self, m2d: Maxwell2d, stator_id, id_coils) -> None:
         m2d.mesh.assign_length_mesh(

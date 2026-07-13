@@ -179,57 +179,30 @@ class Computation(ComputationBase):
         I_B = "Im * cos(2*pi*f*time-120deg+epsI)"
         I_C = "Im * cos(2*pi*f*time-240deg+epsI)"
 
-        for i in range(1, 4):            
-            m2d.assign_coil(
-                assignment=[self.geometry.id_coils[i-1]],
-                conductors_number="Nc",
-                polarity="Positive",
-                name=f"CS{i}",
-            )            
-        m2d.assign_winding(
-            assignment=None,
-            winding_type="Current",
-            is_solid=False,
-            current=I_A,
-            parallel_branches="ParallelPaths",
-            name="PhaseA",
-        )
-        m2d.add_winding_coils(assignment="PhaseA", coils=["CS1", "CS2", "CS3"])
-
-        for i in range(7, 10):
-            m2d.assign_coil(
-                assignment=[self.geometry.id_coils[i-1]],
-                conductors_number="Nc",
-                polarity="Positive",
-                name=f"CS{i}",
-            )            
-        m2d.assign_winding(
-            assignment=None,
-            winding_type="Current",
-            is_solid=False,
-            current=I_B,
-            parallel_branches="ParallelPaths",
-            name="PhaseB",
-        )
-        m2d.add_winding_coils(assignment="PhaseB", coils=["CS7", "CS8", "CS9"])
-
-
-        for i in range(4, 7):
-            m2d.assign_coil(
-                assignment=[self.geometry.id_coils[i-1]],
-                conductors_number="Nc",
-                polarity="Negative",
-                name=f"CS{i}",
-            )            
-        m2d.assign_winding(
-            assignment=None,
-            winding_type="Current",
-            is_solid=False,
-            current=I_C,
-            parallel_branches="ParallelPaths",
-            name="PhaseC",
-        )
-        m2d.add_winding_coils(assignment="PhaseC", coils=["CS4", "CS5", "CS6"])
+        phases_polarity = ["Positive", "Negative", "Positive"]
+        phases_name = ["A", "C", "B"]
+        phases_current = [I_A, I_C, I_B]
+        i_coil = 0
+        for phase_polarity, phase_name, phase_current in zip(phases_polarity, phases_name, phases_current):
+            names = []
+            for _ in range(3):
+                m2d.assign_coil(
+                    assignment=[self.geometry.id_coils[i_coil]],
+                    conductors_number="Nc",
+                    polarity=phase_polarity,
+                    name=f"CS{i_coil+1}",
+                )
+                names.append(f"CS{i_coil+1}")
+                i_coil += 1
+            m2d.assign_winding(
+                assignment=None,
+                winding_type="Current",
+                is_solid=False,
+                current=phase_current,
+                parallel_branches="ParallelPaths",
+                name=f"Phase{phase_name}",
+            )
+            m2d.add_winding_coils(assignment=f"Phase{phase_name}", coils=names)
 
     def inductance_computation(self, m2d: Maxwell2d) -> None:
         m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=False)

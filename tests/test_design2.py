@@ -1,7 +1,8 @@
 import pytest
 
 from machine_design.design import Design
-from machine_design.design2 import Design2
+from machine_design.design_computation import Computation2
+from machine_design.design_geometry import Geometry2
 
 
 @pytest.fixture
@@ -11,7 +12,9 @@ def base():
 
 @pytest.fixture
 def design2():
-    return Design2(m2d=None)
+    geometry = Geometry2()
+    computation = Computation2(geometry)
+    return Design(m2d=None, geometry=geometry, computation=computation)
 
 
 def test_geom_params_overrides_slot_number_only(base, design2):
@@ -53,7 +56,7 @@ def test_oper_params_fully_replaced(design2):
 
 
 def test_derived_params_are_not_set(design2):
-    # Design2.set_derived_params() is a no-op, unlike Design's.
+    # Geometry2.set_derived_params() is a no-op, unlike Geometry's.
     assert not hasattr(design2, "rotor_r_min")
     assert not hasattr(design2, "rotor_r_max")
 

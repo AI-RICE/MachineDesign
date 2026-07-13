@@ -316,3 +316,22 @@ class Geometry(GeometryBase):
         rotor_id.material_name = self.Fe
         rotor_id.color = (192, 192, 192)  # rgb
         rotor_id.transparency = 0.0
+
+
+class Geometry2(Geometry):
+    def set_geom_params(self):
+        super().set_geom_params()
+        self.geom_params["SlotNumber"] = "40"
+
+    def set_slot_params(self):
+        super().set_slot_params()
+        self.slot_params["Bs1"] = "3.0mm"
+        self.slot_params["Bs2"] = "4.3mm"
+        self.slot_params["SetAngle"] = "9deg"
+
+    def set_winds_params(self):
+        super().set_winds_params()
+        self.wind_params["Nc"] = "113"
+
+    def set_derived_params(self):
+        pass

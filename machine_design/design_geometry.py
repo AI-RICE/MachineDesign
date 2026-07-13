@@ -49,6 +49,20 @@ class GeometryBase(ABC):
             raise Exception("val must end with mm")
         return float(val[:-2])
 
+    def _set_appearance(self, obj, color, transparency: float) -> None:
+        obj.color = color
+        obj.transparency = transparency
+
+    def _set_appearances(self, m2d: Maxwell2d, vacuum_obj_id=None) -> None:
+        if vacuum_obj_id is not None:
+            for item in vacuum_obj_id:
+                self._set_appearance(item, (0, 255, 255), 0.95)
+        self._set_appearance(self.stator_id, (192, 192, 192), 0.0)
+        for name in self.id_coils:
+            self._set_appearance(m2d.modeler[name], (255, 128, 0), 0.0)
+        if hasattr(self, "rotor_id"):
+            self._set_appearance(self.rotor_id, (192, 192, 192), 0.0)
+
     def build_rotor(self, m2d: Maxwell2d) -> None:
         modeler = m2d.modeler
         assert isinstance(modeler, Modeler2D)
@@ -56,8 +70,7 @@ class GeometryBase(ABC):
         rotor_id = modeler.create_polyline(points=self.rot_points, segment_type=["Arc", "Line", "Arc"], cover_surface=True, name="Rotor")
         self.rotor_id = rotor_id
         rotor_id.material_name = self.Fe
-        rotor_id.color = (192, 192, 192)  # rgb
-        rotor_id.transparency = 0.0
+        self._set_appearances(m2d)
 
     def add_rotor_barrier(self, m2d: Maxwell2d, barrier_points, segment_type=None) -> None:
         modeler = m2d.modeler
@@ -124,20 +137,10 @@ class GeometryBase(ABC):
             name="Shaft",
         )
 
-        # Together
-        vacuum_obj_id = [
-            shaft_id,
-            region_id,
-            band_id,
-        ]  # put shaft first
-        for item in vacuum_obj_id:
-            item.color = (0, 255, 255)
-            item.transparency = 0.95
-
         # Fit all view
         modeler.fit_all()
 
-        return band_id, vacuum_obj_id
+        return shaft_id, region_id, band_id
 
     def _split_for_symmetry(self, m2d: Maxwell2d, object_list) -> None:
         modeler = m2d.modeler
@@ -277,7 +280,8 @@ class Geometry(GeometryBase):
 
     def build_stator(self, m2d: Maxwell2d) -> None:
         self._push_stator_variables(m2d)
-        band_id, vacuum_obj_id = self._build_vacuum_regions(m2d)
+        shaft_id, region_id, band_id = self._build_vacuum_regions(m2d)
+        vacuum_obj_id = [shaft_id, region_id, band_id]  # put shaft first
         self._assign_rotor_motion(m2d)
         stator_id = self._build_stator_core(m2d)
         id_coils = self._build_stator_coils(m2d)
@@ -291,6 +295,7 @@ class Geometry(GeometryBase):
         self.stator_id = stator_id
         self.band_id = band_id
         self.id_coils = id_coils
+        self._set_appearances(m2d, vacuum_obj_id)
 
     def _assign_rotor_motion(self, m2d: Maxwell2d) -> None:
         m2d.assign_rotate_motion(
@@ -315,8 +320,6 @@ class Geometry(GeometryBase):
             # SolveInside="True",
         )
         stator_id.material_name = self.Fe
-        stator_id.color = (192, 192, 192)  # rgb
-        stator_id.transparency = 0.0
 
         return stator_id
 
@@ -330,8 +333,6 @@ class Geometry(GeometryBase):
             name="Coil",
             material="copper",
         )
-        coil_id.color = (255, 128, 0)
-        coil_id.transparency = 0.0
         modeler.rotate(assignment=coil_id, axis="Z", angle="360deg/SlotNumber/2")
         coil_id.duplicate_around_axis(axis="Z", angle="360deg/SlotNumber", clones="SlotNumber/Poles", create_new_objects=True)
         id_coils = modeler.get_objects_w_string(string_name="Coil", case_sensitive=True)

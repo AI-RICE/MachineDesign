@@ -160,10 +160,25 @@ class Geometry(GeometryBase):
         ]
 
     def build_stator(self, m2d: Maxwell2d) -> None:
+        self._push_stator_variables(m2d)
+        band_id, vacuum_obj_id = self._build_vacuum_regions(m2d)
+        stator_id = self._build_stator_core(m2d)
+        id_coils = self._build_stator_coils(m2d)
+        self._split_for_symmetry(m2d, [stator_id] + vacuum_obj_id)
+        self._assign_boundary_conditions(m2d)
+        self._assign_stator_mesh(m2d, stator_id, id_coils)
+
+        # core loss
+        m2d.set_core_losses("Stator", core_loss_on_field=False)
+
+        self.stator_id = stator_id
+        self.band_id = band_id
+        self.id_coils = id_coils
+
+    def _push_stator_variables(self, m2d: Maxwell2d) -> None:
         modeler = m2d.modeler
         assert isinstance(modeler, Modeler2D)
 
-        # Define design variables from the created dictionaries.
         modeler.model_units = "mm"
         for k, v in self.geom_params.items():
             m2d[k] = v
@@ -174,7 +189,10 @@ class Geometry(GeometryBase):
         for k, v in self.mod_params.items():
             m2d[k] = v
 
-        # VACUUM OBJECTS
+    def _build_vacuum_regions(self, m2d: Maxwell2d):
+        modeler = m2d.modeler
+        assert isinstance(modeler, Modeler2D)
+
         # Outer region
         region_id = modeler.create_circle(
             origin=[0, 0, 0],
@@ -223,7 +241,12 @@ class Geometry(GeometryBase):
         # Fit all view
         modeler.fit_all()
 
-        # Stator geometry
+        return band_id, vacuum_obj_id
+
+    def _build_stator_core(self, m2d: Maxwell2d):
+        modeler = m2d.modeler
+        assert isinstance(modeler, Modeler2D)
+
         stator_id = modeler.create_udp(
             dll="RMxprt/SlotCore.dll",
             parameters=self.udp_par_list_stator,
@@ -231,12 +254,16 @@ class Geometry(GeometryBase):
             name="Stator",
             # SolveInside="True",
         )
-        # Stator properties
         stator_id.material_name = self.Fe
         stator_id.color = (192, 192, 192)  # rgb
         stator_id.transparency = 0.0
 
-        # Winding
+        return stator_id
+
+    def _build_stator_coils(self, m2d: Maxwell2d):
+        modeler = m2d.modeler
+        assert isinstance(modeler, Modeler2D)
+
         coil_id = modeler.create_rectangle(
             origin=["DiaStatorGap/2+Hs0+Hs1+SlotLiner", "-(Bs1/2-SlotLiner)", 0],
             sizes=["(Hs2+Rs/2-2*SlotLiner)/Layers-(Layers-1)*SpaceLayers/2", "Bs1-2*SlotLiner", 0],
@@ -249,8 +276,12 @@ class Geometry(GeometryBase):
         coil_id.duplicate_around_axis(axis="Z", angle="360deg/SlotNumber", clones="SlotNumber/Poles", create_new_objects=True)
         id_coils = modeler.get_objects_w_string(string_name="Coil", case_sensitive=True)
 
-        # Create section of machine
-        object_list = [stator_id] + vacuum_obj_id
+        return id_coils
+
+    def _split_for_symmetry(self, m2d: Maxwell2d, object_list) -> None:
+        modeler = m2d.modeler
+        assert isinstance(modeler, Modeler2D)
+
         modeler.create_coordinate_system(
             origin=[0, 0, 0],
             reference_cs="Global",
@@ -263,6 +294,10 @@ class Geometry(GeometryBase):
         modeler.split(assignment=object_list, plane="ZX", sides="NegativeOnly")
         modeler.set_working_coordinate_system("Global")
         modeler.split(assignment=object_list, plane="ZX", sides="PositiveOnly")
+
+    def _assign_boundary_conditions(self, m2d: Maxwell2d) -> None:
+        modeler = m2d.modeler
+        assert isinstance(modeler, Modeler2D)
 
         # Symmetrical boundary conditions
         pos_1 = "DiaStatorGap/4"
@@ -295,7 +330,7 @@ class Geometry(GeometryBase):
         )
         m2d.assign_vector_potential(assignment=id_bc_az, vector_value=0, boundary="A0")
 
-        # Mesh operation
+    def _assign_stator_mesh(self, m2d: Maxwell2d, stator_id, id_coils) -> None:
         m2d.mesh.assign_length_mesh(
             assignment=id_coils,
             inside_selection=True,
@@ -310,13 +345,6 @@ class Geometry(GeometryBase):
             maximum_elements=None,
             name="stator",
         )
-
-        # core loss
-        m2d.set_core_losses("Stator", core_loss_on_field=False)
-
-        self.stator_id = stator_id
-        self.band_id = band_id
-        self.id_coils = id_coils
 
     def build_rotor(self, m2d: Maxwell2d) -> None:
         modeler = m2d.modeler

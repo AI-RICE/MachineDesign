@@ -43,14 +43,21 @@ class GeometryBase(ABC):
     @abstractmethod
     def build_stator(self, m2d: Maxwell2d) -> None: ...
 
-    @abstractmethod
-    def build_rotor(self, m2d: Maxwell2d) -> None: ...
-
     def mm_to_str(self, var, field) -> float:
         val = getattr(self, var)[field]
         if not val.endswith("mm"):
             raise Exception("val must end with mm")
         return float(val[:-2])
+
+    def build_rotor(self, m2d: Maxwell2d) -> None:
+        modeler = m2d.modeler
+        assert isinstance(modeler, Modeler2D)
+
+        rotor_id = modeler.create_polyline(points=self.rot_points, segment_type=["Arc", "Line", "Arc"], cover_surface=True, name="Rotor")
+        self.rotor_id = rotor_id
+        rotor_id.material_name = self.Fe
+        rotor_id.color = (192, 192, 192)  # rgb
+        rotor_id.transparency = 0.0
 
     def add_rotor_barrier(self, m2d: Maxwell2d, barrier_points, segment_type=None) -> None:
         modeler = m2d.modeler
@@ -162,6 +169,7 @@ class Geometry(GeometryBase):
     def build_stator(self, m2d: Maxwell2d) -> None:
         self._push_stator_variables(m2d)
         band_id, vacuum_obj_id = self._build_vacuum_regions(m2d)
+        self._assign_rotor_motion(m2d)
         stator_id = self._build_stator_core(m2d)
         id_coils = self._build_stator_coils(m2d)
         self._split_for_symmetry(m2d, [stator_id] + vacuum_obj_id)
@@ -217,17 +225,6 @@ class Geometry(GeometryBase):
             name="Shaft",
         )
 
-        # motion setup
-        m2d.assign_rotate_motion(
-            assignment="Band",
-            coordinate_system="Global",
-            axis="Z",
-            positive_movement=True,
-            start_position="InitPos",
-            angular_velocity="RotSpeed",
-            has_rotation_limits=False,
-        )
-
         # Together
         vacuum_obj_id = [
             shaft_id,
@@ -242,6 +239,17 @@ class Geometry(GeometryBase):
         modeler.fit_all()
 
         return band_id, vacuum_obj_id
+
+    def _assign_rotor_motion(self, m2d: Maxwell2d) -> None:
+        m2d.assign_rotate_motion(
+            assignment="Band",
+            coordinate_system="Global",
+            axis="Z",
+            positive_movement=True,
+            start_position="InitPos",
+            angular_velocity="RotSpeed",
+            has_rotation_limits=False,
+        )
 
     def _build_stator_core(self, m2d: Maxwell2d):
         modeler = m2d.modeler
@@ -345,16 +353,6 @@ class Geometry(GeometryBase):
             maximum_elements=None,
             name="stator",
         )
-
-    def build_rotor(self, m2d: Maxwell2d) -> None:
-        modeler = m2d.modeler
-        assert isinstance(modeler, Modeler2D)
-
-        rotor_id = modeler.create_polyline(points=self.rot_points, segment_type=["Arc", "Line", "Arc"], cover_surface=True, name="Rotor")
-        self.rotor_id = rotor_id
-        rotor_id.material_name = self.Fe
-        rotor_id.color = (192, 192, 192)  # rgb
-        rotor_id.transparency = 0.0
 
 
 class Geometry2(Geometry):

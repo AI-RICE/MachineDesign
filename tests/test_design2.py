@@ -1,13 +1,15 @@
 import pytest
 
 from machine_design.design import Design
-from machine_design.design_computation import Computation2
-from machine_design.design_geometry import Geometry2
+from machine_design.design_computation import Computation, Computation2
+from machine_design.design_geometry import Geometry, Geometry2
 
 
 @pytest.fixture
 def base():
-    return Design(m2d=None)
+    geometry = Geometry()
+    computation = Computation(geometry)
+    return Design(m2d=None, geometry=geometry, computation=computation)
 
 
 @pytest.fixture

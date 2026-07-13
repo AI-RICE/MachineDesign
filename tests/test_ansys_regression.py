@@ -16,6 +16,8 @@ import numpy as np
 import pytest
 
 from machine_design.design import Design as LiveDesign
+from machine_design.design_computation import Computation
+from machine_design.design_geometry import Geometry
 from machine_design.generators import HacklGenerator_OneLambda
 
 pytestmark = pytest.mark.ansys
@@ -38,7 +40,8 @@ def _load_legacy_design_class():
 def _generate_one_lambda_barriers():
     # rotor_r_min/rotor_r_max are pure-Python derived params, so a throwaway
     # instance (no Ansys) is enough to size the generator.
-    dummy = LiveDesign(m2d=None)
+    geometry = Geometry()
+    dummy = LiveDesign(m2d=None, geometry=geometry, computation=Computation(geometry))
     generator = HacklGenerator_OneLambda(dummy, R_STATOR_END, offset=OFFSET)
 
     np.random.seed(SEED)
@@ -51,11 +54,12 @@ def _generate_one_lambda_barriers():
             return barriers
 
 
-def _build_and_compute(design_cls, project_name, file_name, barriers):
+def _build_and_compute(design_cls, project_name, file_name, barriers, extra_args=()):
     design = design_cls.create(
         project_name,
         "Design01",
         file_name,
+        *extra_args,
         version=AEDT_VERSION,
         non_graphical=True,
         new_desktop=False,
@@ -75,8 +79,19 @@ def test_legacy_and_live_design_produce_same_torque(tmp_path):
 
     legacy_design, live_design = None, None
     try:
-        legacy_design, torque_legacy = _build_and_compute(LegacyDesign, "RegressionTest_legacy", str(tmp_path / "legacy.aedt"), barriers)
-        live_design, torque_live = _build_and_compute(LiveDesign, "RegressionTest_live", str(tmp_path / "live.aedt"), barriers)
+        legacy_design, torque_legacy = _build_and_compute(
+            LegacyDesign, "RegressionTest_legacy", str(tmp_path / "legacy.aedt"), barriers
+        )
+
+        live_geometry = Geometry()
+        live_computation = Computation(live_geometry)
+        live_design, torque_live = _build_and_compute(
+            LiveDesign,
+            "RegressionTest_live",
+            str(tmp_path / "live.aedt"),
+            barriers,
+            extra_args=(live_geometry, live_computation),
+        )
 
         assert torque_legacy is not None
         assert torque_live is not None

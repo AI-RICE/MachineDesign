@@ -1,32 +1,32 @@
 from ansys.aedt.core import Desktop, Maxwell2d
 
-from .design_computation import Computation, ComputationBase
-from .design_geometry import Geometry, GeometryBase
+from .design_computation import ComputationBase
+from .design_geometry import GeometryBase
 
 
 class Design:
-    def __init__(self, m2d: Maxwell2d, geometry: GeometryBase | None = None, computation: ComputationBase | None = None) -> None:
+    def __init__(self, m2d: Maxwell2d, geometry: GeometryBase, computation: ComputationBase) -> None:
         self.m2d = m2d
-        self.geometry = geometry if geometry is not None else Geometry()
-        self.computation = computation if computation is not None else Computation(self.geometry)
+        self.geometry = geometry
+        self.computation = computation
 
     @classmethod
-    def create(cls, project_name: str, design_name: str, file_name: str, **kwargs) -> "Design":
+    def create(cls, project_name: str, design_name: str, file_name: str, geometry: GeometryBase, computation: ComputationBase, **kwargs) -> "Design":
         m2d = Maxwell2d(project=project_name, design=design_name, solution_type="TransientXY", **kwargs)
-        obj = cls(m2d)
+        obj = cls(m2d, geometry, computation)
         obj.create_stator()
         obj.save_project(file_name)
         return obj
 
     @classmethod
-    def load(cls, file_name: str, **kwargs) -> "Design":
+    def load(cls, file_name: str, geometry: GeometryBase, computation: ComputationBase, **kwargs) -> "Design":
         desktop = Desktop(**kwargs)
         desktop.load_project(file_name)
 
         m2d = Maxwell2d()
         m2d.set_active_design("Design01")
 
-        return cls(m2d)
+        return cls(m2d, geometry, computation)
 
     # --- Attributes forwarded to geometry/computation for backward compatibility ---
 

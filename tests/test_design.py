@@ -3,11 +3,15 @@ import re
 import pytest
 
 from machine_design.design import Design
+from machine_design.design_computation import Computation
+from machine_design.design_geometry import Geometry
 
 
 @pytest.fixture
 def design():
-    return Design(m2d=None)
+    geometry = Geometry()
+    computation = Computation(geometry)
+    return Design(m2d=None, geometry=geometry, computation=computation)
 
 
 def test_setup_name(design):

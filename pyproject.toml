@@ -31,10 +31,18 @@ dependencies=[
     'botorch',
 ]
 
+[project.optional-dependencies]
+dev = [
+    'pytest',
+]
+
 [tool.setuptools]
 packages = [
   "machine_design",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 250

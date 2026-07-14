@@ -15,7 +15,7 @@ class Design:
     def create(cls, project_name: str, design_name: str, file_name: str, geometry: GeometryBase, computation: ComputationBase, **kwargs) -> "Design":
         m2d = Maxwell2d(project=project_name, design=design_name, solution_type="TransientXY", **kwargs)
         obj = cls(m2d, geometry, computation)
-        obj.create_stator()
+        obj.add_stator()
         obj.save_project(file_name)
         return obj
 
@@ -100,7 +100,7 @@ class Design:
 
     # --- Orchestration ---
 
-    def create_stator(self) -> None:
+    def add_stator(self) -> None:
         self.computation.push_variables(self.m2d)
         self.geometry.build_stator(self.m2d)
         self.computation.create_setup(self.m2d)

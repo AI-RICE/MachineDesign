@@ -6,6 +6,7 @@ from .design_geometry import GeometryBase
 
 class Design:
     def __init__(self, m2d: Maxwell2d, geometry: GeometryBase, computation: ComputationBase) -> None:
+        assert computation.geometry is geometry
         self.m2d = m2d
         self.geometry = geometry
         self.computation = computation

@@ -343,4 +343,4 @@ class Computation2(ComputationBase):
                 val /= 1e9
 
             out[i] = val
-        return data
+        return out

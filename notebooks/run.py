@@ -14,6 +14,7 @@ from machine_design import (
     plot_barriers,
     save_params,
 )
+from motors.motor1 import Computation, Geometry
 
 aedt_version = "2024.1"
 n_designs = 50
@@ -30,7 +31,9 @@ for path in [path_data, path_results]:
     os.makedirs(path, exist_ok=True)
 file_name_aedt = f"{path_data}/{project_name}.aedt"
 
-design = load_design(file_name_aedt, project_name, design_name, aedt_version)
+geometry = Geometry()
+computation = Computation(geometry)
+design = load_design(file_name_aedt, project_name, design_name, aedt_version, geometry, computation)
 generators = [
     HacklGenerator_OneLambda(design, r_stator_end, offset=offset),
     HacklGenerator_SixLambdas(design, r_stator_end, offset=offset),

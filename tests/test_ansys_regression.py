@@ -78,9 +78,7 @@ def test_legacy_and_live_design_produce_same_torque(tmp_path):
 
     legacy_design, live_design = None, None
     try:
-        legacy_design, torque_legacy = _build_and_compute(
-            LegacyDesign, "RegressionTest_legacy", str(tmp_path / "legacy.aedt"), barriers
-        )
+        legacy_design, torque_legacy = _build_and_compute(LegacyDesign, "RegressionTest_legacy", str(tmp_path / "legacy.aedt"), barriers)
 
         live_geometry = Geometry()
         live_computation = Computation(live_geometry)

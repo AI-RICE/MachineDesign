@@ -5,12 +5,12 @@ import os
 import numpy as np
 import pandas as pd
 
-from machine_design import (
+from machine_design.designs import load_design
+from machine_design.optimization import (
     HacklGenerator_3BrokenLines,
     HacklGenerator_OneLambda,
     HacklGenerator_SixLambdas,
     analyze_results,
-    load_design,
     plot_barriers,
     save_params,
 )

@@ -13,12 +13,12 @@ from botorch.utils.multi_objective.pareto import is_non_dominated
 from botorch.utils.transforms import normalize, unnormalize
 from gpytorch.mlls import ExactMarginalLogLikelihood
 
-from machine_design import (
+from machine_design.designs import load_design
+from machine_design.optimization import (
     HacklGenerator_3BrokenLines,
     HacklGenerator_OneLambda,
     HacklGenerator_SixLambdas,
     init_points,
-    load_design,
     objective,
     objective_transform,
 )

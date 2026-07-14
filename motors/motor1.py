@@ -1,8 +1,8 @@
 from ansys.aedt.core import Maxwell2d
 from ansys.aedt.core.modeler.modeler_2d import Modeler2D
 
-from machine_design.design_computation import ComputationBase
-from machine_design.design_geometry import GeometryBase
+from machine_design.designs.computation import ComputationBase
+from machine_design.designs.geometry import GeometryBase
 
 
 class Geometry(GeometryBase):

@@ -15,8 +15,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from machine_design.design import Design as LiveDesign
-from machine_design.generators import HacklGenerator_OneLambda
+from machine_design.designs.design import Design as LiveDesign
+from machine_design.optimization.generators import HacklGenerator_OneLambda
 from motors.motor1 import Computation, Geometry
 
 pytestmark = pytest.mark.ansys

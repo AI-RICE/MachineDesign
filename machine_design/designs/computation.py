@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 from ansys.aedt.core import Maxwell2d
 
-from .design_geometry import GeometryBase
+from .geometry import GeometryBase
 
 
 class ComputationBase(ABC):

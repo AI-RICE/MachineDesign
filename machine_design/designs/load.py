@@ -1,8 +1,8 @@
 import os
 
+from .computation import ComputationBase
 from .design import Design
-from .design_computation import ComputationBase
-from .design_geometry import GeometryBase
+from .geometry import GeometryBase
 
 
 def load_design(

@@ -1,7 +1,7 @@
 import numpy as np
 from ansys.aedt.core import Maxwell2d
 
-from machine_design.design_computation import ComputationBase
+from machine_design.designs.computation import ComputationBase
 
 from .motor1 import Geometry
 

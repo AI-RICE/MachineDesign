@@ -39,6 +39,8 @@ dev = [
 [tool.setuptools]
 packages = [
   "machine_design",
+  "machine_design.designs",
+  "machine_design.optimization",
   "motors",
 ]
 

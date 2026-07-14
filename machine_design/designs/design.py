@@ -1,7 +1,7 @@
 from ansys.aedt.core import Desktop, Maxwell2d
 
-from .design_computation import ComputationBase
-from .design_geometry import GeometryBase
+from .computation import ComputationBase
+from .geometry import GeometryBase
 
 
 class Design:

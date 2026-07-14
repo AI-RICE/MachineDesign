@@ -6,7 +6,7 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 from shapely.geometry import LineString
 
-from .design import Design
+from ..designs.design import Design
 from .geometry import rotate
 
 

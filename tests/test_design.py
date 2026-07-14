@@ -2,28 +2,30 @@ import re
 
 import pytest
 
-from machine_design.design import Design
 from machine_design.design_computation import Computation
 from machine_design.design_geometry import Geometry
 
 
 @pytest.fixture
-def design():
-    geometry = Geometry()
-    computation = Computation(geometry)
-    return Design(m2d=None, geometry=geometry, computation=computation)
+def geometry():
+    return Geometry()
 
 
-def test_setup_name(design):
-    assert design.setup_name == "Setup1"
+@pytest.fixture
+def computation(geometry):
+    return Computation(geometry)
 
 
-def test_iron(design):
-    assert design.Fe == "Cogent Power - M350-50A, B-H at 50Hz"
+def test_setup_name(computation):
+    assert computation.setup_name == "Setup1"
 
 
-def test_geom_params(design):
-    assert design.geom_params == {
+def test_iron(geometry):
+    assert geometry.Fe == "Cogent Power - M350-50A, B-H at 50Hz"
+
+
+def test_geom_params(geometry):
+    assert geometry.geom_params == {
         "DiaStatorGap": "79mm",
         "DiaStatorYoke": "125mm",
         "Airgap": "0.225mm",
@@ -34,8 +36,8 @@ def test_geom_params(design):
     }
 
 
-def test_slot_params(design):
-    assert design.slot_params == {
+def test_slot_params(geometry):
+    assert geometry.slot_params == {
         "Hs0": "0.95mm",
         "Hs1": "0.31mm",
         "Hs2": "8.24mm",
@@ -47,8 +49,8 @@ def test_slot_params(design):
     }
 
 
-def test_wind_params(design):
-    assert design.wind_params == {
+def test_wind_params(geometry):
+    assert geometry.wind_params == {
         "Layers": "1",
         "ParallelPaths": "1",
         "CoilPitch": "9",
@@ -58,9 +60,9 @@ def test_wind_params(design):
     }
 
 
-def test_mod_params(design):
-    assert design.PolePairs == 2
-    assert design.mod_params == {
+def test_mod_params(geometry):
+    assert geometry.PolePairs == 2
+    assert geometry.mod_params == {
         "Poles": "2*2",
         "ModelLength": "85mm",
         "SymmetryFactor": "Poles",
@@ -68,8 +70,8 @@ def test_mod_params(design):
     }
 
 
-def test_oper_params(design):
-    assert design.oper_params == {
+def test_oper_params(computation):
+    assert computation.oper_params == {
         "Im": "1.5*sqrt(2)A",
         "epsI": "pi/4",
         "InitPos": "-30deg",
@@ -80,22 +82,22 @@ def test_oper_params(design):
     }
 
 
-def test_rot_points(design):
-    assert len(design.rot_points) == 6
-    assert all(len(point) == 3 for point in design.rot_points)
+def test_rot_points(geometry):
+    assert len(geometry.rot_points) == 6
+    assert all(len(point) == 3 for point in geometry.rot_points)
 
 
-def test_derived_params(design):
-    assert design.rotor_r_min == pytest.approx(12.5)
-    assert design.rotor_r_max == pytest.approx(39.5 - 0.225)
+def test_derived_params(geometry):
+    assert geometry.rotor_r_min == pytest.approx(12.5)
+    assert geometry.rotor_r_max == pytest.approx(39.5 - 0.225)
 
 
-def test_solution_expressions(design):
-    assert design.solution_expressions == "Moving1.Torque"
+def test_solution_expressions(computation):
+    assert computation.solution_expressions == "Moving1.Torque"
 
 
-def test_udp_par_list_stator(design):
-    keys = [item[0] for item in design.udp_par_list_stator]
+def test_udp_par_list_stator(geometry):
+    keys = [item[0] for item in geometry.udp_par_list_stator]
     assert keys == [
         "DiaGap",
         "DiaYoke",
@@ -119,31 +121,31 @@ def test_udp_par_list_stator(design):
     ]
 
 
-def test_output_vars_only_reference_earlier_keys(design):
+def test_output_vars_only_reference_earlier_keys(computation):
     # Ansys evaluates output variables in insertion order, so a formula referencing
     # another output variable must not reference one that is defined later.
     defined = set()
-    all_keys = set(design.output_vars.keys())
-    for key, formula in design.output_vars.items():
+    all_keys = set(computation.output_vars.keys())
+    for key, formula in computation.output_vars.items():
         later_keys = all_keys - defined - {key}
         referenced_later = [k for k in later_keys if re.search(rf"\b{re.escape(k)}\b", formula)]
         assert not referenced_later, f"'{key}' formula references not-yet-defined {referenced_later}"
         defined.add(key)
 
 
-def test_output_vars_known_formula(design):
-    assert design.output_vars["Irms"] == "sqrt(I_d^2+I_q^2)/sqrt(2)"
+def test_output_vars_known_formula(computation):
+    assert computation.output_vars["Irms"] == "sqrt(I_d^2+I_q^2)/sqrt(2)"
 
 
-def test_post_params_plot_names_unique(design):
-    plot_names = list(design.post_params.values())
+def test_post_params_plot_names_unique(computation):
+    plot_names = list(computation.post_params.values())
     assert len(plot_names) == len(set(plot_names))
 
 
-def test_mm_to_str(design):
-    assert design.mm_to_str("geom_params", "DiaShaft") == pytest.approx(25.0)
+def test_mm_to_str(geometry):
+    assert geometry.mm_to_str("geom_params", "DiaShaft") == pytest.approx(25.0)
 
 
-def test_mm_to_str_raises_without_mm_suffix(design):
+def test_mm_to_str_raises_without_mm_suffix(geometry):
     with pytest.raises(Exception):
-        design.mm_to_str("geom_params", "SlotNumber")
+        geometry.mm_to_str("geom_params", "SlotNumber")

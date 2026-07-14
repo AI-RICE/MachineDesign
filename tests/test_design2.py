@@ -1,7 +1,7 @@
 import pytest
 
-from machine_design.design_computation import Computation2
-from machine_design.design_geometry import Geometry, Geometry2
+from motors.motor1 import Geometry
+from motors.motor2 import Computation2, Geometry2
 
 
 @pytest.fixture

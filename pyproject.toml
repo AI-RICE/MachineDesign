@@ -39,6 +39,7 @@ dev = [
 [tool.setuptools]
 packages = [
   "machine_design",
+  "motors",
 ]
 
 [tool.pytest.ini_options]

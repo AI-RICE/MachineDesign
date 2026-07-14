@@ -242,9 +242,9 @@ class Computation(ComputationBase):
                     assignment=[self.geometry.id_coils[i_coil]],
                     conductors_number="Nc",
                     polarity=phase_polarity,
-                    name=f"CS{i_coil+1}",
+                    name=f"CS{i_coil + 1}",
                 )
-                names.append(f"CS{i_coil+1}")
+                names.append(f"CS{i_coil + 1}")
                 i_coil += 1
             m2d.assign_winding(
                 assignment=None,

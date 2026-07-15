@@ -29,6 +29,9 @@ dependencies=[
     'trame',
     'matplotlib',
     'botorch',
+    'pandas',
+    'scipy',
+    'shapely',
 ]
 
 [project.optional-dependencies]

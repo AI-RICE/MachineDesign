@@ -333,14 +333,15 @@ class Computation2(ComputationBase):
         m2d.variable_manager["Iq3"] = f"{Iq3}A"
 
     def extract_results(self, solutions):
-        # TODO: this works only because torque is the last one in the array
-        out = np.zeros(len(self.solution_expressions))
-        for i, expr in enumerate(self.solution_expressions):
+        out = {}
+        for expr in self.solution_expressions:
             data = solutions.data_real(expr)
             val = float(np.mean(data[:-1]))
 
-            if expr.startswith("L_"):
+            if expr.startswith("Ld") or expr.startswith("Lq"):
                 val /= 1e9
+            elif expr.startswith("I_"):
+                val /= 1e3
 
-            out[i] = val
+            out[expr] = val
         return out

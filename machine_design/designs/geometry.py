@@ -49,6 +49,23 @@ class GeometryBase(ABC):
             raise Exception("val must end with mm")
         return float(val[:-2])
 
+    def delete_motion_setup(self, m2d: Maxwell2d) -> None:
+        module = m2d.odesign.GetModule("ModelSetup")
+        existing = list(module.GetMotionSetupNames())
+        if existing:
+            module.DeleteMotionSetup(existing)
+
+    def assign_motion_setup(self, m2d: Maxwell2d) -> None:
+        m2d.assign_rotate_motion(
+            assignment="Band",
+            coordinate_system="Global",
+            axis="Z",
+            positive_movement=True,
+            start_position="InitPos",
+            angular_velocity="RotSpeed",
+            has_rotation_limits=False,
+        )
+
     def _set_appearance(self, obj, color, transparency: float) -> None:
         obj.color = color
         obj.transparency = transparency

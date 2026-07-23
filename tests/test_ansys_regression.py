@@ -53,7 +53,17 @@ def _generate_one_lambda_barriers():
             return barriers
 
 
-def _build_and_compute(design_cls, project_name, file_name, barriers, extra_args=()):
+def _add_rotor_legacy(design, barriers):
+    design.add_rotor()
+    for barrier in barriers:
+        design.add_rotor_barrier(barrier)
+
+
+def _add_rotor_live(design, barriers):
+    design.add_rotor(barriers=barriers)
+
+
+def _build_and_compute(design_cls, project_name, file_name, barriers, add_rotor, extra_args=()):
     design = design_cls.create(
         project_name,
         "Design01",
@@ -64,9 +74,7 @@ def _build_and_compute(design_cls, project_name, file_name, barriers, extra_args
         new_desktop=False,
         close_on_exit=False,
     )
-    design.add_rotor()
-    for barrier in barriers:
-        design.add_rotor_barrier(barrier)
+    add_rotor(design, barriers)
     torque = design.compute(NUM_CORES=NUM_CORES)
     design.delete_rotor()
     return design, torque
@@ -78,7 +86,9 @@ def test_legacy_and_live_design_produce_same_torque(tmp_path):
 
     legacy_design, live_design = None, None
     try:
-        legacy_design, torque_legacy = _build_and_compute(LegacyDesign, "RegressionTest_legacy", str(tmp_path / "legacy.aedt"), barriers)
+        legacy_design, torque_legacy = _build_and_compute(
+            LegacyDesign, "RegressionTest_legacy", str(tmp_path / "legacy.aedt"), barriers, _add_rotor_legacy
+        )
 
         live_geometry = Geometry()
         live_computation = Computation(live_geometry)
@@ -87,6 +97,7 @@ def test_legacy_and_live_design_produce_same_torque(tmp_path):
             "RegressionTest_live",
             str(tmp_path / "live.aedt"),
             barriers,
+            _add_rotor_live,
             extra_args=(live_geometry, live_computation),
         )
 

@@ -91,7 +91,6 @@ class Geometry(GeometryBase):
     def build_stator(self, m2d: Maxwell2d) -> None:
         self._push_stator_variables(m2d)
         shaft_id, region_id, band_id = self._build_vacuum_regions(m2d)
-        self._assign_rotor_motion(m2d)
         stator_id = self._build_stator_core(m2d)
         id_coils = self._build_stator_coils(m2d)
         self._split_for_symmetry(m2d, [stator_id, shaft_id, region_id, band_id])
@@ -106,17 +105,6 @@ class Geometry(GeometryBase):
         self.region_id = region_id
         self.band_id = band_id
         self.id_coils = id_coils
-
-    def _assign_rotor_motion(self, m2d: Maxwell2d) -> None:
-        m2d.assign_rotate_motion(
-            assignment="Band",
-            coordinate_system="Global",
-            axis="Z",
-            positive_movement=True,
-            start_position="InitPos",
-            angular_velocity="RotSpeed",
-            has_rotation_limits=False,
-        )
 
     def _build_stator_core(self, m2d: Maxwell2d):
         modeler = m2d.modeler

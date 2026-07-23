@@ -34,11 +34,16 @@ class Design:
         self.geometry.build_stator(self.m2d)
         self.computation.create_setup(self.m2d)
 
-    def add_rotor(self) -> None:
+    def add_rotor(self, barriers=None, magnets=None, segment_type=None) -> None:
         self.geometry.build_rotor(self.m2d)
-
-    def add_rotor_barrier(self, barrier_points, segment_type=None) -> None:
-        self.geometry.add_rotor_barrier(self.m2d, barrier_points, segment_type)
+        if barriers is not None:
+            for barrier in barriers:
+                self.geometry.add_rotor_barrier(self.m2d, barrier, segment_type)
+        if magnets is not None:
+            for magnet in magnets:
+                self.geometry.add_rotor_magnet(self.m2d, magnet)
+        self.geometry.delete_motion_setup(self.m2d)
+        self.geometry.assign_motion_setup(self.m2d)
 
     def delete_rotor(self) -> None:
         self.geometry.delete_rotor(self.m2d)

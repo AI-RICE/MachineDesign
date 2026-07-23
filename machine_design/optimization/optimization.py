@@ -33,10 +33,7 @@ def objective_single(X: Tensor, design, generator, bounds, NUM_CORES, **kwargs) 
     barriers = generator.generate_barriers()
     barriers = generator.split_barriers(barriers)
 
-    design.add_rotor()
-
-    for barrier in barriers:
-        design.add_rotor_barrier(barrier)
+    design.add_rotor(barriers=barriers)
 
     # Compute the torque
     try:

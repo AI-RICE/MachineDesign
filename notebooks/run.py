@@ -54,9 +54,7 @@ for i in range(0, n_designs):
                 break
 
         # Generate the geometry
-        design.add_rotor()
-        for barrier in barriers:
-            design.add_rotor_barrier(barrier)
+        design.add_rotor(barriers=barriers)
 
         # Compute the torque
         Tor = design.compute(NUM_CORES=num_cores)

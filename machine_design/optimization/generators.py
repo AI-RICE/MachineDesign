@@ -244,6 +244,25 @@ class AbstractHacklGenerator(BarrierGenerator):
             barriers.append(barrier)
         return barriers
 
+    def generate_magnets(self, barriers: list[np.ndarray]) -> list[np.ndarray]:
+        magnets = []
+        margin = 0.3
+
+        for barrier in barriers:
+            x, y = barrier[:, 0], barrier[:, 1]
+
+            mag_pts = np.column_stack((x, y))
+
+            angles = np.degrees(np.arctan2(mag_pts[:, 1], mag_pts[:, 0]))
+
+            full_half_span = (angles.max() - angles.min()) / 2
+            center_half_span = full_half_span * (1 - 2 * margin)
+
+            center_mask = np.abs(angles - 45) < center_half_span
+            magnets.append([mag_pts[center_mask]])
+
+        return magnets
+
     def _get_bezier_curve(self, phi_deg, is_inner, i):
         phi_rad = np.radians(phi_deg)
         x_end = self.R * np.cos(phi_rad)

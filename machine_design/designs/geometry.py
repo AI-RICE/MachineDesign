@@ -207,3 +207,93 @@ class GeometryBase(ABC):
             assignment="Region",
         )
         m2d.assign_vector_potential(assignment=id_bc_az, vector_value=0, boundary="A0")
+
+        def add_rotor_magnet(self, mag: np.ndarray, segment_type=None):
+            modeler = m2d.modeler
+            assert isinstance(modeler, Modeler2D)
+
+            if isinstance(mag, (list, tuple)):
+                mag = mag[-1] if len(mag) > 1 else mag[0]
+
+            mag = np.asarray(mag)
+            if mag.ndim != 2 or len(mag) == 0:
+                return
+
+            center = mag.mean(axis=0)
+            pts_centered = mag - center
+
+            r = np.linalg.norm(center)
+            if r < 1e-10:
+                return
+            radial     = center / r
+            long_axis  = np.array([-radial[1], radial[0]])
+            short_axis = radial
+
+            proj_long  = pts_centered @ long_axis
+            proj_short = pts_centered @ short_axis
+            mag_length = proj_long.max()  - proj_long.min()
+            mag_width  = proj_short.max() - proj_short.min()
+
+            length_scale = 0.7
+            width_scale  = 0.35
+
+            if mag_length < 0.1 or mag_width < 0.1:
+                return
+
+            hl = mag_length * length_scale / 2
+            hw = mag_width  * width_scale  / 2
+            angle_deg = np.degrees(np.arctan2(long_axis[1], long_axis[0]))
+
+            mag_id = modeler.create_rectangle(
+                origin=[f"{-hl}mm", f"{-hw}mm", "0mm"],
+                sizes=[f"{2*hl}mm", f"{2*hw}mm", "0mm"],
+                name="Magnet",
+            )
+            mag_id.rotate(axis="Z", angle=angle_deg)
+            mag_id.move([f"{center[0]}mm", f"{center[1]}mm", "0mm"])
+
+            mag_id.material_name = self.PM
+            mag_id.solve_inside = True
+            mag_id.color = (255, 0, 0)
+            mag_id.transparency = 0.0
+
+            cs_angle_deg = np.degrees(np.arctan2(radial[1], radial[0]))
+
+            self._magnet_names.append(mag_id.name)
+            self._magnet_angles.append(cs_angle_deg)
+
+        def _create_pm_material(self) -> None:
+            if self.PM.lower() in self.m2d.materials.material_keys:
+                return
+            
+            mat = self.m2d.materials.add_material(self.PM)
+            mat.permeability = 1.05
+            mat.conductivity = 0
+            mat.mass_density = 7500
+            mat.set_magnetic_coercivity(
+                value=900000,   # A/m
+                x=1, y=0, z=0 
+            )
+
+        def _create_magnet_cs(self, name: str, angle_deg: float) -> None:
+            self.m2d.modeler.create_coordinate_system(
+                origin=[0, 0, 0],
+                name=name,
+                mode="axis",
+                x_pointing=[
+                    float(np.cos(np.radians(angle_deg))),
+                    float(np.sin(np.radians(angle_deg))),
+                    0
+                ],
+                y_pointing=[
+                    float(-np.sin(np.radians(angle_deg))),
+                    float(np.cos(np.radians(angle_deg))),
+                    0
+                ],
+            )
+
+        def assign_magnet_cs(self, magnet_names: str, angle_deg: float) -> None:
+            cs_name = "MagnetCS"
+            self._create_magnet_cs(cs_name, angle_deg)
+            for name in magnet_names:
+                self.m2d.modeler[name].part_coordinate_system = cs_name

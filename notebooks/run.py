@@ -48,13 +48,14 @@ for i in range(0, n_designs):
             params = generator.random_parameters()
             generator.set_parameters(params)
             barriers = generator.generate_barriers()
+            magnets = generator.generate_magnets()
             barriers = generator.split_barriers(barriers)
             feasible = generator.feasible_barriers(barriers)
             if feasible:
                 break
 
         # Generate the geometry
-        design.add_rotor(barriers=barriers)
+        design.add_rotor(barriers=barriers, magnets=magnets)
 
         # Compute the torque
         Tor = design.compute(NUM_CORES=num_cores)

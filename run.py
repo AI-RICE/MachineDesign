@@ -7,9 +7,6 @@ import pandas as pd
 
 from machine_design.designs import load_design
 from machine_design.optimization import (
-    HacklGenerator_3BrokenLines,
-    HacklGenerator_OneLambda,
-    HacklGenerator_SixLambdas,
     FourStupid,
     analyze_results,
     plot_barriers,

@@ -50,11 +50,11 @@ class GeometryBase(ABC):
         return float(val[:-2])
 
     def delete_motion_setup(self, m2d: Maxwell2d) -> None:
-            module = m2d.odesign.GetModule("ModelSetup")
-            existing = list(module.GetMotionSetupNames())
-            if existing:
-                module.DeleteMotionSetup(existing)
-    
+        module = m2d.odesign.GetModule("ModelSetup")
+        existing = list(module.GetMotionSetupNames())
+        if existing:
+            module.DeleteMotionSetup(existing)
+
     def assign_motion_setup(self, m2d: Maxwell2d) -> None:
         m2d.assign_rotate_motion(
             assignment="Band",
@@ -231,28 +231,28 @@ class GeometryBase(ABC):
         r = np.linalg.norm(center)
         if r < 1e-10:
             return
-        radial     = center / r
-        long_axis  = np.array([-radial[1], radial[0]])
+        radial = center / r
+        long_axis = np.array([-radial[1], radial[0]])
         short_axis = radial
 
-        proj_long  = pts_centered @ long_axis
+        proj_long = pts_centered @ long_axis
         proj_short = pts_centered @ short_axis
-        mag_length = proj_long.max()  - proj_long.min()
-        mag_width  = proj_short.max() - proj_short.min()
+        mag_length = proj_long.max() - proj_long.min()
+        mag_width = proj_short.max() - proj_short.min()
 
         length_scale = 0.7
-        width_scale  = 0.35
+        width_scale = 0.35
 
         if mag_length < 0.1 or mag_width < 0.1:
             return
 
         hl = mag_length * length_scale / 2
-        hw = mag_width  * width_scale  / 2
+        hw = mag_width * width_scale / 2
         angle_deg = np.degrees(np.arctan2(long_axis[1], long_axis[0]))
 
         mag_id = modeler.create_rectangle(
             origin=[f"{-hl}mm", f"{-hw}mm", "0mm"],
-            sizes=[f"{2*hl}mm", f"{2*hw}mm", "0mm"],
+            sizes=[f"{2 * hl}mm", f"{2 * hw}mm", "0mm"],
             name="Magnet",
         )
         mag_id.rotate(axis="Z", angle=angle_deg)
@@ -271,14 +271,16 @@ class GeometryBase(ABC):
     def create_pm_material(self, m2d: Maxwell2d, PM: str) -> None:
         if PM in m2d.materials.material_keys:
             return m2d.materials[PM]
-        
+
         mat = m2d.materials.add_material(PM)
         mat.permeability = 1.05
         mat.conductivity = 0
         mat.mass_density = 7500
         mat.set_magnetic_coercivity(
-            value=900000,   # A/m
-            x=1, y=0, z=0 
+            value=900000,  # A/m
+            x=1,
+            y=0,
+            z=0,
         )
 
         return mat
@@ -288,16 +290,8 @@ class GeometryBase(ABC):
             origin=[0, 0, 0],
             name=name,
             mode="axis",
-            x_pointing=[
-                float(np.cos(np.radians(angle_deg))),
-                float(np.sin(np.radians(angle_deg))),
-                0
-            ],
-            y_pointing=[
-                float(-np.sin(np.radians(angle_deg))),
-                float(np.cos(np.radians(angle_deg))),
-                0
-            ],
+            x_pointing=[float(np.cos(np.radians(angle_deg))), float(np.sin(np.radians(angle_deg))), 0],
+            y_pointing=[float(-np.sin(np.radians(angle_deg))), float(np.cos(np.radians(angle_deg))), 0],
         )
 
     def assign_magnet_cs(self, m2d: Maxwell2d, magnet_name: str, angle_deg: float) -> None:

@@ -263,6 +263,11 @@ class GeometryBase(ABC):
         mag_id.color = (255, 0, 0)
         mag_id.transparency = 0.0
 
+        cs_angle_deg = np.degrees(np.arctan2(radial[1], radial[0]))
+        self.assign_magnet_cs(m2d, mag_id, cs_angle_deg)
+
+        m2d.modeler.set_working_coordinate_system("Global")
+
     def create_pm_material(self, m2d: Maxwell2d, PM: str) -> None:
         if PM in m2d.materials.material_keys:
             return m2d.materials[PM]
@@ -295,8 +300,7 @@ class GeometryBase(ABC):
             ],
         )
 
-    def assign_magnet_cs(self, m2d: Maxwell2d, magnet_names: str, angle_deg: float) -> None:
-        cs_name = "MagnetCS"
-        self._create_magnet_cs(cs_name, angle_deg)
-        for name in magnet_names:
-            m2d.modeler[name].part_coordinate_system = cs_name
+    def assign_magnet_cs(self, m2d: Maxwell2d, magnet_name: str, angle_deg: float) -> None:
+        cs_name = f"CS_{magnet_name}"
+        self._create_magnet_cs(m2d, cs_name, angle_deg)
+        m2d.modeler[magnet_name].part_coordinate_system = cs_name

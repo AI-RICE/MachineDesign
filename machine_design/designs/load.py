@@ -13,7 +13,7 @@ def load_design(
     geometry: GeometryBase,
     computation: ComputationBase,
     new_desktop=False,
-    non_graphical=True,
+    non_graphical=False,
     close_on_exit=True,
     **kwargs,
 ):

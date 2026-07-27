@@ -41,7 +41,8 @@ class Design:
                 self.geometry.add_rotor_barrier(self.m2d, barrier, segment_type)
         if magnets is not None:
             for magnet in magnets:
-                self.geometry.add_rotor_magnet(self.m2d, magnet)
+                material = self.geometry.create_pm_material(self.m2d, "Magnet")
+                self.geometry.add_rotor_magnet(self.m2d, magnet, material)
         self.geometry.delete_motion_setup(self.m2d)
         self.geometry.assign_motion_setup(self.m2d)
 

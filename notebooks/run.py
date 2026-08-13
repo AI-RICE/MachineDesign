@@ -7,9 +7,8 @@ import pandas as pd
 
 from machine_design.designs import load_design
 from machine_design.optimization import (
-    HacklGenerator_3BrokenLines,
-    HacklGenerator_OneLambda,
-    HacklGenerator_SixLambdas,
+    FourStupid,
+    MagnetGenerator,
     analyze_results,
     plot_barriers,
     save_params,
@@ -35,9 +34,11 @@ geometry = Geometry()
 computation = Computation(geometry)
 design = load_design(file_name_aedt, project_name, design_name, aedt_version, geometry, computation)
 generators = [
-    HacklGenerator_OneLambda(design, r_stator_end, offset=offset),
-    HacklGenerator_SixLambdas(design, r_stator_end, offset=offset),
-    HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset),
+    # FourStupid(design, r_stator_end, offset=offset),
+    # HacklGenerator_OneLambda(design, r_stator_end, offset=offset),
+    # HacklGenerator_SixLambdas(design, r_stator_end, offset=offset),
+    # HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset),
+    MagnetGenerator(design, r_stator_end, offset=offset),
 ]
 
 metadata = pd.DataFrame()
@@ -48,15 +49,15 @@ for i in range(0, n_designs):
             params = generator.random_parameters()
             generator.set_parameters(params)
             barriers = generator.generate_barriers()
-            magnets = generator.generate_magnets()
             barriers = generator.split_barriers(barriers)
+            if generator.name == "MagnetGenerator":
+                magnets = generator.generate_magnets(barriers)
             feasible = generator.feasible_barriers(barriers)
             if feasible:
                 break
 
         # Generate the geometry
         design.add_rotor(barriers=barriers, magnets=magnets)
-        design.assign_motion_setup()
 
         # Compute the torque
         Tor = design.compute(NUM_CORES=num_cores)
@@ -67,7 +68,6 @@ for i in range(0, n_designs):
             TorAvg, _, TorRippleRms = analyze_results(Tor)
 
         # Delete the rotor
-        design.delete_motion_setup()
         design.delete_rotor()
 
         # Potentially save the design

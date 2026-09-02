@@ -5,7 +5,7 @@ The motivation is to improve the performance of SynRMs without using permanent m
 
 <img src="figures/result.png" width="600">
 
-Run 'run.py' for random design evaluation and 'run_optimization.py' for Bayesian optimization. Ansys Electronics Desktop and PyAEDT are required.
+Run "run.py" for random design evaluation and "run_optimization.py" for Bayesian optimization. Ansys Electronics Desktop and PyAEDT are required.
 
 ## Citation
 

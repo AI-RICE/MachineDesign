@@ -17,7 +17,7 @@ def rotate(x, y, alpha, **kwargs):
 def plot_barriers(barriers, design, title=None, file_name=None):
     plt.figure()
     alphas = np.linspace(0 * np.pi, 2 * np.pi / 4, 100)
-    for r in [design.rotor_r_min, design.rotor_r_max]:
+    for r in [design.geometry.rotor_r_min, design.geometry.rotor_r_max]:
         plt.plot(r * np.cos(alphas), r * np.sin(alphas))
     for barrier in barriers:
         plt.plot(barrier[:, 0], barrier[:, 1])

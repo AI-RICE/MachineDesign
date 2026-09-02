@@ -29,12 +29,30 @@ dependencies=[
     'trame',
     'matplotlib',
     'botorch',
+    'pandas',
+    'scipy',
+    'shapely',
+]
+
+[project.optional-dependencies]
+dev = [
+    'pytest',
 ]
 
 [tool.setuptools]
 packages = [
   "machine_design",
+  "machine_design.designs",
+  "machine_design.optimization",
+  "motors",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "ansys: requires a running Ansys Electronics Desktop session and a license seat; excluded by default",
+]
+addopts = "-m 'not ansys'"
 
 [tool.ruff]
 line-length = 250

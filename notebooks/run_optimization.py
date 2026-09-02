@@ -13,15 +13,16 @@ from botorch.utils.multi_objective.pareto import is_non_dominated
 from botorch.utils.transforms import normalize, unnormalize
 from gpytorch.mlls import ExactMarginalLogLikelihood
 
-from machine_design import (
+from machine_design.designs import load_design
+from machine_design.optimization import (
     HacklGenerator_3BrokenLines,
     HacklGenerator_OneLambda,
     HacklGenerator_SixLambdas,
     init_points,
-    load_design,
     objective,
     objective_transform,
 )
+from motors.motor1 import Computation, Geometry
 
 torch.set_default_dtype(torch.float64)
 
@@ -44,7 +45,9 @@ root_init = "results"
 os.makedirs(path_data, exist_ok=True)
 file_name_aedt = f"{path_data}/{project_name}.aedt"
 
-design = load_design(file_name_aedt, project_name, design_name, aedt_version)
+geometry = Geometry()
+computation = Computation(geometry)
+design = load_design(file_name_aedt, project_name, design_name, aedt_version, geometry, computation)
 generators = [
     HacklGenerator_OneLambda(design, r_stator_end, offset=offset),
     HacklGenerator_SixLambdas(design, r_stator_end, offset=offset),

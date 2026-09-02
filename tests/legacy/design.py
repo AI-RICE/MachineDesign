@@ -1,3 +1,5 @@
+# Frozen snapshot of machine_design/design.py at commit 086817e.
+# Golden reference for tests/test_ansys_regression.py - do not update when design.py changes.
 import numpy as np
 from ansys.aedt.core import Desktop, Maxwell2d
 from ansys.aedt.core.modeler.modeler_2d import Modeler2D

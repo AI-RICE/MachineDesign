@@ -12,6 +12,7 @@
 # order, and (2) the FEA-free analyses reproduce the PUBLISHED gen-3 numbers from
 # those unchanged pools. Reference values (paper/gen3_report.tex, Tables 1-2):
 #   400 V / Nc=113 front : min-loss 0.811 A^2 @ 0.675 Nm ; min-ripple 0.850 @ 0.409 Nm
+#   pool = gen3_500w_v + gen3_500w_v500 + gen3_500w_gardner (220 geoms; NOT _tf)
 #   feasible geometries  : 12 of 220 pooled
 #   regimes              : P2 ipk = 98% Imax (current-bound) ; P3 Vpk = 91% Vmax
 cd ~/Public/MachineDesign-5f || exit 1
@@ -24,8 +25,8 @@ rc=0
 echo "===== (1) import smoke test ====="
 $PY notebooks/smoke_imports.py e32404f; s=$?; echo "-> smoke_imports exit=$s"; [ $s -ne 0 ] && rc=1
 
-echo; echo "===== (2) turns_eval, Nc=113, 400V+500V pools (FEA-free) ====="
-$PY notebooks/turns_eval.py --pools results/gen3_500w_v,results/gen3_500w_v500 --nc 113
+echo; echo "===== (2) turns_eval, Nc=113, published 220-geom pool (FEA-free) ====="
+$PY notebooks/turns_eval.py --pools results/gen3_500w_v,results/gen3_500w_v500,results/gen3_500w_gardner --nc 113
 s=$?; echo "-> turns_eval exit=$s"; [ $s -ne 0 ] && rc=1
 
 echo; echo "===== (3) analyze_front on results/gen3_500w_v (FEA-free) ====="

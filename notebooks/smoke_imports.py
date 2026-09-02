@@ -27,6 +27,14 @@ COMMIT = sys.argv[1] if len(sys.argv) > 1 else "e32404f"
 # Modules that must never be imported here: they need a live AEDT desktop.
 SKIP_MODULES = {"ansys", "ansys.aedt", "ansys.aedt.core", "pyaedt"}
 
+# Orphaned trees that cannot be imported here BY DESIGN, and whose failure is not a
+# regression. machine_design/parallel_calculation/ is the older standalone parallel
+# driver: nothing in the 5f pipeline references it, it needs h5py (absent from
+# venv_5f), and it imports its sibling as a bare top-level module, which resolves
+# only when run from inside its own directory. Verified pre-existing by A/B against
+# e32404f^, where the same import fails at h5py instead.
+SKIP_FILE_PREFIXES = ("machine_design/parallel_calculation/",)
+
 
 def changed_py_files(commit):
     out = subprocess.run(["git", "show", "--name-only", "--format=", commit], cwd=ROOT, capture_output=True, text=True, check=True).stdout
@@ -91,6 +99,9 @@ def main():
 
     print("\n=== (b) importable modules (have a __main__ guard) ===")
     for f in files:
+        if f.startswith(SKIP_FILE_PREFIXES):
+            print(f"  SKIP  {f} (orphan tree, see SKIP_FILE_PREFIXES)")
+            continue
         if not has_main_guard(f):
             continue
         mod = f[:-3].replace("/", ".").removeprefix("notebooks.")
@@ -103,7 +114,7 @@ def main():
 
     print("\n=== (c) script-style files: resolve declared imports only ===")
     for f in files:
-        if has_main_guard(f):
+        if has_main_guard(f) or f.startswith(SKIP_FILE_PREFIXES):
             continue
         unresolved = []
         for name in declared_imports(f):

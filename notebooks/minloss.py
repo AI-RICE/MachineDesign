@@ -14,11 +14,10 @@ import argparse
 import json
 import os
 
-import numpy as np
-import torch
-
 import h0h1_par as P
 import h0h1_study as H
+import numpy as np
+import torch
 from botorch.acquisition.logei import qLogExpectedImprovement
 from botorch.acquisition.objective import GenericMCObjective
 from botorch.fit import fit_gpytorch_mll

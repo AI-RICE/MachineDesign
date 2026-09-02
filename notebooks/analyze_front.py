@@ -1,8 +1,9 @@
 """Per-front-geometry per-demand optimal currents WITH the voltage constraint: shows the
 current-bound (P2, ipk~Imax) vs voltage-bound (P3, V_pk~Vmax, field-weakened) regimes and the
 dq3 content. No FEA. Usage: python analyze_front.py [run_dir]"""
-import sys
 import math
+import sys
+
 import numpy as np
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else "results/gen3_500w_v"

@@ -9,9 +9,8 @@ direction setpoints (c0..c3 +/-) + P0, plus c_joint@G* from the attribution test
 import json
 import os
 
-import numpy as np
-
 import h0h1_par as P
+import numpy as np
 
 g = np.load("results_grid/grid_results.npz", allow_pickle=True)
 labels, G, DQ, T, R, V, I = g["labels"], g["G"], g["DQ"], g["T"], g["R"], g["V"], g["I"]

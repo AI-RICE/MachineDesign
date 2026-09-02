@@ -6,10 +6,9 @@ geom_shapes6.json for plot_geom.py.
 """
 import json
 
-import numpy as np
-
 import h0h1_par as P
 import h0h1_study as H
+import numpy as np
 
 
 class _D:

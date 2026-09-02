@@ -12,9 +12,9 @@ import argparse
 import json
 import os
 
+import h0h1_par as P
 import numpy as np
 
-import h0h1_par as P
 from machine_design import analyze_results
 from machine_design.design2 import Design2
 

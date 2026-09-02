@@ -1,13 +1,12 @@
 import os
 import shutil
-import numpy as np
-import h5py
 import time
 from multiprocessing import Pool
 
-from ansys.aedt.core import Desktop, Maxwell2d
-
 import calculate_combination
+import h5py
+import numpy as np
+from ansys.aedt.core import Desktop, Maxwell2d
 
 # =========================================================
 # CONFIGURATION

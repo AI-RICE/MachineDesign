@@ -12,13 +12,13 @@ two things, bootstrapped:
 Usage:  python notebooks/diag_gen3.py [run_dir]
 """
 import sys
-import numpy as np
-import torch
 
 import gen2
 import gen3
 import h0h1_par as P
 import h0h1_study as H
+import numpy as np
+import torch
 from botorch.sampling.pathwise import draw_matheron_paths
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else "results/gen3"

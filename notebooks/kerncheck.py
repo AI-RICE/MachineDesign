@@ -6,10 +6,9 @@ the lengthscale/kernel is the lever, if it stays ~1 it's data-starvation.
 import math
 import sys
 
+import gen2
 import numpy as np
 import torch
-
-import gen2
 from botorch.fit import fit_gpytorch_mll
 from botorch.models import SingleTaskGP
 from botorch.models.transforms import Standardize

@@ -24,11 +24,10 @@ import os
 import subprocess
 import sys
 
-import numpy as np
-import torch
-
 import h0h1_par as P
 import h0h1_study as H
+import numpy as np
+import torch
 from botorch.fit import fit_gpytorch_mll
 from botorch.models import ModelListGP, SingleTaskGP
 from botorch.models.transforms import Standardize

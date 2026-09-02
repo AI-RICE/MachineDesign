@@ -11,10 +11,9 @@ import os
 import subprocess
 import sys
 
-import numpy as np
-
 import h0h1_par as P
 import h0h1_study as H
+import numpy as np
 
 ICUR_LB = np.array([0.0, 0.0, -3.0, -3.0])
 ICUR_UB = np.array([10.0, 10.0, 3.0, 3.0])

@@ -7,9 +7,8 @@ init and runs the constrained-EI search. Writes results_volt71_g2/.
 import json
 import os
 
-import numpy as np
-
 import h0h1_par as P
+import numpy as np
 
 s1 = json.load(open("results_volt71/stage1_best.json"))
 at = json.load(open("attrib71.json"))

@@ -12,13 +12,13 @@ import json
 import os
 
 import matplotlib
+
 matplotlib.use("Agg")
+import h0h1_par as P
+import h0h1_study as H
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Polygon
-
-import h0h1_par as P
-import h0h1_study as H
 
 xc = json.load(open("xcheck.json"))
 rmin, rmax = xc["rotor_r_min"], xc["rotor_r_max"]

@@ -11,10 +11,9 @@ import json
 import math
 import os
 
-import numpy as np
-
 import gen2
 import h0h1_par as P  # noqa: F401  (imported for parity/side-effect symmetry with gen2 worker)
+import numpy as np
 
 I_PEAK = 1.3
 ANGLES_DEG = [35.0, 40.0, 45.0, 50.0, 55.0]  # current angle from d-axis; brackets MTPA
@@ -35,7 +34,7 @@ def main():
     os.makedirs(args.out, exist_ok=True)
 
     z = np.load(f"{args.src}/gen2.npz", allow_pickle=True)
-    Xg, Xi, T = np.array(z["Xg"]), np.array(z["Xi"]), np.array(z["T"])
+    Xg, _Xi, T = np.array(z["Xg"]), np.array(z["Xi"]), np.array(z["T"])
     # unique geometries with their best recorded (10 A) torque; pick a diverse few
     key = {}
     for i in range(len(T)):

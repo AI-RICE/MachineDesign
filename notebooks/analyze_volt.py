@@ -1,8 +1,9 @@
 """Post-run voltage diagnostic on the gen3_500w_v pool (which has flux). For each demand's
 electrical speed, find the MAX torque achievable under V_pk<=V_MAX across the FEA'd currents
 per geometry -> shows whether each demand is voltage-feasible and at what torque. No FEA."""
-import sys
 import math
+import sys
+
 import numpy as np
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else "results/gen3_500w_v"
@@ -40,5 +41,5 @@ for Tk, f, w in zip(DEM, SPD, OMEGA):
     med = np.median(best_T_anygeom) if best_T_anygeom else 0.0
     print(f"  P@{Tk:.1f}Nm @ {f:.0f}Hz: {feas_geoms}/{len(key)} geoms feasible | "
           f"max T under V across all = {best_T_underV:.2f} Nm | median per-geom max-T-under-V = {med:.2f}")
-print(f"\nconstant-power check (500 W): T=P/w -> "
+print("\nconstant-power check (500 W): T=P/w -> "
       + ", ".join(f"{f:.0f}Hz:{500.0/(2*math.pi*f/2):.2f}Nm" for f in SPD) + "  (mech, p=2)")

@@ -10,9 +10,8 @@ constraint GPs train on real measurements.
 import json
 import os
 
-import numpy as np
-
 import h0h1_par as P
+import numpy as np
 
 TR = 0.15
 

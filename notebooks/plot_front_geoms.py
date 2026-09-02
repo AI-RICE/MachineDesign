@@ -8,13 +8,13 @@ Writes results/gen3_front_geoms.pdf. Run on bayes.
 import math
 
 import matplotlib
+
 matplotlib.use("Agg")
+import h0h1_par as P
+import h0h1_study as H
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Polygon
-
-import h0h1_par as P
-import h0h1_study as H
 
 POOLS = ["results/gen3_500w_gardner"]   # 220-geom pool: 208 union + 12 from the corrected constrained-EHVI run
 R0, LEW0, IMAX, NC0 = 19.0, 2.4e-3, 1.3, 113.0

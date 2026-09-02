@@ -29,7 +29,6 @@ import torch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import h0h1_study as H  # noqa: E402  (geometry helpers, Design2, analyze_results, _THETA)
-
 from botorch.acquisition.logei import qLogExpectedImprovement  # noqa: E402
 from botorch.acquisition.objective import GenericMCObjective  # noqa: E402
 from botorch.fit import fit_gpytorch_mll  # noqa: E402

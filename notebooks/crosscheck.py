@@ -14,10 +14,9 @@ it ALSO dumps the correctly-decoded barriers -> xcheck.json for re-plotting geom
 import json
 import os
 
-import numpy as np
-
 import h0h1_par as P
 import h0h1_study as H
+import numpy as np
 
 DQ1 = json.load(open("results/minloss60_5f_dq1/dq1_best.json"))
 JNT = json.load(open("results/minloss60_5f_joint/joint_best.json"))

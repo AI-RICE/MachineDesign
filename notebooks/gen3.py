@@ -23,12 +23,11 @@ import os
 import subprocess
 import sys
 
-import numpy as np
-import torch
-
 import gen2  # FEA side only: eval_batch/worker dispatch, ipk_of; imports torch (import-safe w/ AEDT)
 import h0h1_par as P
 import h0h1_study as H
+import numpy as np
+import torch
 
 # --- machine electrical spec (gen-3 owns this; gen2's frozen constants left untouched) ---
 # 500 W machine: peak phase current 1.3 A, end-winding leakage Lew = 2.4 mH.

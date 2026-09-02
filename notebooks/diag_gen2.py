@@ -5,10 +5,10 @@ old-ripple%-vs-new-ptp contrast; (2) inner current-grid convergence across sizes
 (3) predicted-vs-realized F. Usage: python notebooks/diag_gen2.py [run_dir]
 """
 import sys
-import numpy as np
-import torch
 
 import gen2
+import numpy as np
+import torch
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else "results/gen2_v2"
 z = np.load(f"{OUT}/gen2.npz", allow_pickle=True)

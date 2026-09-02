@@ -3,10 +3,9 @@ turns-free test job to sanity-check gen3_select before spending FEA. Run on baye
 import math
 import os
 
-import numpy as np
-
 import gen2  # ipk_of
 import h0h1_study as H  # _THETA
+import numpy as np
 
 POOLS = ["results/gen3_500w_v", "results/gen3_500w_v500"]
 OUT = "results/gen3_500w_tf"

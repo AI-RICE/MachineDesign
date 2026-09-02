@@ -1,6 +1,8 @@
 import os
 
+from .computation import ComputationBase
 from .design import Design
+from .geometry import GeometryBase
 
 
 def load_design(
@@ -8,6 +10,8 @@ def load_design(
     project_name,
     design_name,
     aedt_version,
+    geometry: GeometryBase,
+    computation: ComputationBase,
     new_desktop=False,
     non_graphical=True,
     close_on_exit=True,
@@ -19,6 +23,8 @@ def load_design(
             project_name,
             design_name,
             file_name_aedt,
+            geometry,
+            computation,
             version=aedt_version,
             non_graphical=non_graphical,
             new_desktop=new_desktop,
@@ -28,6 +34,8 @@ def load_design(
     else:
         return Design.load(
             file_name_aedt,
+            geometry,
+            computation,
             version=aedt_version,
             non_graphical=non_graphical,
             new_desktop=new_desktop,

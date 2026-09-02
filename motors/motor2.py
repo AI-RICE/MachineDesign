@@ -1,9 +1,11 @@
-import numpy as np
+from ansys.aedt.core import Maxwell2d
 
-from .design import Design
+from machine_design.designs.computation import ComputationBase
+
+from .motor1 import Geometry
 
 
-class Design2(Design):
+class Geometry2(Geometry):
     def set_geom_params(self):
         super().set_geom_params()
         self.geom_params["SlotNumber"] = "40"
@@ -18,9 +20,14 @@ class Design2(Design):
         super().set_winds_params()
         self.wind_params["Nc"] = "113"
 
+    def set_derived_params(self):
+        pass
+
+
+class Computation2(ComputationBase):
     def set_oper_params(self):
         f = 50  # [Hz]
-        RotSpeed = 60 * f / self.PolePairs  # [rpm]
+        RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         self.oper_params = {
             "Id1": "0.0A",
             "Iq1": "0.0A",
@@ -36,9 +43,6 @@ class Design2(Design):
             "Nper": "1/10",  # number of included periods
             "PointPer": "101",  # number of time points per period
         }
-
-    def set_derived_params(self):
-        pass
 
     def set_solution_expressions(self):
         self.solution_expressions = [
@@ -170,10 +174,28 @@ class Design2(Design):
 
     def set_post_params(self):
         self.post_params = {  # reports
-            ("InducedVoltage(PhaseA)", "InducedVoltage(PhaseB)", "InducedVoltage(PhaseC)", "InducedVoltage(PhaseD)", "InducedVoltage(PhaseE)"): "InducedVoltage",
+            (
+                "InducedVoltage(PhaseA)",
+                "InducedVoltage(PhaseB)",
+                "InducedVoltage(PhaseC)",
+                "InducedVoltage(PhaseD)",
+                "InducedVoltage(PhaseE)",
+            ): "InducedVoltage",
             ("Moving1.Torque"): "Torque",
-            ("InputCurrent(PhaseA)", "InputCurrent(PhaseB)", "InputCurrent(PhaseC)", "InputCurrent(PhaseD)", "InputCurrent(PhaseE)"): "Current",
-            ("FluxLinkage(PhaseA)", "FluxLinkage(PhaseB)", "FluxLinkage(PhaseC)", "FluxLinkage(PhaseD)", "FluxLinkage(PhaseE)"): "FluxLinkage",
+            (
+                "InputCurrent(PhaseA)",
+                "InputCurrent(PhaseB)",
+                "InputCurrent(PhaseC)",
+                "InputCurrent(PhaseD)",
+                "InputCurrent(PhaseE)",
+            ): "Current",
+            (
+                "FluxLinkage(PhaseA)",
+                "FluxLinkage(PhaseB)",
+                "FluxLinkage(PhaseC)",
+                "FluxLinkage(PhaseD)",
+                "FluxLinkage(PhaseE)",
+            ): "FluxLinkage",
             ("I_d1", "I_q1", "I_d3", "I_q3"): "Current_dq",
             ("Flux_d1", "Flux_q1", "Flux_d3", "Flux_q3"): "FluxLinkage_dq",
             ("Flux_e_d1", "Flux_e_q1", "Flux_e_d3", "Flux_e_q3"): "FluxLinkage excitation_dq",
@@ -183,9 +205,7 @@ class Design2(Design):
             ("Ld1q1", "Ld1d3", "Ld1q3", "Lq1d3", "Lq1q3", "Ld3q3"): "Inductance_dq cross-coupling",
         }
 
-    def assign_stator_coils(self):
-        m2d = self.m2d
-
+    def assign_stator_coils(self, m2d: Maxwell2d) -> None:
         # Excitations
         I_A = "Im1*cos(2*pi*f*time+epsI1-pi) + Im3*cos(3*(2*pi*f*time)+epsI3-pi)"
         I_B = "Im1*cos(2*pi*f*time-72deg+epsI1-pi) + Im3*cos(3*(2*pi*f*time-72deg)+epsI3-pi)"
@@ -302,24 +322,25 @@ class Design2(Design):
         m2d.add_winding_coils(assignment="PhaseD", coils=["CS2", "CS3"])
         m2d.add_winding_coils(assignment="PhaseE", coils=["CS6", "CS7"])
 
-    def inductance_computation(self):
-        self.m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=True)
+    def inductance_computation(self, m2d: Maxwell2d) -> None:
+        m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=True)
 
-    def set_variables(self, Id1, Iq1, Id3, Iq3):
-        self.m2d.variable_manager["Id1"] = f"{Id1}A"
-        self.m2d.variable_manager["Iq1"] = f"{Iq1}A"
-        self.m2d.variable_manager["Id3"] = f"{Id3}A"
-        self.m2d.variable_manager["Iq3"] = f"{Iq3}A"
+    def set_variables(self, m2d: Maxwell2d, Id1, Iq1, Id3, Iq3):
+        m2d.variable_manager["Id1"] = f"{Id1}A"
+        m2d.variable_manager["Iq1"] = f"{Iq1}A"
+        m2d.variable_manager["Id3"] = f"{Id3}A"
+        m2d.variable_manager["Iq3"] = f"{Iq3}A"
 
     def extract_results(self, solutions):
-        # TODO: this works only because torque is the last one in the array
-        out = np.zeros(len(self.solution_expressions))
-        for i, expr in enumerate(self.solution_expressions):
-            data = solutions.data_real(expr)
-            val = float(np.mean(data[:-1]))
+        out = {}
+        for expr in self.solution_expressions:
+            val = solutions.data_real(expr)
 
-            if expr.startswith("L_"):
+            if expr.startswith("Ld") or expr.startswith("Lq"):
                 val /= 1e9
+            elif expr.startswith("I_"):
+                val /= 1e3
 
-            out[i] = val
-        return data
+            # TODO: possibly assign val[:-1]. check whether values are identical
+            out[expr] = val
+        return out

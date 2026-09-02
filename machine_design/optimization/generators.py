@@ -6,7 +6,7 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 from shapely.geometry import LineString
 
-from .design import Design
+from ..designs.design import Design
 from .geometry import rotate
 
 
@@ -36,8 +36,8 @@ def save_params(params, file_name: str) -> None:
 class BarrierGenerator(ABC):
     # TODO: rename offset
     def __init__(self, design: Design, r_stator_end: float, offset: None | float = None, n_curve: int = 500, n_flat: int = 20) -> None:
-        self.r_max = design.rotor_r_max
-        self.r_min = design.rotor_r_min
+        self.r_max = design.geometry.rotor_r_max
+        self.r_min = design.geometry.rotor_r_min
         self.R = self.r_max - r_stator_end
         self.offset = offset
         self.n_curve = n_curve

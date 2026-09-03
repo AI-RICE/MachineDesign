@@ -205,11 +205,12 @@ class FourStupid(BarrierGenerator):
         return barriers
 
 class MagnetGenerator(BarrierGenerator):
-    def __init__(self, design, r_stator_end, der1=1.0, der2=1.0, symmetric=True, **kwargs) -> None:
+    def __init__(self, design, r_stator_end, der1=1.0, der2=1.0, symmetric=True, **kwargs):
+            self.n_designs = kwargs.get("n_designs", 1)
             self.der1 = der1
             self.der2 = der2
-            self.w_mins_base = np.array([3, 2.5, 2.5, 2]) - 1.0
             self.symmetric = symmetric
+            self.n_barriers = kwargs.get("n_barriers", 1)
             super().__init__(design, r_stator_end, **kwargs)
     
     def _create_barrier(
@@ -249,37 +250,110 @@ class MagnetGenerator(BarrierGenerator):
             y_all = np.concatenate((y_all, y_all[::-1][1:]))
         x_all, y_all = rotate(x_all, y_all, -45)
         return x_all, y_all
-
+    
     @property
     def bounds(self) -> tuple[np.ndarray, np.ndarray]:
-        lb = np.array([0, 0, 0, 0, 13, 2, 2, 2])
-        ub = np.array([0.5, 0.5, 0.5, 0.5, 17, 5, 5, 4])
+        n = self.n_barriers
+
+        lb = np.concatenate([
+        np.full(n, 0.7), # rand1
+        np.array([12]), # rand2
+        np.full(n-1, 1) #spacings
+        ])
+
+        ub = np.concatenate([
+            np.full(n, 1.0),
+            np.array([20]),
+            np.full(n-1, 5)
+        ])
+
         return lb, ub
+    
+    def generate_w_mins_base(self, rotor_r_min, rotor_r_max):
+        n_barriers = self.n_barriers
+        available_height = rotor_r_max - rotor_r_min
+        gap_ratio = 0.5
+        total_dap = available_height*gap_ratio
+        
+        total_height_barrier = available_height - total_dap
 
+        if n_barriers == 1:
+            weights = np.array([1.0])
+        else:
+            weights = np.array([0.99**i for i in range(n_barriers)])
+        
+        weights = weights / np.sum(weights)
+
+        return total_height_barrier * weights
+    
     def random_parameters(self):
-        rand1 = 0.5 * np.random.random(4)
-        rand2 = 13 + 4 * np.random.random()
-        rand3 = 2 + 3 * np.random.random()
-        rand4 = 2 + 3 * np.random.random()
-        rand5 = 2 + 2 * np.random.random()
-        return rand1, rand2, rand3, rand4, rand5
 
+        rand1 = np.random.uniform(0.7, 1.0, self.n_barriers)
+        rand2 = np.random.uniform(12,20)
+        spacings = np.random.dirichlet(np.ones(self.n_barriers - 1))
+
+        return rand1, rand2, spacings
+    
     def set_parameters(self, params) -> None:
-        rand1, rand2, rand3, rand4, rand5 = params
-        self.w_mins = self.w_mins_base + rand1
-        y_min0 = rand2
-        y_min1 = y_min0 + self.w_mins[0] + rand3
-        y_min2 = y_min1 + self.w_mins[1] + rand4
-        y_min3 = y_min2 + self.w_mins[2] + rand5
-        self.w_mids = self.w_mins
-        self.y_mins = np.array([y_min0, y_min1, y_min2, y_min3])
-        self.y_mids = self.y_mins + np.array([2, 1.5, 1, 0.5])
-        self.thetas = [1, 8, 15, 21]
-        self.w_maxs = self.w_mins - np.array([0.5, 0.5, 0.5, 0])
+        rand1, rand2, spacings = params
+    
+        w_mins_base = self.generate_w_mins_base(self.r_min, self.r_max)
 
-    def X_to_params(self, X: np.ndarray):
-        return X[:4], X[4], X[5], X[6], X[7]
+        w_mins = w_mins_base * rand1
+        w_mids = w_mins.copy()
 
+        total_height = np.sum(w_mins)
+        total_spacing = np.sum(spacings)
+
+        available_height = self.r_max - rand2
+
+        eps = 1e-8
+        denom = total_height + total_spacing
+        scale = (available_height)/max(denom, eps)
+
+        if scale < 1.0:
+            w_mins *= scale
+            spacings *= scale
+
+        y_mins = np.zeros(self.n_barriers)
+        y_mins[0] = rand2
+        current_pos = y_mins[0]
+
+        for i in range(1, self.n_barriers):
+            current_pos += w_mins[i-1] + spacings[i-1]
+            y_mins[i] = current_pos
+        
+        offsets = w_mins * 0.1
+        y_mids = y_mins + offsets
+        
+        w_maxs = np.clip(w_mins * 0.7, 0.01, None)
+
+        w_maxs = np.clip(w_mins * 0.7, 0.01, None)
+        thetas = np.linspace(1, 20, self.n_barriers)
+        thetas[0] = 1
+
+        self.y_mins = y_mins
+        self.w_mins = w_mins
+        self.y_mids = y_mids
+        self.w_mids = w_mids
+        self.thetas = thetas
+        self.w_maxs = w_maxs
+
+        return y_mins, w_mins, y_mids, w_mids, thetas, w_maxs
+
+    def X_to_params(self, X: np.ndarray, barrier=None):
+        # n = int(self.n_barriers if barrier is None else barrier)
+        n = self.n_barriers if barrier is None else barrier
+
+        if len(X) != 2*n:
+            raise ValueError(f"X length {len(X)} does not match expected 2*n={2*n}")
+
+        rand1 = X[:n]
+        rand2 = X[n]
+        spacings = X[n+1:n+1+(n-1)]
+        
+        return rand1, rand2, spacings
+    
     def generate_barriers(self) -> list[np.ndarray]:
         barriers = []
         for args in zip(self.y_mins, self.w_mins, self.y_mids, self.w_mids, self.thetas, self.w_maxs):

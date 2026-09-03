@@ -19,7 +19,7 @@ Add a new machine by subclassing an existing `motors/motor*.py` file instead of 
 
 - Shared code changes go through a branch and a PR, not a direct push to `main`.
 - Create the branch from the GitHub issue it belongs to ("Create a branch" in the issue's Development panel), so it is linked automatically.
-- Commit, push, and open the PR with `Closes #<issue>` in the description.
+- Commit, push, and open the PR. Add a short description of what changed and why, and include `Closes #<issue>`.
 - Make sure CI (Ruff and pytest) is green.
 - Do not merge your own PR. Wait for review.
 

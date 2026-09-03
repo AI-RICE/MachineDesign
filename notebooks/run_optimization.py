@@ -23,7 +23,7 @@ from machine_design.optimization import (
     objective,
     objective_transform,
 )
-from motors.motor1 import Computation, Geometry
+from motors.synrm_3f_36s import Computation, Geometry
 
 torch.set_default_dtype(torch.float64)
 

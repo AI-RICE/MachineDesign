@@ -17,10 +17,26 @@ If you find yourself editing `machine_design/`on your own branch, stop — that'
 | `machine_design/optimization/` | design agnostic optimizers and geometry generators |
 | `machine_design/parallel_calculation/` | parallel runners for sweeping many solves at once |
 | `experiments/<name>/` | your run configs, the profile/objective you're studying, analysis notebooks, result artifacts, write-ups |
-| `motors/` | concrete machine definitions (`motor1.py`, `motor2.py`), each subclassing the base `Geometry`/`Computation` classes |
+| `motors/` | one module per **anchor** (a named machine), each subclassing the base `Geometry`/`Computation` classes |
 | `tests/` | the test suite |
 
-Add a new machine by subclassing an existing `motors/motor*.py` file instead of editing an existing class in place, so old results stay reproducible.
+### Anchors — machines are named, not numbered
+
+An **anchor** is a named machine definition: everything needed to instantiate and solve one physical machine — class, slots, phases, winding (turns, `Rs`), end-winding `Lew`, **rotor radii**, geometry generator + parameter bounds, FEA template.
+
+The name carries only what the anchor fixes for good — machine class, phases, slot count. Values that are routinely swept (turns, currents, bus voltage) stay out of it, so a name never goes stale.
+
+One anchor per module in `motors/`, named `<class>_<phases>f_<slots>s`:
+
+| module | machine |
+|---|---|
+| `motors/synrm_3f_36s.py` | 3-phase SynRM, 36 stator slots |
+| `motors/synrm_5f_40s.py` | 5-phase SynRM, 40 stator slots, dq1+dq3 excitation |
+
+Each exports `Geometry` and `Computation`, so the module name carries the identity and the class names stay uniform — `from motors.synrm_5f_40s import Geometry, Computation` says which machine you are solving, where `Geometry2` did not.
+
+- **Derive, don't fork.** To study a variant (add magnets, change turns), subclass an existing anchor and override only what differs — do **not** edit an anchor's class in place, so old results stay reproducible. A genuinely new machine is a new anchor module.
+- **An anchor must declare all of the above**, rotor radii included. They are the radial window the barrier generators draw into; an anchor that does not set them cannot have a rotor built for it.
 
 ## Pull requests
 
@@ -60,7 +76,7 @@ All compute goes through the SLURM queue on `bayes` — see [`bayes-queue/README
 
 **I want to optimize an existing machine with an existing method** → in `experiments/<name>/`, write a config that picks an anchor + a method + your objective/constraints, and an sbatch to run it. Touch nothing shared.
 
-**I want to study a new machine** → add an **motors** (PR to `main`); if it's a variant, derive it from an existing anchor. Then use it from your experiment.
+**I want to study a new machine** → add an **anchor** (PR to `main`); if it's a variant, derive it from an existing anchor. Then use it from your experiment.
 
 **I want a new optimization method** → add it to `machine_design/optimization/` against the interface (PR to `main`). Now anyone can use it on any anchor.
 

@@ -13,6 +13,7 @@ from botorch.utils.multi_objective.pareto import is_non_dominated
 from botorch.utils.transforms import normalize, unnormalize
 from gpytorch.mlls import ExactMarginalLogLikelihood
 
+from machine_design.config import load_config
 from machine_design.designs import load_design
 from machine_design.optimization import (
     HacklGenerator_3BrokenLines,
@@ -27,11 +28,12 @@ from motors.motor1 import Computation, Geometry
 torch.set_default_dtype(torch.float64)
 
 
-aedt_version = "2024.1"
+config = load_config()
+aedt_version = config["aedt_version"]
+num_cores = config["num_cores"]
 n_evals = 250
 r_stator_end = 0.7
 offset = 0.7 / 2
-num_cores = 4
 batch_size = 4
 max_candidate_tries = 10
 objective_fallback = {"torque": 1.0, "ripple": 40.0}

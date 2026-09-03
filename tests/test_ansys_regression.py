@@ -17,13 +17,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from machine_design.config import load_config
 from machine_design.designs.design import Design as LiveDesign
 from machine_design.optimization.generators import HacklGenerator_OneLambda
 from motors.motor1 import Computation, Geometry
 
 pytestmark = pytest.mark.ansys
 
-AEDT_VERSION = "2024.1"
+AEDT_VERSION = load_config()["aedt_version"]
 R_STATOR_END = 0.7
 OFFSET = 0.35
 SEEDS = (42, 43)

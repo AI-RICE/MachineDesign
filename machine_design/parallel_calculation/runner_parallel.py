@@ -8,18 +8,20 @@ import h5py
 import numpy as np
 from ansys.aedt.core import Desktop, Maxwell2d
 
+from machine_design.config import load_config
+
 # =========================================================
 # CONFIGURATION
 # =========================================================
-AEDT_VERSION = os.getenv("AEDT_VERSION", "2026.1")
+config = load_config()
+AEDT_VERSION = config["aedt_version"]
 
-PATH = "d:\\DATA\\Test"
-PROJECT_DIR = os.getenv("ANSYS_PROJECT_DIR", PATH)
+PROJECT_DIR = os.path.join(os.getcwd(), config["project_dir"])
 BASE_PROJECT = "SynRM_orig"
 DESIGN_NAME = "Design02_def_Idq"
 SETUP_NAME = "Setup1"
 
-N_WORKERS = 22  # less then number of logical processors
+N_WORKERS = config["n_workers"]  # less then number of logical processors
 
 
 # =========================================================

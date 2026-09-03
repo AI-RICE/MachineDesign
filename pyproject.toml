@@ -47,6 +47,9 @@ packages = [
   "motors",
 ]
 
+[tool.setuptools.package-data]
+machine_design = ["config.default.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [

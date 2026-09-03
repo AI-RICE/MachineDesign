@@ -1,0 +1,6 @@
+{
+    "aedt_version": "2024.1",
+    "num_cores": 4,
+    "n_workers": 22,
+    "project_dir": "data"
+}

@@ -20,9 +20,6 @@ class Geometry2(Geometry):
         super().set_winds_params()
         self.wind_params["Nc"] = "113"
 
-    def set_derived_params(self):
-        pass
-
 
 class Computation2(ComputationBase):
     def set_oper_params(self):

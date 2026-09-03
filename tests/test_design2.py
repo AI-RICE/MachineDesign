@@ -57,10 +57,9 @@ def test_oper_params_fully_replaced(computation2):
     }
 
 
-def test_derived_params_are_not_set(geometry2):
-    # Geometry2.set_derived_params() is a no-op, unlike Geometry's.
-    assert not hasattr(geometry2, "rotor_r_min")
-    assert not hasattr(geometry2, "rotor_r_max")
+def test_derived_params_are_set(geometry2):
+    assert hasattr(geometry2, "rotor_r_min")
+    assert hasattr(geometry2, "rotor_r_max")
 
 
 def test_solution_expressions_is_a_list_ending_in_torque(computation2):

@@ -1,3 +1,4 @@
+import numpy as np
 from ansys.aedt.core import Maxwell2d
 
 from machine_design.designs.computation import ComputationBase
@@ -339,7 +340,7 @@ class Computation2(ComputationBase):
     def extract_results(self, solutions):
         out = {}
         for expr in self.solution_expressions:
-            val = solutions.data_real(expr)
+            val = np.array(solutions.data_real(expr))
 
             if expr.startswith("Ld") or expr.startswith("Lq"):
                 val /= 1e9

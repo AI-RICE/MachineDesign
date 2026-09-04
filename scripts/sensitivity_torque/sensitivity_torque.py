@@ -24,7 +24,7 @@ os.makedirs(path_results, exist_ok=True)
 
 point_per_values = list(range(51, 1002, 50))
 
-# Pareto selected points (root 5, with constraints)
+# Pareto selected points
 pareto_points = {
     "HacklGenerator_SixLambdas": np.array(
         [8.95052421, 23.01115583, 33.03271713, 14.34330278, 27.92171436, 37.3, 0.21260669, 0.31, 0.41, 0.3, 0.4, 0.46],

@@ -1,3 +1,4 @@
+import numpy as np
 from ansys.aedt.core import Maxwell2d
 
 from machine_design.designs.computation import ComputationBase
@@ -339,9 +340,9 @@ class Computation2(ComputationBase):
             val = solutions.data_real(expr)
 
             if expr.startswith("Ld") or expr.startswith("Lq"):
-                val /= 1e9
+                val = np.array(val) / 1e9
             elif expr.startswith("I_"):
-                val /= 1e3
+                val = np.array(val) / 1e3
 
             # TODO: possibly assign val[:-1]. check whether values are identical
             out[expr] = val

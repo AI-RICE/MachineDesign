@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from motors.motor1 import Geometry
@@ -50,7 +51,7 @@ def test_oper_params_fully_replaced(computation2):
         "Im1": "sqrt(Id1^2+Iq1^2)",
         "Im3": "sqrt(Id3^2+Iq3^2)",
         "InitPos": "-45deg",
-        "f": "50Hz",
+        "w": f"{2 * np.pi * 50}Hz",
         "RotSpeed": "1500.0rpm",
         "Nper": "1/10",
         "PointPer": "101",

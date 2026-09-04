@@ -43,8 +43,8 @@ class Design:
     def delete_rotor(self) -> None:
         self.geometry.delete_rotor(self.m2d)
 
-    def compute(self, *args, NUM_CORES: int = 1):
-        return self.computation.compute(self.m2d, self.geometry.rotor_id, *args, NUM_CORES=NUM_CORES)
+    def compute(self, *args, NUM_CORES: int = 1, mesh_length: float = 3):
+        return self.computation.compute(self.m2d, self.geometry.rotor_id, *args, NUM_CORES=NUM_CORES, mesh_length=mesh_length)
 
     def save_design(self, file_name: str, **kwargs) -> None:
         show = kwargs.pop("show", False)

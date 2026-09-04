@@ -82,14 +82,17 @@ class ComputationBase(ABC):
             )
 
     # TODO: change the other arguments to kwargs
-    def compute(self, m2d: Maxwell2d, rotor_id, *args, NUM_CORES: int = 1):
+    def compute(self, m2d: Maxwell2d, rotor_id, *args, NUM_CORES: int = 1, mesh_length: float = 3):
         assert m2d.mesh is not None
         assert m2d.post is not None
 
+        for op in list(m2d.mesh.meshoperations):
+            if op.name == "rotor":
+                op.delete()
         m2d.mesh.assign_length_mesh(
             assignment=rotor_id,
             inside_selection=True,
-            maximum_length=3,
+            maximum_length=mesh_length,
             maximum_elements=None,
             name="rotor",
         )

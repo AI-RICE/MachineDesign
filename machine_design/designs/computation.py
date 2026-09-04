@@ -42,6 +42,12 @@ class ComputationBase(ABC):
         for k, v in self.oper_params.items():
             m2d[k] = v
 
+    def stop_time_expr(self) -> str:
+        return "Nper/f"
+
+    def time_step_expr(self) -> str:
+        return "1/(f*(PointPer-1))"
+
     def create_setup(self, m2d: Maxwell2d) -> None:
         self.assign_stator_coils(m2d)
         self.inductance_computation(m2d)
@@ -52,8 +58,8 @@ class ComputationBase(ABC):
         m2d.change_symmetry_multiplier("SymmetryFactor")
         # Calculation setup
         setup = m2d.create_setup(name=self.setup_name)
-        setup.props["StopTime"] = "Nper/f"
-        setup.props["TimeStep"] = "1/(f*(PointPer-1))"
+        setup.props["StopTime"] = self.stop_time_expr()
+        setup.props["TimeStep"] = self.time_step_expr()
         setup.props["SaveFieldsType"] = "None"
         setup.props["OutputPerObjectCoreLoss"] = False
         setup.props["OutputPerObjectSolidLoss"] = True

@@ -23,9 +23,16 @@ class Geometry2(Geometry):
 
 
 class Computation2(ComputationBase):
+    def stop_time_expr(self) -> str:
+        return "2*pi*Nper/w"
+
+    def time_step_expr(self) -> str:
+        return "2*pi/(w*(PointPer-1))"
+
     def set_oper_params(self):
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
+        w = 2 * np.pi * f
         self.oper_params = {
             "Id1": "0.0A",
             "Iq1": "0.0A",
@@ -36,7 +43,7 @@ class Computation2(ComputationBase):
             "Im1": "sqrt(Id1^2+Iq1^2)",
             "Im3": "sqrt(Id3^2+Iq3^2)",
             "InitPos": "-45deg",
-            "f": f"{f}Hz",
+            "w": f"{w}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
             "Nper": "1/10",  # number of included periods
             "PointPer": "101",  # number of time points per period
@@ -104,11 +111,11 @@ class Computation2(ComputationBase):
             "Vind_q1": "(InducedVoltage(PhaseA)*sin0_1 + InducedVoltage(PhaseB)*sin1_1 + InducedVoltage(PhaseC)*sin2_1 + InducedVoltage(PhaseD)*sin3_1 + InducedVoltage(PhaseE)*sin4_1) * 2/5",
             "Vind_d3": "(InducedVoltage(PhaseA)*cos0_3 + InducedVoltage(PhaseB)*cos1_3 + InducedVoltage(PhaseC)*cos2_3 + InducedVoltage(PhaseD)*cos3_3 + InducedVoltage(PhaseE)*cos4_3) * 2/5",
             "Vind_q3": "(InducedVoltage(PhaseA)*sin0_3 + InducedVoltage(PhaseB)*sin1_3 + InducedVoltage(PhaseC)*sin2_3 + InducedVoltage(PhaseD)*sin3_3 + InducedVoltage(PhaseE)*sin4_3) * 2/5",
-            "dIA_dt": "-Im1*2*pi*f*sin(2*pi*f*Time+epsI1-pi) - Im3*6*pi*f*sin(3*(2*pi*f*Time)+epsI3-pi)",
-            "dIB_dt": "-Im1*2*pi*f*sin(2*pi*f*Time-72deg+epsI1-pi) - Im3*6*pi*f*sin(3*(2*pi*f*Time-72deg)+epsI3-pi)",
-            "dIC_dt": "-Im1*2*pi*f*sin(2*pi*f*Time-144deg+epsI1-pi) - Im3*6*pi*f*sin(3*(2*pi*f*Time-144deg)+epsI3-pi)",
-            "dID_dt": "-Im1*2*pi*f*sin(2*pi*f*Time-216deg+epsI1-pi) - Im3*6*pi*f*sin(3*(2*pi*f*Time-216deg)+epsI3-pi)",
-            "dIE_dt": "-Im1*2*pi*f*sin(2*pi*f*Time-288deg+epsI1-pi) - Im3*6*pi*f*sin(3*(2*pi*f*Time-288deg)+epsI3-pi)",
+            "dIA_dt": "-Im1*w*sin(w*Time+epsI1-pi) - Im3*3*w*sin(3*(w*Time)+epsI3-pi)",
+            "dIB_dt": "-Im1*w*sin(w*Time-72deg+epsI1-pi) - Im3*3*w*sin(3*(w*Time-72deg)+epsI3-pi)",
+            "dIC_dt": "-Im1*w*sin(w*Time-144deg+epsI1-pi) - Im3*3*w*sin(3*(w*Time-144deg)+epsI3-pi)",
+            "dID_dt": "-Im1*w*sin(w*Time-216deg+epsI1-pi) - Im3*3*w*sin(3*(w*Time-216deg)+epsI3-pi)",
+            "dIE_dt": "-Im1*w*sin(w*Time-288deg+epsI1-pi) - Im3*3*w*sin(3*(w*Time-288deg)+epsI3-pi)",
             "V_A": "InducedVoltage(PhaseA) + Rstat*InputCurrent(PhaseA) + Lew*dIA_dt",
             "V_B": "InducedVoltage(PhaseB) + Rstat*InputCurrent(PhaseB) + Lew*dIB_dt",
             "V_C": "InducedVoltage(PhaseC) + Rstat*InputCurrent(PhaseC) + Lew*dIC_dt",
@@ -210,11 +217,11 @@ class Computation2(ComputationBase):
 
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:
         # Excitations
-        I_A = "Im1*cos(2*pi*f*time+epsI1-pi) + Im3*cos(3*(2*pi*f*time)+epsI3-pi)"
-        I_B = "Im1*cos(2*pi*f*time-72deg+epsI1-pi) + Im3*cos(3*(2*pi*f*time-72deg)+epsI3-pi)"
-        I_C = "Im1*cos(2*pi*f*time-144deg+epsI1-pi) + Im3*cos(3*(2*pi*f*time-144deg)+epsI3-pi)"
-        I_D = "Im1*cos(2*pi*f*time-216deg+epsI1-pi) + Im3*cos(3*(2*pi*f*time-216deg)+epsI3-pi)"
-        I_E = "Im1*cos(2*pi*f*time-288deg+epsI1-pi) + Im3*cos(3*(2*pi*f*time-288deg)+epsI3-pi)"
+        I_A = "Im1*cos(w*time+epsI1-pi) + Im3*cos(3*(w*time)+epsI3-pi)"
+        I_B = "Im1*cos(w*time-72deg+epsI1-pi) + Im3*cos(3*(w*time-72deg)+epsI3-pi)"
+        I_C = "Im1*cos(w*time-144deg+epsI1-pi) + Im3*cos(3*(w*time-144deg)+epsI3-pi)"
+        I_D = "Im1*cos(w*time-216deg+epsI1-pi) + Im3*cos(3*(w*time-216deg)+epsI3-pi)"
+        I_E = "Im1*cos(w*time-288deg+epsI1-pi) + Im3*cos(3*(w*time-288deg)+epsI3-pi)"
         m2d.assign_coil
         # Define phase windings
         m2d.assign_coil(

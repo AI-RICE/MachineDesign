@@ -1,12 +1,18 @@
+"""Anchor `synrm_5f_40s`: 5-phase synchronous reluctance machine, 40 stator slots.
+
+Derives from `synrm_3f_36s`, overriding only the slotting and winding it needs for five
+phases. Excitation is dq1 + dq3.
+"""
+
 import numpy as np
 from ansys.aedt.core import Maxwell2d
 
 from machine_design.designs.computation import ComputationBase
 
-from .motor1 import Geometry
+from .synrm_3f_36s import Geometry as BaseGeometry
 
 
-class Geometry2(Geometry):
+class Geometry(BaseGeometry):
     def set_geom_params(self):
         super().set_geom_params()
         self.geom_params["SlotNumber"] = "40"
@@ -22,7 +28,7 @@ class Geometry2(Geometry):
         self.wind_params["Nc"] = "113"
 
 
-class Computation2(ComputationBase):
+class Computation(ComputationBase):
     def set_oper_params(self):
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]

@@ -3,6 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 
+from machine_design.config import load_config
 from machine_design.designs import load_design
 from machine_design.optimization import (
     HacklGenerator_3BrokenLines,
@@ -11,9 +12,10 @@ from machine_design.optimization import (
 )
 from motors.motor1 import Computation, Geometry
 
-aedt_version = "2025.1"
+config = load_config()
+aedt_version = config["aedt_version"]
+num_cores = config["num_cores"]
 design_name = "Design01"
-num_cores = 4
 r_stator_end = 0.7
 offset = 0.7 / 2
 

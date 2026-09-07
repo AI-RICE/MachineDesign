@@ -1,3 +1,5 @@
+"""Anchor `synrm_3f_36s`: 3-phase synchronous reluctance machine, 36 stator slots."""
+
 from ansys.aedt.core import Maxwell2d
 from ansys.aedt.core.modeler.modeler_2d import Modeler2D
 

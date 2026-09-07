@@ -20,7 +20,7 @@ import pytest
 from machine_design.config import load_config
 from machine_design.designs.design import Design as LiveDesign
 from machine_design.optimization.generators import HacklGenerator_OneLambda
-from motors.motor1 import Computation, Geometry
+from motors.synrm_3f_36s import Computation, Geometry
 
 pytestmark = pytest.mark.ansys
 

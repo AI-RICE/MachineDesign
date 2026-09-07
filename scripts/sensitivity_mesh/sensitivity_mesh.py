@@ -6,7 +6,7 @@ import pandas as pd
 from machine_design.config import load_config
 from machine_design.designs import load_design
 from machine_design.optimization import HacklGenerator_3BrokenLines, HacklGenerator_SixLambdas, analyze_results
-from motors.motor1 import Computation, Geometry
+from motors.synrm_3f_36s import Computation, Geometry
 
 config = load_config()
 aedt_version = config["aedt_version"]

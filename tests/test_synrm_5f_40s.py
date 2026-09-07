@@ -1,22 +1,22 @@
 import pytest
 
-from motors.motor1 import Geometry
-from motors.motor2 import Computation2, Geometry2
+from motors.synrm_3f_36s import Geometry as BaseGeometry
+from motors.synrm_5f_40s import Computation, Geometry
 
 
 @pytest.fixture
 def base_geometry():
-    return Geometry()
+    return BaseGeometry()
 
 
 @pytest.fixture
 def geometry2():
-    return Geometry2()
+    return Geometry()
 
 
 @pytest.fixture
 def computation2(geometry2):
-    return Computation2(geometry2)
+    return Computation(geometry2)
 
 
 def test_geom_params_overrides_slot_number_only(base_geometry, geometry2):

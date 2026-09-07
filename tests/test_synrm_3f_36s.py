@@ -2,7 +2,7 @@ import re
 
 import pytest
 
-from motors.motor1 import Computation, Geometry
+from motors.synrm_3f_36s import Computation, Geometry
 
 
 @pytest.fixture

@@ -1,4 +1,5 @@
 import os
+import time
 
 import numpy as np
 import pandas as pd
@@ -78,7 +79,10 @@ for method, X_best in pareto_points.items():
 
     for point_per in point_per_values:
         design.m2d.variable_manager["PointPer"] = str(point_per)
+
+        start_time = time.time()
         Tor = design.compute(NUM_CORES=num_cores)
+        elapsed_seconds = time.time() - start_time
 
         if Tor is None:
             n_points, TorAvg, TorRippleRms = 0, np.nan, np.nan
@@ -92,6 +96,7 @@ for method, X_best in pareto_points.items():
             "n_points": n_points,
             "TorAvg": TorAvg,
             "TorRippleRms": TorRippleRms,
+            "elapsed_seconds": elapsed_seconds,
         }
         metadata = pd.concat((metadata, pd.DataFrame([metadata_new])), ignore_index=True)
 

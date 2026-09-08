@@ -4,6 +4,8 @@ import numpy as np
 from ansys.aedt.core import Maxwell2d
 from ansys.aedt.core.modeler.modeler_2d import Modeler2D
 
+from .reserved_variables import check_no_reserved_variable_names
+
 
 class GeometryBase(ABC):
     def __init__(self) -> None:
@@ -15,6 +17,7 @@ class GeometryBase(ABC):
         self.set_rot_points()
         self.set_derived_params()
         self.set_udp_par_list_stator()
+        check_no_reserved_variable_names(self.geom_params, self.wind_params, self.slot_params, self.mod_params)
 
     @abstractmethod
     def set_iron(self): ...

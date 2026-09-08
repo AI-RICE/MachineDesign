@@ -3,79 +3,7 @@ from abc import ABC, abstractmethod
 from ansys.aedt.core import Maxwell2d
 
 from .geometry import GeometryBase
-
-# Ansys intrinsic/reserved variable names
-reserved_variable_names = frozenset(
-    name.lower()
-    for name in (
-        "_Empty",
-        "_I1",
-        "_I2",
-        "_I3",
-        "_I4",
-        "_I5",
-        "_I6",
-        "_I7",
-        "_I8",
-        "_I9",
-        "_t",
-        "_u",
-        "_v",
-        "_V1",
-        "_V2",
-        "_V3",
-        "_V4",
-        "_V5",
-        "_V6",
-        "_V7",
-        "_V8",
-        "_V9",
-        "Ang",
-        "Budget_Index",
-        "Distance",
-        "ElectricalDegree",
-        "F",
-        "F1",
-        "F2",
-        "F3",
-        "FNoi",
-        "Freq",
-        "Hmax",
-        "Hmin",
-        "Ia",
-        "Ib",
-        "Index",
-        "IWavePhi",
-        "IWaveTheta",
-        "Normalized Deformation",
-        "Normalized Distance",
-        "OP",
-        "Pass",
-        "Phase",
-        "Phi",
-        "Position",
-        "R",
-        "Rho",
-        "RSpeed",
-        "Spectrum",
-        "Speed",
-        "Temp",
-        "Tend",
-        "Theta",
-        "Time",
-        "Time0",
-        "Vac",
-        "Vbe",
-        "Vce",
-        "Vds",
-        "Vgs",
-        "X",
-        "Y",
-        "Z",
-        "ZAng",
-        "ZRho",
-    )
-)
+from .reserved_variables import check_no_reserved_variable_names
 
 
 class ComputationBase(ABC):
@@ -86,12 +14,7 @@ class ComputationBase(ABC):
         self.set_solution_expressions()
         self.set_output_vars()
         self.set_post_params()
-        self._check_no_reserved_variable_names()
-
-    def _check_no_reserved_variable_names(self) -> None:
-        for name in list(self.oper_params) + list(self.output_vars):
-            if name.lower() in reserved_variable_names:
-                raise ValueError(f"'{name}' is an Ansys intrinsic variable name and cannot be used as a design variable")
+        check_no_reserved_variable_names(self.oper_params, self.output_vars)
 
     @abstractmethod
     def set_oper_params(self): ...

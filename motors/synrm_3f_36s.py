@@ -1,5 +1,6 @@
 """Anchor `synrm_3f_36s`: 3-phase synchronous reluctance machine, 36 stator slots."""
 
+import numpy as np
 from ansys.aedt.core import Maxwell2d
 from ansys.aedt.core.modeler.modeler_2d import Modeler2D
 
@@ -172,11 +173,13 @@ class Computation(ComputationBase):
     def set_oper_params(self):
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
+        w = 2 * np.pi * f
         self.oper_params = {
             "Im": "1.5*sqrt(2)A",
             "epsI": "pi/4",  # current angle
             "InitPos": "-30deg",
             "f": f"{f}Hz",
+            "w": f"{w}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
             "Nper": "1/6",  # number of included periods
             "PointPer": "101",  # number of time points per period

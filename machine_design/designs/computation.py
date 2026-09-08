@@ -52,8 +52,8 @@ class ComputationBase(ABC):
         m2d.change_symmetry_multiplier("SymmetryFactor")
         # Calculation setup
         setup = m2d.create_setup(name=self.setup_name)
-        setup.props["StopTime"] = "Nper/f"
-        setup.props["TimeStep"] = "1/(f*(PointPer-1))"
+        setup.props["StopTime"] = "2*pi*Nper/w"
+        setup.props["TimeStep"] = "2*pi/(w*(PointPer-1))"
         setup.props["SaveFieldsType"] = "None"
         setup.props["OutputPerObjectCoreLoss"] = False
         setup.props["OutputPerObjectSolidLoss"] = True

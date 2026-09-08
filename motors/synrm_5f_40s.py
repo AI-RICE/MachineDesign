@@ -29,12 +29,6 @@ class Geometry(BaseGeometry):
 
 
 class Computation(ComputationBase):
-    def stop_time_expr(self) -> str:
-        return "2*pi*Nper/w"
-
-    def time_step_expr(self) -> str:
-        return "2*pi/(w*(PointPer-1))"
-
     def set_oper_params(self):
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]

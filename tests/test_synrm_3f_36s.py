@@ -1,5 +1,6 @@
 import re
 
+import numpy as np
 import pytest
 
 from motors.synrm_3f_36s import Computation, Geometry
@@ -75,6 +76,7 @@ def test_oper_params(computation):
         "epsI": "pi/4",
         "InitPos": "-30deg",
         "f": "50Hz",
+        "w": f"{2 * np.pi * 50}Hz",
         "RotSpeed": "1500.0rpm",
         "Nper": "1/6",
         "PointPer": "101",

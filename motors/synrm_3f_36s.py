@@ -231,9 +231,9 @@ class Computation(ComputationBase):
 
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:
         # Excitations
-        I_A = "Im * cos(w*time+epsI)"
-        I_B = "Im * cos(w*time-120deg+epsI)"
-        I_C = "Im * cos(w*time-240deg+epsI)"
+        I_A = "Im * cos(w*Time+epsI)"
+        I_B = "Im * cos(w*Time-120deg+epsI)"
+        I_C = "Im * cos(w*Time-240deg+epsI)"
 
         phases_polarity = ["Positive", "Negative", "Positive"]
         phases_name = ["A", "C", "B"]

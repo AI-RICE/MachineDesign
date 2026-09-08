@@ -217,11 +217,11 @@ class Computation(ComputationBase):
 
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:
         # Excitations
-        I_A = "Im1*cos(w*time+epsI1-pi) + Im3*cos(3*(w*time)+epsI3-pi)"
-        I_B = "Im1*cos(w*time-72deg+epsI1-pi) + Im3*cos(3*(w*time-72deg)+epsI3-pi)"
-        I_C = "Im1*cos(w*time-144deg+epsI1-pi) + Im3*cos(3*(w*time-144deg)+epsI3-pi)"
-        I_D = "Im1*cos(w*time-216deg+epsI1-pi) + Im3*cos(3*(w*time-216deg)+epsI3-pi)"
-        I_E = "Im1*cos(w*time-288deg+epsI1-pi) + Im3*cos(3*(w*time-288deg)+epsI3-pi)"
+        I_A = "Im1*cos(w*Time+epsI1-pi) + Im3*cos(3*(w*Time)+epsI3-pi)"
+        I_B = "Im1*cos(w*Time-72deg+epsI1-pi) + Im3*cos(3*(w*Time-72deg)+epsI3-pi)"
+        I_C = "Im1*cos(w*Time-144deg+epsI1-pi) + Im3*cos(3*(w*Time-144deg)+epsI3-pi)"
+        I_D = "Im1*cos(w*Time-216deg+epsI1-pi) + Im3*cos(3*(w*Time-216deg)+epsI3-pi)"
+        I_E = "Im1*cos(w*Time-288deg+epsI1-pi) + Im3*cos(3*(w*Time-288deg)+epsI3-pi)"
         m2d.assign_coil
         # Define phase windings
         m2d.assign_coil(

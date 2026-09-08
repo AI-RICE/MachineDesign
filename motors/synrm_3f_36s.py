@@ -178,7 +178,6 @@ class Computation(ComputationBase):
             "Im": "1.5*sqrt(2)A",
             "epsI": "pi/4",  # current angle
             "InitPos": "-30deg",
-            "f": f"{f}Hz",
             "w": f"{w}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
             "Nper": "1/6",  # number of included periods
@@ -232,9 +231,9 @@ class Computation(ComputationBase):
 
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:
         # Excitations
-        I_A = "Im * cos(2*pi*f*time+epsI)"
-        I_B = "Im * cos(2*pi*f*time-120deg+epsI)"
-        I_C = "Im * cos(2*pi*f*time-240deg+epsI)"
+        I_A = "Im * cos(w*time+epsI)"
+        I_B = "Im * cos(w*time-120deg+epsI)"
+        I_C = "Im * cos(w*time-240deg+epsI)"
 
         phases_polarity = ["Positive", "Negative", "Positive"]
         phases_name = ["A", "C", "B"]

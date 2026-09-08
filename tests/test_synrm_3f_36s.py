@@ -75,7 +75,6 @@ def test_oper_params(computation):
         "Im": "1.5*sqrt(2)A",
         "epsI": "pi/4",
         "InitPos": "-30deg",
-        "f": "50Hz",
         "w": f"{2 * np.pi * 50}Hz",
         "RotSpeed": "1500.0rpm",
         "Nper": "1/6",

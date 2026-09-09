@@ -14,7 +14,7 @@ def test_rotation_matrix_90_degrees():
     assert R == pytest.approx(np.array([[0, -1], [1, 0]]), abs=1e-10)
 
 
-def test_rotation_matrix_rad_flag_matches_deg():
+def test_rotation_matrix_rad_matches_deg():
     R_deg = rotation_matrix(180)
     R_rad = rotation_matrix(np.pi, rad=True)
     assert R_deg == pytest.approx(R_rad)

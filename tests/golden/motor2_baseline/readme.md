@@ -1,11 +1,11 @@
 Golden baseline for motor2 (now `motors/synrm_5f_40s.py`), for issue #20.
 
-`tor.npy` is the raw torque waveform (101 points) from Ansys 2025.1 solve of
+`tor.csv` is the raw torque waveform (101 points) from Ansys 2025.1 solve of
 `machine_design/design2.py::Design2` at commit `c438e18` (dropped the unsupported
 deriv() voltage terms), the earliest version confirmed to be free of known bugs
 (Rstat, set_derived_params, deriv()) at the time of writing.
 
-Reproduce with (in a worktree checked out at c438e18):
+Reproduce with (checked out at commit c438e18, with Ansys 2025.1 installed):
 
     python notebooks/run2.py --nper 1 --aedt-version 2025.1
 

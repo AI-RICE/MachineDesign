@@ -17,7 +17,7 @@ seed = 0
 current_setpoint = (7.0711, 7.0711, 0.0, 0.0)
 num_cores = 4
 
-golden_tor = np.load(os.path.join(os.path.dirname(__file__), "golden", "motor2_baseline", "tor.npy"))
+golden_tor = np.loadtxt(os.path.join(os.path.dirname(__file__), "golden", "motor2_baseline", "tor.csv"), delimiter=",", skiprows=1)
 
 
 def test_torque_matches_golden_baseline(tmp_path):

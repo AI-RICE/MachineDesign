@@ -6,8 +6,6 @@ import pandas as pd
 from machine_design.config import load_config
 from machine_design.designs import load_design
 from machine_design.optimization.generators import HacklGenerator_OneLambda
-from motors.synrm_3f_36s import Computation as Computation1
-from motors.synrm_3f_36s import Geometry as Geometry1
 from motors.synrm_5f_40s import Computation as Computation2
 from motors.synrm_5f_40s import Geometry as Geometry2
 
@@ -17,10 +15,9 @@ offset = 0.35
 seed = 0
 num_cores = 4
 n_repeats = 30
-results_csv = "motor_errors_results.csv"
+results_csv = "motor_errors_results_default_nper.csv"
 
 motors = {
-    "motor1": (Computation1, Geometry1, (), os.path.join("tests", "golden", "motor1_baseline", "tor.csv")),
     "motor2": (Computation2, Geometry2, (7.0711, 7.0711, 0.0, 0.0), os.path.join("tests", "golden", "motor2_baseline", "tor.csv")),
 }
 
@@ -43,8 +40,6 @@ for motor_name, (Computation, Geometry, current_setpoint, golden_path) in motors
     )
 
     try:
-        design.m2d["Nper"] = "1"
-
         np.random.seed(seed)
         generator = HacklGenerator_OneLambda(design, r_stator_end, offset=offset)
         while True:
@@ -73,7 +68,7 @@ for motor_name, (Computation, Geometry, current_setpoint, golden_path) in motors
             rows.append(row)
 
             pd.DataFrame(rows).to_csv(results_csv, index=False)
-            print(f"{motor_name} run {i + 1}/{n_repeats}: max={rel_err.max():.2f}%, mean={rel_err.mean():.2f}%")
+            print(f"{motor_name} run {i + 1}/{n_repeats}: max={rel_err.max():.4f}%, mean={rel_err.mean():.4f}%")
     finally:
         design.close_project()
 

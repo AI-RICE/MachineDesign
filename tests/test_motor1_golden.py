@@ -34,8 +34,6 @@ def test_torque_matches_golden_baseline(tmp_path):
         close_on_exit=False,
     )
     try:
-        design.m2d["Nper"] = "1"
-
         np.random.seed(seed)
         generator = HacklGenerator_OneLambda(design, r_stator_end, offset=offset)
         while True:

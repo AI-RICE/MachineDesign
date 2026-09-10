@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from ansys.aedt.core import Maxwell2d
 
 from .geometry import GeometryBase
+from .reserved_variables import check_no_reserved_variable_names
 
 
 class ComputationBase(ABC):
@@ -13,6 +14,7 @@ class ComputationBase(ABC):
         self.set_solution_expressions()
         self.set_output_vars()
         self.set_post_params()
+        check_no_reserved_variable_names(self.oper_params, self.output_vars)
 
     @abstractmethod
     def set_oper_params(self): ...

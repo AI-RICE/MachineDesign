@@ -237,6 +237,7 @@ class GeometryBase(ABC):
 
         proj_long = pts_centered @ long_axis
         proj_short = pts_centered @ short_axis
+        
         mag_length = proj_long.max() - proj_long.min()
         mag_width = proj_short.max() - proj_short.min()
 

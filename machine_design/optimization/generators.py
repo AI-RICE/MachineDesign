@@ -342,7 +342,6 @@ class MagnetGenerator(BarrierGenerator):
         return y_mins, w_mins, y_mids, w_mids, thetas, w_maxs
 
     def X_to_params(self, X: np.ndarray, barrier=None):
-        # n = int(self.n_barriers if barrier is None else barrier)
         n = self.n_barriers if barrier is None else barrier
 
         if len(X) != 2*n:

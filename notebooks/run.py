@@ -7,7 +7,9 @@ import pandas as pd
 
 from machine_design.designs import load_design
 from machine_design.optimization import (
-    FourStupid,
+    HacklGenerator_3BrokenLines,
+    HacklGenerator_OneLambda,
+    HacklGenerator_SixLambdas,
     MagnetGenerator,
     analyze_results,
     plot_barriers,
@@ -34,11 +36,10 @@ geometry = Geometry()
 computation = Computation(geometry)
 design = load_design(file_name_aedt, project_name, design_name, aedt_version, geometry, computation)
 generators = [
-    # FourStupid(design, r_stator_end, offset=offset),
-    # HacklGenerator_OneLambda(design, r_stator_end, offset=offset),
-    # HacklGenerator_SixLambdas(design, r_stator_end, offset=offset),
-    # HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset),
-    MagnetGenerator(design, r_stator_end, offset=offset),
+    HacklGenerator_OneLambda(design, r_stator_end, offset=offset),
+    HacklGenerator_SixLambdas(design, r_stator_end, offset=offset),
+    HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset),
+    MagnetGenerator(design, r_stator_end, offset=offset)
 ]
 
 metadata = pd.DataFrame()
@@ -57,7 +58,10 @@ for i in range(0, n_designs):
                 break
 
         # Generate the geometry
-        design.add_rotor(barriers=barriers, magnets=magnets)
+        if generator.name == "MagnetGenerator":
+            design.add_rotor(barriers=barriers, magnets=magnets)
+        else:
+            design.add_rotor(barriers=barriers)
 
         # Compute the torque
         Tor = design.compute(NUM_CORES=num_cores)

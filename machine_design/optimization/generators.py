@@ -363,19 +363,20 @@ class MagnetGenerator(BarrierGenerator):
 
     def generate_magnets(self, barriers: list[np.ndarray]) -> list[np.ndarray]:
         magnets = []
-        margin = 0.3    
+        margin = 0.0 
 
         for barrier in barriers:
             x, y = barrier[:, 0], barrier[:, 1]
-
             mag_pts = np.column_stack((x, y))
 
             angles = np.degrees(np.arctan2(mag_pts[:, 1], mag_pts[:, 0]))
-
+            
+            center_angle = (angles.max() + angles.min()) / 2
+            
             full_half_span = (angles.max() - angles.min()) / 2
             center_half_span = full_half_span * (1 - 2 * margin)
 
-            center_mask = np.abs(angles - 45) < center_half_span
+            center_mask = np.abs(angles - center_angle) < center_half_span
             magnets.append([mag_pts[center_mask]])
 
         return magnets

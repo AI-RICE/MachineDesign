@@ -216,58 +216,49 @@ class GeometryBase(ABC):
 
     def add_rotor_magnet(self, m2d: Maxwell2d, mag: np.ndarray, material, segment_type=None):
         modeler = m2d.modeler
-        assert isinstance(modeler, Modeler2D)
+        fill_height = 0.9
+        fill_width = 0.9
 
         if isinstance(mag, (list, tuple)):
-            mag = mag[-1] if len(mag) > 1 else mag[0]
+            mag = np.concatenate([np.asarray(m) for m in mag], axis=0)
 
-        mag = np.asarray(mag)
-        if mag.ndim != 2 or len(mag) == 0:
-            return
-
-        center = mag.mean(axis=0)
-        pts_centered = mag - center
+        pts = np.asarray(mag)
+        center = pts.mean(axis=0)
 
         r = np.linalg.norm(center)
         if r < 1e-10:
             return
+
         radial = center / r
         long_axis = np.array([-radial[1], radial[0]])
-        short_axis = radial
 
-        proj_long = pts_centered @ long_axis
-        proj_short = pts_centered @ short_axis
-        
-        mag_length = proj_long.max() - proj_long.min()
-        mag_width = proj_short.max() - proj_short.min()
+        pts_centered = pts - center
 
-        length_scale = 0.7
-        width_scale = 0.35
+        proj_long  = pts_centered @ long_axis
+        proj_short = pts_centered @ radial
 
-        if mag_length < 0.1 or mag_width < 0.1:
-            return
+        pts_scaled = center + (
+            np.outer(proj_long  * fill_height,  long_axis) +
+            np.outer(proj_short * fill_width, radial)
+        )
 
-        hl = mag_length * length_scale / 2
-        hw = mag_width * width_scale / 2
-        angle_deg = np.degrees(np.arctan2(long_axis[1], long_axis[0]))
+        points = [[f"{x}mm", f"{y}mm", "0mm"] for x, y in pts_scaled]
 
-        mag_id = modeler.create_rectangle(
-            origin=[f"{-hl}mm", f"{-hw}mm", "0mm"],
-            sizes=[f"{2 * hl}mm", f"{2 * hw}mm", "0mm"],
+        mag_id = modeler.create_polyline(
+            points=points,
+            close_surface=True,
+            cover_surface=True,
             name="Magnet",
         )
-        mag_id.rotate(axis="Z", angle=angle_deg)
-        mag_id.move([f"{center[0]}mm", f"{center[1]}mm", "0mm"])
+        cs_angle_deg = np.degrees(np.arctan2(radial[1], radial[0]))
 
+        self.assign_magnet_cs(m2d, mag_id, cs_angle_deg)
         mag_id.material_name = material
         mag_id.solve_inside = True
         mag_id.color = (255, 0, 0)
         mag_id.transparency = 0.0
 
-        cs_angle_deg = np.degrees(np.arctan2(radial[1], radial[0]))
-        self.assign_magnet_cs(m2d, mag_id, cs_angle_deg)
-
-        m2d.modeler.set_working_coordinate_system("Global")
+        modeler.set_working_coordinate_system("Global")
 
     def create_pm_material(self, m2d: Maxwell2d, PM: str) -> None:
         if PM in m2d.materials.material_keys:

@@ -10,6 +10,7 @@ class ComputationBase(ABC):
     def __init__(self, geometry: GeometryBase) -> None:
         self.geometry = geometry
         self.setup_name = "Setup1"
+        self.rotor_mesh = None
         self.set_oper_params()
         self.set_solution_expressions()
         self.set_output_vars()
@@ -88,7 +89,7 @@ class ComputationBase(ABC):
         assert m2d.mesh is not None
         assert m2d.post is not None
 
-        m2d.mesh.assign_length_mesh(
+        self.rotor_mesh = m2d.mesh.assign_length_mesh(
             assignment=rotor_id,
             inside_selection=True,
             maximum_length=3,
@@ -113,3 +114,8 @@ class ComputationBase(ABC):
         m2d.odesign.DeleteFullVariation("All", False)
 
         return result
+
+    def delete_rotor_mesh(self) -> None:
+        if self.rotor_mesh is not None:
+            self.rotor_mesh.delete()
+            self.rotor_mesh = None

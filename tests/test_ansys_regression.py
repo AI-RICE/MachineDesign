@@ -1,4 +1,4 @@
-"""Golden-master check: tests/legacy/design.py vs. the live machine_design/design.py.
+"""Golden-master check: tests/legacy/design.py vs. the live machine_design/designs/design.py.
 
 Generates two feasible rotor designs (different seeds) with HacklGenerator_OneLambda and
 runs each through add_rotor -> compute -> delete_rotor on the SAME Design instance, both

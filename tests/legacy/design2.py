@@ -32,6 +32,7 @@ class Design2(Design):
             "Im3": "sqrt(Id3^2+Iq3^2)",
             "InitPos": "-45deg",
             "fr": f"{fr}Hz",
+            "f": "fr", # replace f in design.py with fr (line 355-356 in design.py)
             "RotSpeed": f"{RotSpeed}rpm",
             "Nper": "1/10",  # number of included periods
             "PointPer": "101",  # number of time points per period

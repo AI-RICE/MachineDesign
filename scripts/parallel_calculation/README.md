@@ -1,8 +1,11 @@
 # Running a parameter grid across parallel Ansys sessions
 
-This documents the pattern originally in `machine_design/parallel_calculation/`
-(`runner_parallel.py` , `calculate_combination.py`, added by Jan Laksar), kept
-here after that folder was removed in issue #21.
+This is the parallel Ansys computation pattern originally in
+`machine_design/parallel_calculation/` (added by Jan Laksar), moved here in
+issue #21 along with the two scripts (`runner_parallel.py`,
+`calculate_combination.py`). The large `SynRM_orig.aedt` example project was
+dropped since it does not belong in git. Running these scripts requires your
+own base `.aedt` project.
 
 ## Problem
 
@@ -15,8 +18,8 @@ roughly by the number of workers.
 ## Method
 
 1. Split the full grid of tasks into `N_WORKERS` contiguous chunks.
-2. For each worker, copy the base `.aedt` project file to its own file before 
-   opening it. Ansys locks a project file while it is open, so every worker 
+2. For each worker, copy the base `.aedt` project file to its own file before
+   opening it. Ansys locks a project file while it is open, so every worker
    needs its own copy rather than sharing one file.
 3. Start `multiprocessing.Pool(N_WORKERS)` and run one worker function per
    chunk. Each worker opens its own `Desktop(non_graphical=True,
@@ -36,7 +39,7 @@ roughly by the number of workers.
 
 ## Example
 
-The removed `runner_parallel.py` swept a 16x16 grid of `Id`/`Iq` values (0.0
-to 3.2 A in 0.2 A steps) and recorded flux linkages, inductances, and torque
-for each point, with `calculate_combination.py` doing the per-point solve
-and extraction described above.
+`runner_parallel.py` swept a 16x16 grid of `Id`/`Iq` values (0.0 to 3.2 A
+in 0.2 A steps) and recorded flux linkages, inductances, and torque for
+each point, with `calculate_combination.py` doing the per-point solve and
+extraction described above.

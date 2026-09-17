@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
@@ -77,3 +79,11 @@ def test_post_params_plot_names_unique(computation2):
 def test_output_vars_known_values(computation2):
     assert computation2.output_vars["Rstat"] == "19"
     assert computation2.output_vars["Lew"] == "0"
+
+
+def test_extract_results_converts_units_by_prefix(computation2):
+    solutions = SimpleNamespace(data_real=lambda expr: 100.0)
+    out = computation2.extract_results(solutions)
+    assert out["Ld1"] == pytest.approx(100.0 / 1e9)  # Ld*/Lq* , nH
+    assert out["I_d1"] == pytest.approx(100.0 / 1e3)  # I_* , A
+    assert out["V_d1"] == pytest.approx(100.0)

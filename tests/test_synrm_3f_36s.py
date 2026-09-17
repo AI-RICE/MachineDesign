@@ -1,4 +1,5 @@
 import re
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -149,3 +150,8 @@ def test_mm_to_str(geometry):
 def test_mm_to_str_raises_without_mm_suffix(geometry):
     with pytest.raises(Exception):
         geometry.mm_to_str("geom_params", "SlotNumber")
+
+
+def test_extract_results_returns_data_magnitude(computation):
+    solutions = SimpleNamespace(data_magnitude=lambda: [1.0, 2.0, 3.0])
+    assert computation.extract_results(solutions) == [1.0, 2.0, 3.0]

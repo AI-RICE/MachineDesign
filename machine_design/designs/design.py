@@ -41,6 +41,7 @@ class Design:
         self.geometry.add_rotor_barrier(self.m2d, barrier_points, segment_type)
 
     def delete_rotor(self) -> None:
+        self.computation.delete_rotor_mesh()
         self.geometry.delete_rotor(self.m2d)
 
     def compute(self, *args, NUM_CORES: int = 1):

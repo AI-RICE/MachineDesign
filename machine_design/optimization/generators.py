@@ -427,3 +427,180 @@ class HacklGenerator_3BrokenLines(AbstractHacklGenerator):
 
         # Stack segments and drop duplicate joint points
         return np.vstack((seg1, seg2[1:], seg3[1:]))
+    
+class MagnetGenerator(BarrierGenerator):
+    def __init__(self, design, r_stator_end, der1=1.0, der2=1.0, symmetric=True, **kwargs):
+            self.n_designs = kwargs.get("n_designs", 1)
+            self.der1 = der1
+            self.der2 = der2
+            self.symmetric = symmetric
+            self.n_barriers = kwargs.get("n_barriers", 1)
+            super().__init__(design, r_stator_end, **kwargs)
+    
+    def _create_barrier(
+        self,
+        y_min,
+        w_min,
+        y_mid,
+        w_mid,
+        theta,
+        w_max,
+    ):
+
+        theta1 = (theta + 45) / 180 * np.pi
+        x_max1 = self.R * np.cos(theta1)
+        y_max1 = self.R * np.sin(theta1)
+
+        x1 = [0, x_max1 / 2, x_max1]
+        y1 = [y_min, y_mid, y_max1]
+        f1 = CubicSpline(x1, y1, bc_type=((1, 0), (1, self.der1)))
+
+        theta2 = theta1 + w_max / self.r_max
+        x_max2 = self.R * np.cos(theta2)
+        y_max2 = self.R * np.sin(theta2)
+
+        s = w_mid / np.sqrt(1 + self.der1**2 / 4)
+        x2 = [0, x1[1] - s * self.der1 / 2, x_max2]
+        y2 = [y_min + w_min, y1[1] + s, y_max2]
+        f2 = CubicSpline(x2, y2, bc_type=((1, 0), (1, self.der2)))
+
+        x_interp1 = np.linspace(x1[0], x1[-1], self.n_curve)
+        x_interp2 = np.linspace(x2[0], x2[-1], self.n_curve)
+        # TODO: use more points for connecting?
+        x_all = np.concatenate((x_interp1, x_interp2[::-1]))
+        y_all = np.concatenate((f1(x_interp1), f2(x_interp2)[::-1]))
+        if self.symmetric:
+            x_all = np.concatenate((x_all, -x_all[::-1][1:]))
+            y_all = np.concatenate((y_all, y_all[::-1][1:]))
+        x_all, y_all = rotate(x_all, y_all, -45)
+        return x_all, y_all
+    
+    @property
+    def bounds(self) -> tuple[np.ndarray, np.ndarray]:
+        n = self.n_barriers
+
+        lb = np.concatenate([
+        np.full(n, 0.7), # rand1
+        np.array([12]), # rand2
+        np.full(n-1, 1) #spacings
+        ])
+
+        ub = np.concatenate([
+            np.full(n, 1.0),
+            np.array([20]),
+            np.full(n-1, 5)
+        ])
+
+        return lb, ub
+    
+    def generate_w_mins_base(self, rotor_r_min, rotor_r_max):
+        n_barriers = self.n_barriers
+        available_height = rotor_r_max - rotor_r_min
+        gap_ratio = 0.5
+        total_dap = available_height*gap_ratio
+        
+        total_height_barrier = available_height - total_dap
+
+        if n_barriers == 1:
+            weights = np.array([1.0])
+        else:
+            weights = np.array([0.99**i for i in range(n_barriers)])
+        
+        weights = weights / np.sum(weights)
+
+        return total_height_barrier * weights
+    
+    def random_parameters(self):
+
+        rand1 = np.random.uniform(0.7, 1.0, self.n_barriers)
+        rand2 = np.random.uniform(12,20)
+        spacings = np.random.dirichlet(np.ones(self.n_barriers - 1))
+
+        return rand1, rand2, spacings
+    
+    def set_parameters(self, params) -> None:
+        rand1, rand2, spacings = params
+    
+        w_mins_base = self.generate_w_mins_base(self.r_min, self.r_max)
+
+        w_mins = w_mins_base * rand1
+        w_mids = w_mins.copy()
+
+        total_height = np.sum(w_mins)
+        total_spacing = np.sum(spacings)
+
+        available_height = self.r_max - rand2
+
+        eps = 1e-8
+        denom = total_height + total_spacing
+        scale = (available_height)/max(denom, eps)
+
+        if scale < 1.0:
+            w_mins *= scale
+            spacings *= scale
+
+        y_mins = np.zeros(self.n_barriers)
+        y_mins[0] = rand2
+        current_pos = y_mins[0]
+
+        for i in range(1, self.n_barriers):
+            current_pos += w_mins[i-1] + spacings[i-1]
+            y_mins[i] = current_pos
+        
+        offsets = w_mins * 0.1
+        y_mids = y_mins + offsets
+        
+        w_maxs = np.clip(w_mins * 0.7, 0.01, None)
+
+        w_maxs = np.clip(w_mins * 0.7, 0.01, None)
+        thetas = np.linspace(1, 20, self.n_barriers)
+        thetas[0] = 1
+
+        self.y_mins = y_mins
+        self.w_mins = w_mins
+        self.y_mids = y_mids
+        self.w_mids = w_mids
+        self.thetas = thetas
+        self.w_maxs = w_maxs
+
+        return y_mins, w_mins, y_mids, w_mids, thetas, w_maxs
+
+    def X_to_params(self, X: np.ndarray, barrier=None):
+        n = self.n_barriers if barrier is None else barrier
+
+        if len(X) != 2*n:
+            raise ValueError(f"X length {len(X)} does not match expected 2*n={2*n}")
+
+        rand1 = X[:n]
+        rand2 = X[n]
+        spacings = X[n+1:n+1+(n-1)]
+        
+        return rand1, rand2, spacings
+    
+    def generate_barriers(self) -> list[np.ndarray]:
+        barriers = []
+        for args in zip(self.y_mins, self.w_mins, self.y_mids, self.w_mids, self.thetas, self.w_maxs):
+            x_all, y_all = self._create_barrier(*args)
+            xy_all = np.vstack((x_all, y_all)).T
+            barriers.append(xy_all)
+        return barriers
+
+    def generate_magnets(self, barriers: list[np.ndarray]) -> list[np.ndarray]:
+        magnets = []
+        margin = 0.0 
+
+        for barrier in barriers:
+            x, y = barrier[:, 0], barrier[:, 1]
+            mag_pts = np.column_stack((x, y))
+
+            angles = np.degrees(np.arctan2(mag_pts[:, 1], mag_pts[:, 0]))
+            
+            center_angle = (angles.max() + angles.min()) / 2
+            
+            full_half_span = (angles.max() - angles.min()) / 2
+            center_half_span = full_half_span * (1 - 2 * margin)
+
+            center_mask = np.abs(angles - center_angle) < center_half_span
+            magnets.append([mag_pts[center_mask]])
+
+        return magnets

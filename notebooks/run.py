@@ -11,6 +11,7 @@ from machine_design.optimization import (
     HacklGenerator_3BrokenLines,
     HacklGenerator_OneLambda,
     HacklGenerator_SixLambdas,
+    MagnetGenerator,
     analyze_results,
     plot_barriers,
     save_params,
@@ -40,6 +41,7 @@ generators = [
     HacklGenerator_OneLambda(design, r_stator_end, offset=offset),
     HacklGenerator_SixLambdas(design, r_stator_end, offset=offset),
     HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset),
+    MagnetGenerator(design, r_stator_end, offset=offset)
 ]
 
 metadata = pd.DataFrame()

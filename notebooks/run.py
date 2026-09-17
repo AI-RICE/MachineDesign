@@ -40,8 +40,7 @@ design = load_design(file_name_aedt, project_name, design_name, aedt_version, ge
 generators = [
     HacklGenerator_OneLambda(design, r_stator_end, offset=offset),
     HacklGenerator_SixLambdas(design, r_stator_end, offset=offset),
-    HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset),
-    MagnetGenerator(design, r_stator_end, offset=offset)
+    HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset)
 ]
 
 metadata = pd.DataFrame()

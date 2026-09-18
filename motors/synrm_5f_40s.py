@@ -277,8 +277,8 @@ class Computation(ComputationBase):
         Flux_d3, Flux_q3 = to_dq(flux_phases, theta_el, harmonic=3)
         Vind_d1, Vind_q1 = to_dq(vind_phases, theta_el, harmonic=1)
         Vind_d3, Vind_q3 = to_dq(vind_phases, theta_el, harmonic=3)
-        I_d1, I_q1 = (v/1e3 for v in to_dq(current_phases, theta_el, harmonic=1))
-        I_d3, I_q3 = (v/1e3 for v in to_dq(current_phases, theta_el, harmonic=3))
+        I_d1, I_q1 = (v / 1e3 for v in to_dq(current_phases, theta_el, harmonic=1))
+        I_d3, I_q3 = (v / 1e3 for v in to_dq(current_phases, theta_el, harmonic=3))
         # mA to A
 
         Im1 = np.sqrt(self.Id1**2 + self.Iq1**2)
@@ -317,6 +317,11 @@ class Computation(ComputationBase):
         Ld3, Ld3q3 = to_dq(L_d3_row, theta_el, harmonic=3)
         Lq3d3, Lq3 = to_dq(L_q3_row, theta_el, harmonic=3)
 
+        Flux_e_d1 = Flux_d1 - (Ld1 * I_d1 + Ld1q1 * I_q1 + Ld1d3 * I_d3 + Ld1q3 * I_q3)
+        Flux_e_q1 = Flux_q1 - (Lq1d1 * I_d1 + Lq1 * I_q1 + Lq1d3 * I_d3 + Lq1q3 * I_q3)
+        Flux_e_d3 = Flux_d3 - (Ld3d1 * I_d1 + Ld3q1 * I_q1 + Ld3 * I_d3 + Ld3q3 * I_q3)
+        Flux_e_q3 = Flux_q3 - (Lq3d1 * I_d1 + Lq3q1 * I_q1 + Lq3d3 * I_d3 + Lq3 * I_q3)
+
         out = {
             "V_d1": V_d1,
             "V_q1": V_q1,
@@ -350,6 +355,10 @@ class Computation(ComputationBase):
             "Ld3q3": Ld3q3,
             "Lq3d3": Lq3d3,
             "Lq3": Lq3,
+            "Flux_e_d1": Flux_e_d1,
+            "Flux_e_q1": Flux_e_q1,
+            "Flux_e_d3": Flux_e_d3,
+            "Flux_e_q3": Flux_e_q3,
             "Moving1.Torque": torque,
         }
 

@@ -309,13 +309,13 @@ class Computation(ComputationBase):
             L_d3_row[:, i], L_q3_row[:, i] = (v * 5 / 2 for v in to_dq(L_row, theta_el, harmonic=3))
 
         Ld1, Ld1q1 = to_dq(L_d1_row, theta_el, harmonic=1)
-        Lq1d1, Lq1 = to_dq(L_q1_row, theta_el, harmonic=1)
+        _Lq1d1, Lq1 = to_dq(L_q1_row, theta_el, harmonic=1)
         Ld1d3, Ld1q3 = to_dq(L_d1_row, theta_el, harmonic=3)
         Lq1d3, Lq1q3 = to_dq(L_q1_row, theta_el, harmonic=3)
-        Ld3d1, Ld3q1 = to_dq(L_d3_row, theta_el, harmonic=1)
-        Lq3d1, Lq3q1 = to_dq(L_q3_row, theta_el, harmonic=1)
+        # _Ld3d1, _Ld3q1 = to_dq(L_d3_row, theta_el, harmonic=1)
+        # _Lq3d1, _Lq3q1 = to_dq(L_q3_row, theta_el, harmonic=1)
         Ld3, Ld3q3 = to_dq(L_d3_row, theta_el, harmonic=3)
-        Lq3d3, Lq3 = to_dq(L_q3_row, theta_el, harmonic=3)
+        _Lq3d3, Lq3 = to_dq(L_q3_row, theta_el, harmonic=3)
 
         Flux_e_d1 = Flux_d1 - (Ld1 * I_d1 + Ld1q1 * I_q1 + Ld1d3 * I_d3 + Ld1q3 * I_q3)
         Flux_e_q1 = Flux_q1 - (Lq1d1 * I_d1 + Lq1 * I_q1 + Lq1d3 * I_d3 + Lq1q3 * I_q3)
@@ -341,19 +341,19 @@ class Computation(ComputationBase):
             "I_q3": I_q3,
             "Ld1": Ld1,
             "Ld1q1": Ld1q1,
-            "Lq1d1": Lq1d1,
+            "Lq1d1": _Lq1d1,
             "Lq1": Lq1,
             "Ld1d3": Ld1d3,
             "Ld1q3": Ld1q3,
             "Lq1d3": Lq1d3,
             "Lq1q3": Lq1q3,
-            "Ld3d1": Ld3d1,
-            "Ld3q1": Ld3q1,
-            "Lq3d1": Lq3d1,
-            "Lq3q1": Lq3q1,
+            # "Ld3d1": _Ld3d1,
+            # "Ld3q1": _Ld3q1,
+            # "Lq3d1": _Lq3d1,
+            # "Lq3q1": _Lq3q1,
             "Ld3": Ld3,
             "Ld3q3": Ld3q3,
-            "Lq3d3": Lq3d3,
+            "Lq3d3": _Lq3d3,
             "Lq3": Lq3,
             "Flux_e_d1": Flux_e_d1,
             "Flux_e_q1": Flux_e_q1,

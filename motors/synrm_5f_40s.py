@@ -277,8 +277,10 @@ class Computation(ComputationBase):
         Flux_d3, Flux_q3 = to_dq(flux_phases, theta_el, harmonic=3)
         Vind_d1, Vind_q1 = to_dq(vind_phases, theta_el, harmonic=1)
         Vind_d3, Vind_q3 = to_dq(vind_phases, theta_el, harmonic=3)
-        I_d1, I_q1 = to_dq(current_phases, theta_el, harmonic=1)
-        I_d3, I_q3 = to_dq(current_phases, theta_el, harmonic=3)
+        I_d1, I_q1 = (v/1e3 for v in to_dq(current_phases, theta_el, harmonic=1))
+        I_d3, I_q3 = (v/1e3 for v in to_dq(current_phases, theta_el, harmonic=3))
+        # mA to A
+
         Im1 = np.sqrt(self.Id1**2 + self.Iq1**2)
         Im3 = np.sqrt(self.Id3**2 + self.Iq3**2)
         epsI1 = np.atan2(self.Iq1, self.Id1)
@@ -295,7 +297,8 @@ class Computation(ComputationBase):
         V_d1, V_q1 = to_dq(V_phases, theta_el, harmonic=1)
         V_d3, V_q3 = to_dq(V_phases, theta_el, harmonic=3)
 
-        L_raw = [np.stack([np.array(solutions.data_real(f"L(Phase{x},Phase{y})")) for y in "ABCDE"], axis=-1) for x in "ABCDE"]
+        L_raw = [np.stack([np.array(solutions.data_real(f"L(Phase{x},Phase{y})")) for y in "ABCDE"], axis=-1) / 1e9 for x in "ABCDE"]
+        # nH to H
 
         L_d1_row = np.zeros((len(time), 5))
         L_q1_row = np.zeros((len(time), 5))
@@ -327,10 +330,10 @@ class Computation(ComputationBase):
             "Vind_q1": Vind_q1,
             "Vind_d3": Vind_d3,
             "Vind_q3": Vind_q3,
-            "I_d1": I_d1 / 1e3,
-            "I_q1": I_q1 / 1e3,
-            "I_d3": I_d3 / 1e3,
-            "I_q3": I_q3 / 1e3,
+            "I_d1": I_d1,
+            "I_q1": I_q1,
+            "I_d3": I_d3,
+            "I_q3": I_q3,
             "Ld1": Ld1,
             "Ld1q1": Ld1q1,
             "Lq1d1": Lq1d1,

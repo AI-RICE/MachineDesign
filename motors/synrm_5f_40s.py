@@ -8,6 +8,7 @@ import numpy as np
 from ansys.aedt.core import Maxwell2d
 
 from machine_design.designs.computation import ComputationBase
+from machine_design.transforms import electrical_angle, to_dq
 
 from .synrm_3f_36s import Geometry as BaseGeometry
 
@@ -33,8 +34,10 @@ class Computation(ComputationBase):
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
-        self.InitPos = -45.0 # deg
+        self.InitPos = -45.0  # deg
         self.RotSign = 1
+        self.Rstat = 19.0
+        self.Lew = 0.0
         self.w = w
         self.oper_params = {
             "Id1": "0.0A",
@@ -262,15 +265,54 @@ class Computation(ComputationBase):
         m2d.variable_manager["Iq3"] = f"{Iq3}A"
 
     def extract_results(self, solutions):
-        out = {}
-        for expr in self.solution_expressions:
-            val = solutions.data_real(expr)
+        position = np.array(solutions.data_real("Moving1.Position"))
+        torque = np.array(solutions.data_real("Moving1.Torque"))
 
-            if expr.startswith("Ld") or expr.startswith("Lq"):
-                val = np.array(val) / 1e9
-            elif expr.startswith("I_"):
-                val = np.array(val) / 1e3
+        theta_el = electrical_angle(position, self.InitPos, self.geometry.PolePairs, self.RotSign, degrees=True)
+        flux_phases = np.stack([np.array(solutions.data_real(f"FluxLinkage(Phase{p})")) for p in "ABCDE"], axis=-1)
+        vind_phases = np.stack([np.array(solutions.data_real(f"InducedVoltage(Phase{p})")) for p in "ABCDE"], axis=-1)
+        current_phases = np.stack([np.array(solutions.data_real(f"InputCurrent(Phase{p})")) for p in "ABCDE"], axis=-1)
 
-            # TODO: possibly assign val[:-1]. check whether values are identical
-            out[expr] = val
+        Flux_d1, Flux_q1 = to_dq(flux_phases, theta_el, harmonic=1)
+        Flux_d3, Flux_q3 = to_dq(flux_phases, theta_el, harmonic=3)
+        Vind_d1, Vind_q1 = to_dq(vind_phases, theta_el, harmonic=1)
+        Vind_d3, Vind_q3 = to_dq(vind_phases, theta_el, harmonic=3)
+        I_d1, I_q1 = to_dq(current_phases, theta_el, harmonic=1)
+        I_d3, I_q3 = to_dq(current_phases, theta_el, harmonic=3)
+        Im1 = np.sqrt(self.Id1**2 + self.Iq1**2)
+        Im3 = np.sqrt(self.Id3**2 + self.Iq3**2)
+        epsI1 = np.atan2(self.Iq1, self.Id1)
+        epsI3 = np.atan2(self.Iq3, self.Id3)
+
+        time = np.array(solutions.primary_sweep_values)
+        dI_dt_phases = np.zeros((len(time), 5))
+        for k in range(5):
+            phase_offset = -2 * np.pi * k / 5  # 5 angles, 0deg, -72deg, -144deg, -216deg, -288deg
+            dI_dt_phases[:, k] = -Im1 * self.w * np.sin(self.w * time + phase_offset + epsI1 - np.pi) - Im3 * 3 * self.w * np.sin(3 * (self.w * time + phase_offset) + epsI3 - np.pi)
+
+        V_phases = vind_phases + self.Rstat * current_phases + self.Lew * dI_dt_phases
+
+        V_d1, V_q1 = to_dq(V_phases, theta_el, harmonic=1)
+        V_d3, V_q3 = to_dq(V_phases, theta_el, harmonic=3)
+
+        out = {
+            "V_d1": V_d1,
+            "V_q1": V_q1,
+            "V_d3": V_d3,
+            "V_q3": V_q3,
+            "Flux_d1": Flux_d1,
+            "Flux_q1": Flux_q1,
+            "Flux_d3": Flux_d3,
+            "Flux_q3": Flux_q3,
+            "Vind_d1": Vind_d1,
+            "Vind_q1": Vind_q1,
+            "Vind_d3": Vind_d3,
+            "Vind_q3": Vind_q3,
+            "I_d1": I_d1 / 1e3,
+            "I_q1": I_q1 / 1e3,
+            "I_d3": I_d3 / 1e3,
+            "I_q3": I_q3 / 1e3,
+            "Moving1.Torque": torque,
+        }
+
         return out

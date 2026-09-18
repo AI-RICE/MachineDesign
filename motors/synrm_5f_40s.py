@@ -255,6 +255,7 @@ class Computation(ComputationBase):
         m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=True)
 
     def set_variables(self, m2d: Maxwell2d, Id1, Iq1, Id3, Iq3):
+        self.Id1, self.Iq1, self.Id3, self.Iq3 = Id1, Iq1, Id3, Iq3
         m2d.variable_manager["Id1"] = f"{Id1}A"
         m2d.variable_manager["Iq1"] = f"{Iq1}A"
         m2d.variable_manager["Id3"] = f"{Id3}A"

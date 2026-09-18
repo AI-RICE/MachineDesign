@@ -96,9 +96,7 @@ class Computation(ComputationBase):
         ]
 
     def set_output_vars(self):
-        self.output_vars = {
-            
-        }
+        self.output_vars = {}
 
     def set_post_params(self):
         self.post_params = {  # reports

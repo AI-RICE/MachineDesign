@@ -33,6 +33,9 @@ class Computation(ComputationBase):
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
+        self.InitPos = -45.0 # deg
+        self.RotSign = 1
+        self.w = w
         self.oper_params = {
             "Id1": "0.0A",
             "Iq1": "0.0A",
@@ -42,7 +45,7 @@ class Computation(ComputationBase):
             "epsI3": "atan2(Iq3,Id3)",  # current angle, 1st harmonic
             "Im1": "sqrt(Id1^2+Iq1^2)",
             "Im3": "sqrt(Id3^2+Iq3^2)",
-            "InitPos": "-45deg",
+            "InitPos": f"{self.InitPos}deg",
             "w": f"{w}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
             "Nper": "1/10",  # number of included periods

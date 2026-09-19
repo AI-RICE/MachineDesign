@@ -34,7 +34,7 @@ class Computation(ComputationBase):
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
-        self.InitPos = -45.0  # deg
+        self.InitPos = -45  # deg
         self.RotSign = 1
         self.Rstat = 19.0
         self.Lew = 0.0

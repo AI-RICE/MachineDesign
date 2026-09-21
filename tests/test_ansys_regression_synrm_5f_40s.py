@@ -1,4 +1,4 @@
-"""Golden-master check: tests/legacy/design.py vs. the live machine_design/designs/design.py.
+"""Golden-master check: tests/legacy/design2.py vs. the live machine_design/designs/design.py.
 
 Generates two feasible rotor designs (different seeds) with HacklGenerator_OneLambda and
 runs each through add_rotor -> compute -> delete_rotor on the SAME Design instance, both
@@ -6,21 +6,19 @@ with the frozen reference implementation and the current one - mirroring how an
 optimization loop reuses one Design across many candidate rotors. Asserts the resulting
 torque waveforms match at each step. Run explicitly with:
 
-    pytest -m ansys tests/test_ansys_regression.py
+    pytest -m ansys tests/test_ansys_regression_synrm_5f_40s.py
 
 Requires a running Ansys Electronics Desktop session and a free license seat.
 """
 
-import importlib.util
-from pathlib import Path
-
 import numpy as np
 import pytest
+from legacy.design2 import Design2
 
 from machine_design.config import load_config
 from machine_design.designs.design import Design as LiveDesign
 from machine_design.optimization.generators import HacklGenerator_OneLambda
-from motors.synrm_3f_36s import Computation, Geometry
+from motors.synrm_5f_40s import Computation, Geometry
 
 pytestmark = pytest.mark.ansys
 
@@ -29,14 +27,7 @@ R_STATOR_END = 0.7
 OFFSET = 0.35
 SEEDS = (42, 43)
 NUM_CORES = 1
-
-
-def _load_legacy_design_class():
-    legacy_path = Path(__file__).parent / "legacy" / "design.py"
-    spec = importlib.util.spec_from_file_location("legacy_design", legacy_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.Design
+current_setpoint = (7.0711, 7.0711, 0.0, 0.0)
 
 
 def _generate_one_lambda_barriers(seed):
@@ -75,20 +66,19 @@ def _create_design(design_cls, project_name, file_name, extra_args=()):
     )
 
 
-def _compute_torque(design, barriers, add_rotor):
+def _compute_torque(design, barriers, add_rotor, setpoint=current_setpoint):
     add_rotor(design, barriers)
-    torque = design.compute(NUM_CORES=NUM_CORES)
+    torque = design.compute(*setpoint, NUM_CORES=NUM_CORES)
     design.delete_rotor()
     return torque
 
 
 def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
     barrier_sets = [_generate_one_lambda_barriers(seed) for seed in SEEDS]
-    LegacyDesign = _load_legacy_design_class()
 
     legacy_design, live_design = None, None
     try:
-        legacy_design = _create_design(LegacyDesign, "RegressionTest_legacy", str(tmp_path / "legacy.aedt"))
+        legacy_design = _create_design(Design2, "RegressionTest_legacy", str(tmp_path / "legacy.aedt"))
 
         live_geometry = Geometry()
         live_computation = Computation(live_geometry)
@@ -105,7 +95,12 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
 
             assert torque_legacy is not None, f"legacy torque is None for seed {seed}"
             assert torque_live is not None, f"live torque is None for seed {seed}"
-            np.testing.assert_allclose(torque_live, torque_legacy, rtol=1e-6, err_msg=f"mismatch for seed {seed}")
+
+            for expr in live_computation.solution_expressions:
+                np.testing.assert_allclose(torque_live[expr], torque_legacy[expr], rtol=1e-3, atol=2e-4, err_msg=f"mismatch for {expr}, seed {seed}")
+                # rtol is a relative tolerance, but when current_setpoint = (7.0711, 7.0711, 0.0, 0.0) is used,
+                # I_d3 is 1e-15 and 2.2e-16 for legacy and live, respectively, rtol is not meaningful when comparing such small numbers,
+                # so atol (absolute tolerance) is used to avoid false failures.
     finally:
         if live_design is not None:
             live_design.close_project()

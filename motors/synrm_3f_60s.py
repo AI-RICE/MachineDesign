@@ -2,10 +2,10 @@
 
 import numpy as np
 from ansys.aedt.core import Maxwell2d
-from ansys.aedt.core.modeler.modeler_2d import Modeler2D
 
 from machine_design.designs.computation import ComputationBase
 from machine_design.winding import phase_groups
+
 from .synrm_3f_36s import Geometry as BaseGeometry
 
 

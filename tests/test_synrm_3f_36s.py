@@ -73,8 +73,10 @@ def test_mod_params(geometry):
 
 def test_oper_params(computation):
     assert computation.oper_params == {
-        "Im": "1.5*sqrt(2)A",
-        "epsI": "pi/4",
+        "Id": "0.0A",
+        "Iq": "0.0A",
+        "epsI": "atan2(Iq,Id)",
+        "Im": "sqrt(Id^2+Iq^2)A",
         "InitPos": "-30deg",
         "w": f"{2 * np.pi * 50}Hz",
         "RotSpeed": "1500.0rpm",

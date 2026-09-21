@@ -36,11 +36,7 @@ file_name_aedt = f"{path_data}/{project_name}.aedt"
 geometry = Geometry()
 computation = Computation(geometry)
 design = load_design(file_name_aedt, project_name, design_name, aedt_version, geometry, computation)
-generators = [
-    HacklGenerator_OneLambda(design, r_stator_end, offset=offset),
-    HacklGenerator_SixLambdas(design, r_stator_end, offset=offset),
-    HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset),
-]
+generators = [HacklGenerator_OneLambda(design, r_stator_end, offset=offset), HacklGenerator_SixLambdas(design, r_stator_end, offset=offset), HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset)]
 
 metadata = pd.DataFrame()
 for i in range(0, n_designs):

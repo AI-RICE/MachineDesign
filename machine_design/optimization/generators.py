@@ -427,16 +427,17 @@ class HacklGenerator_3BrokenLines(AbstractHacklGenerator):
 
         # Stack segments and drop duplicate joint points
         return np.vstack((seg1, seg2[1:], seg3[1:]))
-    
+
+
 class MagnetGenerator(BarrierGenerator):
     def __init__(self, design, r_stator_end, der1=1.0, der2=1.0, symmetric=True, **kwargs):
-            self.n_designs = kwargs.get("n_designs", 1)
-            self.der1 = der1
-            self.der2 = der2
-            self.symmetric = symmetric
-            self.n_barriers = kwargs.get("n_barriers", 1)
-            super().__init__(design, r_stator_end, **kwargs)
-    
+        self.n_designs = kwargs.get("n_designs", 1)
+        self.der1 = der1
+        self.der2 = der2
+        self.symmetric = symmetric
+        self.n_barriers = kwargs.get("n_barriers", 1)
+        super().__init__(design, r_stator_end, **kwargs)
+
     def _create_barrier(
         self,
         y_min,
@@ -474,53 +475,51 @@ class MagnetGenerator(BarrierGenerator):
             y_all = np.concatenate((y_all, y_all[::-1][1:]))
         x_all, y_all = rotate(x_all, y_all, -45)
         return x_all, y_all
-    
+
     @property
     def bounds(self) -> tuple[np.ndarray, np.ndarray]:
         n = self.n_barriers
 
-        lb = np.concatenate([
-        np.full(n, 0.7), # rand1
-        np.array([12]), # rand2
-        np.full(n-1, 1) #spacings
-        ])
+        lb = np.concatenate(
+            [
+                np.full(n, 0.7),  # rand1
+                np.array([12]),  # rand2
+                np.full(n - 1, 1),  # spacings
+            ]
+        )
 
-        ub = np.concatenate([
-            np.full(n, 1.0),
-            np.array([20]),
-            np.full(n-1, 5)
-        ])
+        ub = np.concatenate([np.full(n, 1.0), np.array([20]), np.full(n - 1, 5)])
 
         return lb, ub
-    
+
     def generate_w_mins_base(self, rotor_r_min, rotor_r_max):
         n_barriers = self.n_barriers
         available_height = rotor_r_max - rotor_r_min
         gap_ratio = 0.5
-        total_dap = available_height*gap_ratio
-        
+        total_dap = available_height * gap_ratio
+
         total_height_barrier = available_height - total_dap
 
         if n_barriers == 1:
             weights = np.array([1.0])
         else:
             weights = np.array([0.99**i for i in range(n_barriers)])
-        
+
         weights = weights / np.sum(weights)
 
         return total_height_barrier * weights
-    
+
     def random_parameters(self):
 
         rand1 = np.random.uniform(0.7, 1.0, self.n_barriers)
-        rand2 = np.random.uniform(12,20)
+        rand2 = np.random.uniform(12, 20)
         spacings = np.random.dirichlet(np.ones(self.n_barriers - 1))
 
         return rand1, rand2, spacings
-    
+
     def set_parameters(self, params) -> None:
         rand1, rand2, spacings = params
-    
+
         w_mins_base = self.generate_w_mins_base(self.r_min, self.r_max)
 
         w_mins = w_mins_base * rand1
@@ -533,7 +532,7 @@ class MagnetGenerator(BarrierGenerator):
 
         eps = 1e-8
         denom = total_height + total_spacing
-        scale = (available_height)/max(denom, eps)
+        scale = (available_height) / max(denom, eps)
 
         if scale < 1.0:
             w_mins *= scale
@@ -544,12 +543,12 @@ class MagnetGenerator(BarrierGenerator):
         current_pos = y_mins[0]
 
         for i in range(1, self.n_barriers):
-            current_pos += w_mins[i-1] + spacings[i-1]
+            current_pos += w_mins[i - 1] + spacings[i - 1]
             y_mins[i] = current_pos
-        
+
         offsets = w_mins * 0.1
         y_mids = y_mins + offsets
-        
+
         w_maxs = np.clip(w_mins * 0.7, 0.01, None)
 
         w_maxs = np.clip(w_mins * 0.7, 0.01, None)
@@ -568,15 +567,15 @@ class MagnetGenerator(BarrierGenerator):
     def X_to_params(self, X: np.ndarray, barrier=None):
         n = self.n_barriers if barrier is None else barrier
 
-        if len(X) != 2*n:
-            raise ValueError(f"X length {len(X)} does not match expected 2*n={2*n}")
+        if len(X) != 2 * n:
+            raise ValueError(f"X length {len(X)} does not match expected 2*n={2 * n}")
 
         rand1 = X[:n]
         rand2 = X[n]
-        spacings = X[n+1:n+1+(n-1)]
-        
+        spacings = X[n + 1 : n + 1 + (n - 1)]
+
         return rand1, rand2, spacings
-    
+
     def generate_barriers(self) -> list[np.ndarray]:
         barriers = []
         for args in zip(self.y_mins, self.w_mins, self.y_mids, self.w_mids, self.thetas, self.w_maxs):
@@ -587,16 +586,16 @@ class MagnetGenerator(BarrierGenerator):
 
     def generate_magnets(self, barriers: list[np.ndarray]) -> list[np.ndarray]:
         magnets = []
-        margin = 0.0 
+        margin = 0.0
 
         for barrier in barriers:
             x, y = barrier[:, 0], barrier[:, 1]
             mag_pts = np.column_stack((x, y))
 
             angles = np.degrees(np.arctan2(mag_pts[:, 1], mag_pts[:, 0]))
-            
+
             center_angle = (angles.max() + angles.min()) / 2
-            
+
             full_half_span = (angles.max() - angles.min()) / 2
             center_half_span = full_half_span * (1 - 2 * margin)
 

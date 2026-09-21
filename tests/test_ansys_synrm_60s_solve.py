@@ -25,7 +25,7 @@ R_STATOR_END = 0.7
 OFFSET = 0.35
 SEEDS = (42, 43)
 NUM_CORES = 1
-Machines=[
+Machines = [
     ("synrm_3f_60s", Geometry3f, Computation3f, (1.5, 1.5)),
     ("synrm_5f_60s", Geometry5f, Computation5f, (7.0711, 7.0711, 0.0, 0.0)),
 ]
@@ -50,15 +50,15 @@ def _generate_one_lambda_barriers(seed):
 
 def test_synrm_3f_60s_and_5f_60s_solve_with_same_rotor(tmp_path):
     for seed in SEEDS:
-        barriers=_generate_one_lambda_barriers(seed)
+        barriers = _generate_one_lambda_barriers(seed)
 
         for name, geometry_cls, computation_cls, current_setpoint in Machines:
-            geometry=geometry_cls()
-            computation=computation_cls(geometry)
-            design=LiveDesign.create(
+            geometry = geometry_cls()
+            computation = computation_cls(geometry)
+            design = LiveDesign.create(
                 f"Check60_{name}_{seed}",
                 "Design01",
-                str(tmp_path/f"{name}_{seed}.aedt"),
+                str(tmp_path / f"{name}_{seed}.aedt"),
                 geometry,
                 computation,
                 version=AEDT_VERSION,
@@ -69,8 +69,8 @@ def test_synrm_3f_60s_and_5f_60s_solve_with_same_rotor(tmp_path):
             try:
                 design.add_rotor()
                 for barrier in barriers:
-                        design.add_rotor_barrier(barrier)
-                torque=design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
+                    design.add_rotor_barrier(barrier)
+                torque = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
                 assert torque is not None, f"{name} seed {seed}: torque is None"
             finally:
                 design.close_project()

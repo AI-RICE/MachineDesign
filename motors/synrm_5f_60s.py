@@ -58,6 +58,32 @@ class Computation(ComputationBase):
     def set_output_vars(self):
         self.output_vars = {}
 
+    def set_post_params(self):
+        self.post_params = {  # reports
+            (
+                "InducedVoltage(PhaseA)",
+                "InducedVoltage(PhaseB)",
+                "InducedVoltage(PhaseC)",
+                "InducedVoltage(PhaseD)",
+                "InducedVoltage(PhaseE)",
+            ): "InducedVoltage",
+            ("Moving1.Torque"): "Torque",
+            (
+                "InputCurrent(PhaseA)",
+                "InputCurrent(PhaseB)",
+                "InputCurrent(PhaseC)",
+                "InputCurrent(PhaseD)",
+                "InputCurrent(PhaseE)",
+            ): "Current",
+            (
+                "FluxLinkage(PhaseA)",
+                "FluxLinkage(PhaseB)",
+                "FluxLinkage(PhaseC)",
+                "FluxLinkage(PhaseD)",
+                "FluxLinkage(PhaseE)",
+            ): "FluxLinkage",
+        }
+
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:
         # Excitations
         I_A = "Im1*cos(w*Time+epsI1-pi) + Im3*cos(3*(w*Time)+epsI3-pi)"

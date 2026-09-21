@@ -27,7 +27,7 @@ SEEDS = (42, 43)
 NUM_CORES = 1
 Machines=[
     ("synrm_3f_60s", Geometry3f, Computation3f, (1.5, 1.5)),
-    ("synrm_5f_60s", Geometry5f, Computation5f, (1.5, 1.5, 0.0, 0.0)),
+    ("synrm_5f_60s", Geometry5f, Computation5f, (7.0711, 7.0711, 0.0, 0.0)),
 ]
 
 

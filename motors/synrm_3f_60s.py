@@ -3,9 +3,9 @@
 import numpy as np
 from ansys.aedt.core import Maxwell2d
 
-from machine_design.designs.computation import ComputationBase
 from machine_design.winding import phase_groups
 
+from .synrm_3f_36s import Computation as BaseComputation
 from .synrm_3f_36s import Geometry as BaseGeometry
 
 
@@ -27,7 +27,7 @@ class Geometry(BaseGeometry):
         self.wind_params["CoilPitch"] = "15"  # full pitch over one pole (60/4)
 
 
-class Computation(ComputationBase):
+class Computation(BaseComputation):
     def set_oper_params(self):
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
@@ -88,8 +88,6 @@ class Computation(ComputationBase):
             )
             m2d.add_winding_coils(assignment=f"Phase{phase_name}", coils=[f"CS_{coil_name}" for coil_name, _ in group])
 
-    def inductance_computation(self, m2d: Maxwell2d) -> None:
-        m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=False)
 
     def set_variables(self, m2d: Maxwell2d, Id, Iq):
         self.Id, self.Iq = Id, Iq

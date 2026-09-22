@@ -2,7 +2,7 @@
 
 `machine_design/generic/transforms.py` and `motors/synrm_5f_40s.py`'s `set_output_vars`
 implement the same five-phase Park/Clarke transform twice -- once in Python, once as
-Ansys expressions.This solves one rotor with both dq1 and dq3 excited, then asserts that 
+Ansys expressions.This solves one rotor with both dq1 and dq3 excited, then asserts that
 transforming the per-phase quantities in Python reproduces Ansys's own dq outputs.
 
 Two subjects, deliberately:

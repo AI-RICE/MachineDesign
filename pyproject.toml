@@ -43,6 +43,7 @@ dev = [
 packages = [
   "machine_design",
   "machine_design.designs",
+  "machine_design.generic",
   "machine_design.optimization",
   "motors",
 ]
@@ -52,6 +53,7 @@ machine_design = ["config.default.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 markers = [
     "ansys: requires a running Ansys Electronics Desktop session and a license seat; excluded by default",
 ]

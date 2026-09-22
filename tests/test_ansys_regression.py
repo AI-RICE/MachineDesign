@@ -29,6 +29,7 @@ R_STATOR_END = 0.7
 OFFSET = 0.35
 SEEDS = (42, 43)
 NUM_CORES = 1
+current_setpoint = (1.5, 1.5)
 
 
 def _load_legacy_design_class():
@@ -75,9 +76,9 @@ def _create_design(design_cls, project_name, file_name, extra_args=()):
     )
 
 
-def _compute_torque(design, barriers, add_rotor):
+def _compute_torque(design, barriers, add_rotor, setpoint=current_setpoint):
     add_rotor(design, barriers)
-    torque = design.compute(NUM_CORES=NUM_CORES)
+    torque = design.compute(*setpoint, NUM_CORES=NUM_CORES)
     design.delete_rotor()
     return torque
 

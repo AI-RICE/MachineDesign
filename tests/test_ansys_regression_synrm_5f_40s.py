@@ -96,7 +96,7 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
             assert torque_legacy is not None, f"legacy torque is None for seed {seed}"
             assert torque_live is not None, f"live torque is None for seed {seed}"
 
-            for expr in live_computation.solution_expressions:
+            for expr in legacy_design.solution_expressions:
                 np.testing.assert_allclose(torque_live[expr], torque_legacy[expr], rtol=1e-3, atol=2e-4, err_msg=f"mismatch for {expr}, seed {seed}")
                 # rtol is a relative tolerance, but when current_setpoint = (7.0711, 7.0711, 0.0, 0.0) is used,
                 # I_d3 is 1e-15 and 2.2e-16 for legacy and live, respectively, rtol is not meaningful when comparing such small numbers,

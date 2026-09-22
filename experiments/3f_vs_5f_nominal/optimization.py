@@ -28,8 +28,8 @@ def objective(Xs: Tensor, *args, **kwargs) -> Tensor:
 def objective_single(X: Tensor, design, generator, current_n, bounds, NUM_CORES, **kwargs) -> Tensor:
     # current_n means number of current, 3f is 2, 5f is 4
     X = unnormalize(X, bounds)
-    barrier_X, current_X=X[:-current_n], X[-current_n:]
-    current=current_X.numpy()
+    barrier_X, current_X = X[:-current_n], X[-current_n:]
+    current = current_X.numpy()
 
     params = generator.X_to_params(barrier_X.numpy())
 
@@ -52,7 +52,7 @@ def objective_single(X: Tensor, design, generator, current_n, bounds, NUM_CORES,
     # Delete the rotor
     design.delete_rotor()
 
-    loss=float(np.sum(current**2))
+    loss = float(np.sum(current**2))
     f1, f2, f3 = objective_transform(loss, TorAvg, TorRippleRms, **kwargs)
     return torch.tensor([f1, f2, f3])
 
@@ -75,7 +75,7 @@ def init_points(root, method):
                     X.append(y)
             else:
                 X.append(x)
-        Y = objective_transform(r["T"], r["ripple"])
+        Y = objective_transform(r["loss"], r["T"], r["ripple"])
 
         Xs.append(torch.Tensor(X))
         Ys.append(torch.Tensor(Y))

@@ -8,6 +8,7 @@ import numpy as np
 from ansys.aedt.core import Maxwell2d
 
 from machine_design.designs.computation import ComputationBase
+from machine_design.transforms import electrical_angle, to_dq
 
 from .synrm_3f_36s import Geometry as BaseGeometry
 
@@ -33,6 +34,11 @@ class Computation(ComputationBase):
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
+        self.InitPos = -45  # deg
+        self.RotSign = 1
+        self.Rstat = 19.0
+        self.Lew = 0.0
+        self.w = w
         self.oper_params = {
             "Id1": "0.0A",
             "Iq1": "0.0A",
@@ -42,7 +48,7 @@ class Computation(ComputationBase):
             "epsI3": "atan2(Iq3,Id3)",  # current angle, 1st harmonic
             "Im1": "sqrt(Id1^2+Iq1^2)",
             "Im3": "sqrt(Id3^2+Iq3^2)",
-            "InitPos": "-45deg",
+            "InitPos": f"{self.InitPos}deg",
             "w": f"{w}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
             "Nper": "1/10",  # number of included periods
@@ -51,136 +57,16 @@ class Computation(ComputationBase):
 
     def set_solution_expressions(self):
         self.solution_expressions = [
-            "V_d1",
-            "V_q1",
-            "V_d3",
-            "V_q3",
-            "Flux_e_d1",
-            "Flux_e_q1",
-            "Flux_e_d3",
-            "Flux_e_q3",
-            "I_d1",
-            "I_q1",
-            "I_d3",
-            "I_q3",
-            "Ld1",
-            "Ld1q1",
-            "Ld1d3",
-            "Ld1q3",
-            "Lq1",
-            "Lq1d3",
-            "Lq1q3",
-            "Ld3",
-            "Ld3q3",
-            "Lq3",
+            "Moving1.Position",
             "Moving1.Torque",
+            *[f"FluxLinkage(Phase{p})" for p in "ABCDE"],
+            *[f"InducedVoltage(Phase{p})" for p in "ABCDE"],
+            *[f"InputCurrent(Phase{p})" for p in "ABCDE"],
+            *[f"L(Phase{x},Phase{y})" for x in "ABCDE" for y in "ABCDE"],
         ]
 
     def set_output_vars(self):
-        self.output_vars = {
-            "PolePairs": "2",
-            "RotSign": "1",
-            "Rstat": "19",
-            "Lew": "0",
-            "theta_el": "RotSign*(Moving1.Position - InitPos) * PolePairs - pi",
-            "cos0_1": "cos(1*(theta_el - 2*PI*0/5))",
-            "sin0_1": "sin(-1*(theta_el - 2*PI*0/5))",
-            "cos1_1": "cos(1*(theta_el - 2*PI*1/5))",
-            "sin1_1": "sin(-1*(theta_el - 2*PI*1/5))",
-            "cos2_1": "cos(1*(theta_el - 2*PI*2/5))",
-            "sin2_1": "sin(-1*(theta_el - 2*PI*2/5))",
-            "cos3_1": "cos(1*(theta_el - 2*PI*3/5))",
-            "sin3_1": "sin(-1*(theta_el - 2*PI*3/5))",
-            "cos4_1": "cos(1*(theta_el - 2*PI*4/5))",
-            "sin4_1": "sin(-1*(theta_el - 2*PI*4/5))",
-            "cos0_3": "cos(3*(theta_el - 2*PI*0/5))",
-            "sin0_3": "sin(-3*(theta_el - 2*PI*0/5))",
-            "cos1_3": "cos(3*(theta_el - 2*PI*1/5))",
-            "sin1_3": "sin(-3*(theta_el - 2*PI*1/5))",
-            "cos2_3": "cos(3*(theta_el - 2*PI*2/5))",
-            "sin2_3": "sin(-3*(theta_el - 2*PI*2/5))",
-            "cos3_3": "cos(3*(theta_el - 2*PI*3/5))",
-            "sin3_3": "sin(-3*(theta_el - 2*PI*3/5))",
-            "cos4_3": "cos(3*(theta_el - 2*PI*4/5))",
-            "sin4_3": "sin(-3*(theta_el - 2*PI*4/5))",
-            "Flux_d1": "(FluxLinkage(PhaseA)*cos0_1 + FluxLinkage(PhaseB)*cos1_1 + FluxLinkage(PhaseC)*cos2_1 + FluxLinkage(PhaseD)*cos3_1 + FluxLinkage(PhaseE)*cos4_1) * 2/5",
-            "Flux_q1": "(FluxLinkage(PhaseA)*sin0_1 + FluxLinkage(PhaseB)*sin1_1 + FluxLinkage(PhaseC)*sin2_1 + FluxLinkage(PhaseD)*sin3_1 + FluxLinkage(PhaseE)*sin4_1) * 2/5",
-            "Flux_d3": "(FluxLinkage(PhaseA)*cos0_3 + FluxLinkage(PhaseB)*cos1_3 + FluxLinkage(PhaseC)*cos2_3 + FluxLinkage(PhaseD)*cos3_3 + FluxLinkage(PhaseE)*cos4_3) * 2/5",
-            "Flux_q3": "(FluxLinkage(PhaseA)*sin0_3 + FluxLinkage(PhaseB)*sin1_3 + FluxLinkage(PhaseC)*sin2_3 + FluxLinkage(PhaseD)*sin3_3 + FluxLinkage(PhaseE)*sin4_3) * 2/5",
-            "Vind_d1": "(InducedVoltage(PhaseA)*cos0_1 + InducedVoltage(PhaseB)*cos1_1 + InducedVoltage(PhaseC)*cos2_1 + InducedVoltage(PhaseD)*cos3_1 + InducedVoltage(PhaseE)*cos4_1) * 2/5",
-            "Vind_q1": "(InducedVoltage(PhaseA)*sin0_1 + InducedVoltage(PhaseB)*sin1_1 + InducedVoltage(PhaseC)*sin2_1 + InducedVoltage(PhaseD)*sin3_1 + InducedVoltage(PhaseE)*sin4_1) * 2/5",
-            "Vind_d3": "(InducedVoltage(PhaseA)*cos0_3 + InducedVoltage(PhaseB)*cos1_3 + InducedVoltage(PhaseC)*cos2_3 + InducedVoltage(PhaseD)*cos3_3 + InducedVoltage(PhaseE)*cos4_3) * 2/5",
-            "Vind_q3": "(InducedVoltage(PhaseA)*sin0_3 + InducedVoltage(PhaseB)*sin1_3 + InducedVoltage(PhaseC)*sin2_3 + InducedVoltage(PhaseD)*sin3_3 + InducedVoltage(PhaseE)*sin4_3) * 2/5",
-            "dIA_dt": "-Im1*w*sin(w*Time+epsI1-pi) - Im3*3*w*sin(3*(w*Time)+epsI3-pi)",
-            "dIB_dt": "-Im1*w*sin(w*Time-72deg+epsI1-pi) - Im3*3*w*sin(3*(w*Time-72deg)+epsI3-pi)",
-            "dIC_dt": "-Im1*w*sin(w*Time-144deg+epsI1-pi) - Im3*3*w*sin(3*(w*Time-144deg)+epsI3-pi)",
-            "dID_dt": "-Im1*w*sin(w*Time-216deg+epsI1-pi) - Im3*3*w*sin(3*(w*Time-216deg)+epsI3-pi)",
-            "dIE_dt": "-Im1*w*sin(w*Time-288deg+epsI1-pi) - Im3*3*w*sin(3*(w*Time-288deg)+epsI3-pi)",
-            "V_A": "InducedVoltage(PhaseA) + Rstat*InputCurrent(PhaseA) + Lew*dIA_dt",
-            "V_B": "InducedVoltage(PhaseB) + Rstat*InputCurrent(PhaseB) + Lew*dIB_dt",
-            "V_C": "InducedVoltage(PhaseC) + Rstat*InputCurrent(PhaseC) + Lew*dIC_dt",
-            "V_D": "InducedVoltage(PhaseD) + Rstat*InputCurrent(PhaseD) + Lew*dID_dt",
-            "V_E": "InducedVoltage(PhaseE) + Rstat*InputCurrent(PhaseE) + Lew*dIE_dt",
-            "V_AC": "V_A - V_C",
-            "V_BD": "V_B - V_D",
-            "V_CE": "V_C - V_E",
-            "V_DA": "V_D - V_A",
-            "V_EB": "V_E - V_B",
-            "Vterm_A": "1/5*(2*V_AC + -1*V_BD + 1*V_CE + -2*V_DA)",
-            "Vterm_B": "1/5*(2*V_AC + 4*V_BD + 1*V_CE + 3*V_DA)",
-            "Vterm_C": "1/5*(-3*V_AC + -1*V_BD + 1*V_CE + -2*V_DA)",
-            "Vterm_D": "1/5*(2*V_AC + -1*V_BD + 1*V_CE + 3*V_DA)",
-            "Vterm_E": "1/5*(-3*V_AC + -1*V_BD + -4*V_CE + -2*V_DA)",
-            "I_d1": "(InputCurrent(PhaseA)*cos0_1 + InputCurrent(PhaseB)*cos1_1 + InputCurrent(PhaseC)*cos2_1 + InputCurrent(PhaseD)*cos3_1 + InputCurrent(PhaseE)*cos4_1) * 2/5",
-            "I_q1": "(InputCurrent(PhaseA)*sin0_1 + InputCurrent(PhaseB)*sin1_1 + InputCurrent(PhaseC)*sin2_1 + InputCurrent(PhaseD)*sin3_1 + InputCurrent(PhaseE)*sin4_1) * 2/5",
-            "I_d3": "(InputCurrent(PhaseA)*cos0_3 + InputCurrent(PhaseB)*cos1_3 + InputCurrent(PhaseC)*cos2_3 + InputCurrent(PhaseD)*cos3_3 + InputCurrent(PhaseE)*cos4_3) * 2/5",
-            "I_q3": "(InputCurrent(PhaseA)*sin0_3 + InputCurrent(PhaseB)*sin1_3 + InputCurrent(PhaseC)*sin2_3 + InputCurrent(PhaseD)*sin3_3 + InputCurrent(PhaseE)*sin4_3) * 2/5",
-            "V_d1": "(V_A*cos0_1 + V_B*cos1_1 + V_C*cos2_1 + V_D*cos3_1 + V_E*cos4_1) * 2/5",
-            "V_q1": "(V_A*sin0_1 + V_B*sin1_1 + V_C*sin2_1 + V_D*sin3_1 + V_E*sin4_1) * 2/5",
-            "V_d3": "(V_A*cos0_3 + V_B*cos1_3 + V_C*cos2_3 + V_D*cos3_3 + V_E*cos4_3) * 2/5",
-            "V_q3": "(V_A*sin0_3 + V_B*sin1_3 + V_C*sin2_3 + V_D*sin3_3 + V_E*sin4_3) * 2/5",
-            "L0d_1": "L(PhaseA,PhaseA)*cos0_1 + L(PhaseA,PhaseB)*cos1_1 + L(PhaseA,PhaseC)*cos2_1 + L(PhaseA,PhaseD)*cos3_1 + L(PhaseA,PhaseE)*cos4_1",
-            "L0q_1": "L(PhaseA,PhaseA)*sin0_1 + L(PhaseA,PhaseB)*sin1_1 + L(PhaseA,PhaseC)*sin2_1 + L(PhaseA,PhaseD)*sin3_1 + L(PhaseA,PhaseE)*sin4_1",
-            "L1d_1": "L(PhaseB,PhaseA)*cos0_1 + L(PhaseB,PhaseB)*cos1_1 + L(PhaseB,PhaseC)*cos2_1 + L(PhaseB,PhaseD)*cos3_1 + L(PhaseB,PhaseE)*cos4_1",
-            "L1q_1": "L(PhaseB,PhaseA)*sin0_1 + L(PhaseB,PhaseB)*sin1_1 + L(PhaseB,PhaseC)*sin2_1 + L(PhaseB,PhaseD)*sin3_1 + L(PhaseB,PhaseE)*sin4_1",
-            "L2d_1": "L(PhaseC,PhaseA)*cos0_1 + L(PhaseC,PhaseB)*cos1_1 + L(PhaseC,PhaseC)*cos2_1 + L(PhaseC,PhaseD)*cos3_1 + L(PhaseC,PhaseE)*cos4_1",
-            "L2q_1": "L(PhaseC,PhaseA)*sin0_1 + L(PhaseC,PhaseB)*sin1_1 + L(PhaseC,PhaseC)*sin2_1 + L(PhaseC,PhaseD)*sin3_1 + L(PhaseC,PhaseE)*sin4_1",
-            "L3d_1": "L(PhaseD,PhaseA)*cos0_1 + L(PhaseD,PhaseB)*cos1_1 + L(PhaseD,PhaseC)*cos2_1 + L(PhaseD,PhaseD)*cos3_1 + L(PhaseD,PhaseE)*cos4_1",
-            "L3q_1": "L(PhaseD,PhaseA)*sin0_1 + L(PhaseD,PhaseB)*sin1_1 + L(PhaseD,PhaseC)*sin2_1 + L(PhaseD,PhaseD)*sin3_1 + L(PhaseD,PhaseE)*sin4_1",
-            "L4d_1": "L(PhaseE,PhaseA)*cos0_1 + L(PhaseE,PhaseB)*cos1_1 + L(PhaseE,PhaseC)*cos2_1 + L(PhaseE,PhaseD)*cos3_1 + L(PhaseE,PhaseE)*cos4_1",
-            "L4q_1": "L(PhaseE,PhaseA)*sin0_1 + L(PhaseE,PhaseB)*sin1_1 + L(PhaseE,PhaseC)*sin2_1 + L(PhaseE,PhaseD)*sin3_1 + L(PhaseE,PhaseE)*sin4_1",
-            "L0d_3": "L(PhaseA,PhaseA)*cos0_3 + L(PhaseA,PhaseB)*cos1_3 + L(PhaseA,PhaseC)*cos2_3 + L(PhaseA,PhaseD)*cos3_3 + L(PhaseA,PhaseE)*cos4_3",
-            "L0q_3": "L(PhaseA,PhaseA)*sin0_3 + L(PhaseA,PhaseB)*sin1_3 + L(PhaseA,PhaseC)*sin2_3 + L(PhaseA,PhaseD)*sin3_3 + L(PhaseA,PhaseE)*sin4_3",
-            "L1d_3": "L(PhaseB,PhaseA)*cos0_3 + L(PhaseB,PhaseB)*cos1_3 + L(PhaseB,PhaseC)*cos2_3 + L(PhaseB,PhaseD)*cos3_3 + L(PhaseB,PhaseE)*cos4_3",
-            "L1q_3": "L(PhaseB,PhaseA)*sin0_3 + L(PhaseB,PhaseB)*sin1_3 + L(PhaseB,PhaseC)*sin2_3 + L(PhaseB,PhaseD)*sin3_3 + L(PhaseB,PhaseE)*sin4_3",
-            "L2d_3": "L(PhaseC,PhaseA)*cos0_3 + L(PhaseC,PhaseB)*cos1_3 + L(PhaseC,PhaseC)*cos2_3 + L(PhaseC,PhaseD)*cos3_3 + L(PhaseC,PhaseE)*cos4_3",
-            "L2q_3": "L(PhaseC,PhaseA)*sin0_3 + L(PhaseC,PhaseB)*sin1_3 + L(PhaseC,PhaseC)*sin2_3 + L(PhaseC,PhaseD)*sin3_3 + L(PhaseC,PhaseE)*sin4_3",
-            "L3d_3": "L(PhaseD,PhaseA)*cos0_3 + L(PhaseD,PhaseB)*cos1_3 + L(PhaseD,PhaseC)*cos2_3 + L(PhaseD,PhaseD)*cos3_3 + L(PhaseD,PhaseE)*cos4_3",
-            "L3q_3": "L(PhaseD,PhaseA)*sin0_3 + L(PhaseD,PhaseB)*sin1_3 + L(PhaseD,PhaseC)*sin2_3 + L(PhaseD,PhaseD)*sin3_3 + L(PhaseD,PhaseE)*sin4_3",
-            "L4d_3": "L(PhaseE,PhaseA)*cos0_3 + L(PhaseE,PhaseB)*cos1_3 + L(PhaseE,PhaseC)*cos2_3 + L(PhaseE,PhaseD)*cos3_3 + L(PhaseE,PhaseE)*cos4_3",
-            "L4q_3": "L(PhaseE,PhaseA)*sin0_3 + L(PhaseE,PhaseB)*sin1_3 + L(PhaseE,PhaseC)*sin2_3 + L(PhaseE,PhaseD)*sin3_3 + L(PhaseE,PhaseE)*sin4_3",
-            "Ld1": "(L0d_1*cos0_1 + L1d_1*cos1_1 + L2d_1*cos2_1 + L3d_1*cos3_1 + L4d_1*cos4_1) * 2/5",
-            "Ld1q1": "(L0d_1*sin0_1 + L1d_1*sin1_1 + L2d_1*sin2_1 + L3d_1*sin3_1 + L4d_1*sin4_1) * 2/5",
-            "Lq1d1": "(L0q_1*cos0_1 + L1q_1*cos1_1 + L2q_1*cos2_1 + L3q_1*cos3_1 + L4q_1*cos4_1) * 2/5",
-            "Lq1": "(L0q_1*sin0_1 + L1q_1*sin1_1 + L2q_1*sin2_1 + L3q_1*sin3_1 + L4q_1*sin4_1) * 2/5",
-            "Ld1d3": "(L0d_1*cos0_3 + L1d_1*cos1_3 + L2d_1*cos2_3 + L3d_1*cos3_3 + L4d_1*cos4_3) * 2/5",
-            "Ld1q3": "(L0d_1*sin0_3 + L1d_1*sin1_3 + L2d_1*sin2_3 + L3d_1*sin3_3 + L4d_1*sin4_3) * 2/5",
-            "Lq1d3": "(L0q_1*cos0_3 + L1q_1*cos1_3 + L2q_1*cos2_3 + L3q_1*cos3_3 + L4q_1*cos4_3) * 2/5",
-            "Lq1q3": "(L0q_1*sin0_3 + L1q_1*sin1_3 + L2q_1*sin2_3 + L3q_1*sin3_3 + L4q_1*sin4_3) * 2/5",
-            "Ld3d1": "(L0d_3*cos0_1 + L1d_3*cos1_1 + L2d_3*cos2_1 + L3d_3*cos3_1 + L4d_3*cos4_1) * 2/5",
-            "Ld3q1": "(L0d_3*sin0_1 + L1d_3*sin1_1 + L2d_3*sin2_1 + L3d_3*sin3_1 + L4d_3*sin4_1) * 2/5",
-            "Lq3d1": "(L0q_3*cos0_1 + L1q_3*cos1_1 + L2q_3*cos2_1 + L3q_3*cos3_1 + L4q_3*cos4_1) * 2/5",
-            "Lq3q1": "(L0q_3*sin0_1 + L1q_3*sin1_1 + L2q_3*sin2_1 + L3q_3*sin3_1 + L4q_3*sin4_1) * 2/5",
-            "Ld3": "(L0d_3*cos0_3 + L1d_3*cos1_3 + L2d_3*cos2_3 + L3d_3*cos3_3 + L4d_3*cos4_3) * 2/5",
-            "Ld3q3": "(L0d_3*sin0_3 + L1d_3*sin1_3 + L2d_3*sin2_3 + L3d_3*sin3_3 + L4d_3*sin4_3) * 2/5",
-            "Lq3d3": "(L0q_3*cos0_3 + L1q_3*cos1_3 + L2q_3*cos2_3 + L3q_3*cos3_3 + L4q_3*cos4_3) * 2/5",
-            "Lq3": "(L0q_3*sin0_3 + L1q_3*sin1_3 + L2q_3*sin2_3 + L3q_3*sin3_3 + L4q_3*sin4_3) * 2/5",
-            "Flux_e_d1": "Flux_d1 - (Ld1*I_d1 + Ld1q1*I_q1 + Ld1d3*I_d3 + Ld1q3*I_q3)",
-            "Flux_e_q1": "Flux_q1 - (Lq1d1*I_d1 + Lq1*I_q1 + Lq1d3*I_d3 + Lq1q3*I_q3)",
-            "Flux_e_d3": "Flux_d3 - (Ld3d1*I_d1 + Ld3q1*I_q1 + Ld3*I_d3 + Ld3q3*I_q3)",
-            "Flux_e_q3": "Flux_q3 - (Lq3d1*I_d1 + Lq3q1*I_q1 + Lq3d3*I_d3 + Lq3*I_q3)",
-            "Torque_dq": "5/2*PolePairs*(1*(Flux_d1*I_q1 - Flux_q1*I_d1) + 3*(Flux_d3*I_q3 - Flux_q3*I_d3))",
-        }
+        self.output_vars = {}
 
     def set_post_params(self):
         self.post_params = {  # reports
@@ -336,21 +222,104 @@ class Computation(ComputationBase):
         m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=True)
 
     def set_variables(self, m2d: Maxwell2d, Id1, Iq1, Id3, Iq3):
+        self.Id1, self.Iq1, self.Id3, self.Iq3 = Id1, Iq1, Id3, Iq3
         m2d.variable_manager["Id1"] = f"{Id1}A"
         m2d.variable_manager["Iq1"] = f"{Iq1}A"
         m2d.variable_manager["Id3"] = f"{Id3}A"
         m2d.variable_manager["Iq3"] = f"{Iq3}A"
 
     def extract_results(self, solutions):
-        out = {}
-        for expr in self.solution_expressions:
-            val = solutions.data_real(expr)
+        position = np.array(solutions.data_real("Moving1.Position"))
+        torque = np.array(solutions.data_real("Moving1.Torque"))
 
-            if expr.startswith("Ld") or expr.startswith("Lq"):
-                val = np.array(val) / 1e9
-            elif expr.startswith("I_"):
-                val = np.array(val) / 1e3
+        theta_el = electrical_angle(position, self.InitPos, self.geometry.PolePairs, self.RotSign, degrees=True)
+        flux_phases = np.stack([np.array(solutions.data_real(f"FluxLinkage(Phase{p})")) for p in "ABCDE"], axis=-1)
+        vind_phases = np.stack([np.array(solutions.data_real(f"InducedVoltage(Phase{p})")) for p in "ABCDE"], axis=-1)
+        current_phases = np.stack([np.array(solutions.data_real(f"InputCurrent(Phase{p})")) for p in "ABCDE"], axis=-1)
 
-            # TODO: possibly assign val[:-1]. check whether values are identical
-            out[expr] = val
+        Flux_d1, Flux_q1 = to_dq(flux_phases, theta_el, harmonic=1)
+        Flux_d3, Flux_q3 = to_dq(flux_phases, theta_el, harmonic=3)
+        Vind_d1, Vind_q1 = to_dq(vind_phases, theta_el, harmonic=1)
+        Vind_d3, Vind_q3 = to_dq(vind_phases, theta_el, harmonic=3)
+        I_d1, I_q1 = (v / 1e3 for v in to_dq(current_phases, theta_el, harmonic=1))
+        I_d3, I_q3 = (v / 1e3 for v in to_dq(current_phases, theta_el, harmonic=3))
+        # mA to A
+
+        Im1 = np.sqrt(self.Id1**2 + self.Iq1**2)
+        Im3 = np.sqrt(self.Id3**2 + self.Iq3**2)
+        epsI1 = np.atan2(self.Iq1, self.Id1)
+        epsI3 = np.atan2(self.Iq3, self.Id3)
+
+        time = np.array(solutions.primary_sweep_values)
+        dI_dt_phases = np.zeros((len(time), 5))
+        for k in range(5):
+            phase_offset = -2 * np.pi * k / 5  # 5 angles, 0deg, -72deg, -144deg, -216deg, -288deg
+            dI_dt_phases[:, k] = -Im1 * self.w * np.sin(self.w * time + phase_offset + epsI1 - np.pi) - Im3 * 3 * self.w * np.sin(3 * (self.w * time + phase_offset) + epsI3 - np.pi)
+
+        V_phases = vind_phases + self.Rstat * current_phases + self.Lew * dI_dt_phases
+
+        V_d1, V_q1 = to_dq(V_phases, theta_el, harmonic=1)
+        V_d3, V_q3 = to_dq(V_phases, theta_el, harmonic=3)
+
+        L_raw = [np.stack([np.array(solutions.data_real(f"L(Phase{x},Phase{y})")) for y in "ABCDE"], axis=-1) / 1e9 for x in "ABCDE"]
+        # nH to H
+
+        L_d1_row = np.zeros((len(time), 5))
+        L_q1_row = np.zeros((len(time), 5))
+        L_d3_row = np.zeros((len(time), 5))
+        L_q3_row = np.zeros((len(time), 5))
+        for i, L_row in enumerate(L_raw):
+            L_d1_row[:, i], L_q1_row[:, i] = (v * 5 / 2 for v in to_dq(L_row, theta_el, harmonic=1))
+            L_d3_row[:, i], L_q3_row[:, i] = (v * 5 / 2 for v in to_dq(L_row, theta_el, harmonic=3))
+
+        Ld1, Ld1q1 = to_dq(L_d1_row, theta_el, harmonic=1)
+        Lq1d1, Lq1 = to_dq(L_q1_row, theta_el, harmonic=1)
+        Ld1d3, Ld1q3 = to_dq(L_d1_row, theta_el, harmonic=3)
+        Lq1d3, Lq1q3 = to_dq(L_q1_row, theta_el, harmonic=3)
+        Ld3d1, Ld3q1 = to_dq(L_d3_row, theta_el, harmonic=1)
+        Lq3d1, Lq3q1 = to_dq(L_q3_row, theta_el, harmonic=1)
+        Ld3, Ld3q3 = to_dq(L_d3_row, theta_el, harmonic=3)
+        Lq3d3, Lq3 = to_dq(L_q3_row, theta_el, harmonic=3)
+
+        Flux_e_d1 = Flux_d1 - (Ld1 * I_d1 + Ld1q1 * I_q1 + Ld1d3 * I_d3 + Ld1q3 * I_q3)
+        Flux_e_q1 = Flux_q1 - (Lq1d1 * I_d1 + Lq1 * I_q1 + Lq1d3 * I_d3 + Lq1q3 * I_q3)
+        Flux_e_d3 = Flux_d3 - (Ld3d1 * I_d1 + Ld3q1 * I_q1 + Ld3 * I_d3 + Ld3q3 * I_q3)
+        Flux_e_q3 = Flux_q3 - (Lq3d1 * I_d1 + Lq3q1 * I_q1 + Lq3d3 * I_d3 + Lq3 * I_q3)
+
+        # Torque_dq = 5 / 2 * self.geometry.PolePairs * ((Flux_d1 * I_q1 - Flux_q1 * I_d1) + 3 * (Flux_d3 * I_q3 - Flux_q3 * I_d3))
+
+        out = {
+            "V_d1": V_d1,
+            "V_q1": V_q1,
+            "V_d3": V_d3,
+            "V_q3": V_q3,
+            "Flux_d1": Flux_d1,
+            "Flux_q1": Flux_q1,
+            "Flux_d3": Flux_d3,
+            "Flux_q3": Flux_q3,
+            "Vind_d1": Vind_d1,
+            "Vind_q1": Vind_q1,
+            "Vind_d3": Vind_d3,
+            "Vind_q3": Vind_q3,
+            "I_d1": I_d1,
+            "I_q1": I_q1,
+            "I_d3": I_d3,
+            "I_q3": I_q3,
+            "Ld1": Ld1,
+            "Ld1q1": Ld1q1,
+            "Lq1": Lq1,
+            "Ld1d3": Ld1d3,
+            "Ld1q3": Ld1q3,
+            "Lq1d3": Lq1d3,
+            "Lq1q3": Lq1q3,
+            "Ld3": Ld3,
+            "Ld3q3": Ld3q3,
+            "Lq3": Lq3,
+            "Flux_e_d1": Flux_e_d1,
+            "Flux_e_q1": Flux_e_q1,
+            "Flux_e_d3": Flux_e_d3,
+            "Flux_e_q3": Flux_e_q3,
+            "Moving1.Torque": torque,
+        }
+
         return out

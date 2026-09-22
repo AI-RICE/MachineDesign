@@ -23,6 +23,7 @@ num_cores = config["num_cores"]
 n_designs = 50
 r_stator_end = 0.7
 offset = 0.7 / 2
+current_setpoint = (1.5, 1.5)
 plot_design = True
 
 project_name = "SynRM_test"
@@ -36,11 +37,7 @@ file_name_aedt = f"{path_data}/{project_name}.aedt"
 geometry = Geometry()
 computation = Computation(geometry)
 design = load_design(file_name_aedt, project_name, design_name, aedt_version, geometry, computation)
-generators = [
-    HacklGenerator_OneLambda(design, r_stator_end, offset=offset),
-    HacklGenerator_SixLambdas(design, r_stator_end, offset=offset),
-    HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset),
-]
+generators = [HacklGenerator_OneLambda(design, r_stator_end, offset=offset), HacklGenerator_SixLambdas(design, r_stator_end, offset=offset), HacklGenerator_3BrokenLines(design, r_stator_end, offset=offset)]
 
 metadata = pd.DataFrame()
 for i in range(0, n_designs):
@@ -61,7 +58,7 @@ for i in range(0, n_designs):
             design.add_rotor_barrier(barrier)
 
         # Compute the torque
-        Tor = design.compute(NUM_CORES=num_cores)
+        Tor = design.compute(*current_setpoint, NUM_CORES=num_cores)
         # Tor = design.compute(num_cores)
         if Tor is None:
             TorAvg, TorRippleRms = np.nan, np.nan

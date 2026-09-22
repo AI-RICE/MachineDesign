@@ -52,6 +52,7 @@ machine_design = ["config.default.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 markers = [
     "ansys: requires a running Ansys Electronics Desktop session and a license seat; excluded by default",
 ]

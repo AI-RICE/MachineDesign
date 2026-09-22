@@ -43,6 +43,7 @@ dev = [
 packages = [
   "machine_design",
   "machine_design.designs",
+  "machine_design.generic",
   "machine_design.optimization",
   "motors",
 ]

@@ -175,8 +175,10 @@ class Computation(ComputationBase):
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
         self.oper_params = {
-            "Im": "1.5*sqrt(2)A",
-            "epsI": "pi/4",  # current angle
+            "Id": "0.0A",
+            "Iq": "0.0A",
+            "epsI": "atan2(Iq,Id)",  # current angle
+            "Im": "sqrt(Id^2+Iq^2)",
             "InitPos": "-30deg",
             "w": f"{w}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
@@ -263,8 +265,9 @@ class Computation(ComputationBase):
     def inductance_computation(self, m2d: Maxwell2d) -> None:
         m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=False)
 
-    def set_variables(self, m2d: Maxwell2d, *args):
-        pass
+    def set_variables(self, m2d: Maxwell2d, Id, Iq):
+        m2d.variable_manager["Id"] = f"{Id}A"
+        m2d.variable_manager["Iq"] = f"{Iq}A"
 
     def extract_results(self, solutions):
         return solutions.data_magnitude()

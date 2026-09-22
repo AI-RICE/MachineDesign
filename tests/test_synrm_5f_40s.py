@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from machine_design.transforms import electrical_angle, to_dq
+from machine_design.generic.transforms import electrical_angle, to_dq
 from motors.synrm_3f_36s import Geometry as BaseGeometry
 from motors.synrm_5f_40s import Computation, Geometry
 

@@ -1,4 +1,4 @@
-"""Pins the m-phase dq convention used by `machine_design.transforms`.
+"""Pins the m-phase dq convention used by `machine_design.generic.transforms`.
 
 These need no Ansys. They exist because the same transform is written out by hand in
 `motors/synrm_5f_40s.py`'s output variables, and a silent disagreement between the two
@@ -12,7 +12,7 @@ the same transform as the 5-phase one.
 import numpy as np
 import pytest
 
-from machine_design.transforms import electrical_angle, to_dq, to_phases
+from machine_design.generic.transforms import electrical_angle, to_dq, to_phases
 
 THETA = np.linspace(0.0, 2.0 * np.pi, 37)
 

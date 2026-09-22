@@ -1,9 +1,9 @@
 """Live check that the Python dq transform agrees with the Ansys output variables.
 
-`machine_design/transforms.py` and `motors/synrm_5f_40s.py`'s `set_output_vars` implement the
-same five-phase Park/Clarke transform twice -- once in Python, once as Ansys expressions.
-This solves one rotor with both dq1 and dq3 excited, then asserts that transforming the
-per-phase quantities in Python reproduces Ansys's own dq outputs.
+`machine_design/generic/transforms.py` and `motors/synrm_5f_40s.py`'s `set_output_vars`
+implement the same five-phase Park/Clarke transform twice -- once in Python, once as
+Ansys expressions.This solves one rotor with both dq1 and dq3 excited, then asserts that 
+transforming the per-phase quantities in Python reproduces Ansys's own dq outputs.
 
 Two subjects, deliberately:
 
@@ -25,8 +25,8 @@ import pytest
 
 from machine_design.config import load_config
 from machine_design.designs.design import Design
+from machine_design.generic.transforms import to_dq
 from machine_design.optimization.generators import HacklGenerator_OneLambda
-from machine_design.transforms import to_dq
 from motors.synrm_5f_40s import Computation, Geometry
 
 pytestmark = pytest.mark.ansys

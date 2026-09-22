@@ -8,7 +8,7 @@ import numpy as np
 from ansys.aedt.core import Maxwell2d
 
 from machine_design.designs.computation import ComputationBase
-from machine_design.transforms import electrical_angle, to_dq
+from machine_design.generic.transforms import electrical_angle, to_dq
 
 from .synrm_3f_36s import Geometry as BaseGeometry
 

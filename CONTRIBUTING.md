@@ -44,7 +44,7 @@ Ansys computes only what needs the field solution. Everything downstream of it i
 
 | in Ansys (needs the solve) | in Python (algebra on solved quantities) |
 |---|---|
-| torque waveform, flux linkage, `InducedVoltage`, forces, core loss | Park/Clarke dq1/dq3 (`machine_design/transforms.py`), `Rs*I`, `Lew*dI/dt`, peak search over a waveform, terminal voltage at any speed |
+| torque waveform, flux linkage, `InducedVoltage`, forces, core loss | Park/Clarke dq1/dq3 (`machine_design/generic/transforms.py`), `Rs*I`, `Lew*dI/dt`, peak search over a waveform, terminal voltage at any speed |
 
 Why:
 

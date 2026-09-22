@@ -112,7 +112,6 @@ class Computation(BaseComputation):
             )
             m2d.add_winding_coils(assignment=f"Phase{phase_name}", coils=[f"CS_{coil_name}" for coil_name, _ in group])
 
-
     def set_variables(self, m2d: Maxwell2d, Id1, Iq1, Id3, Iq3):
         self.Id1, self.Iq1, self.Id3, self.Iq3 = Id1, Iq1, Id3, Iq3
         m2d.variable_manager["Id1"] = f"{Id1}A"

@@ -65,117 +65,108 @@ design = load_design(file_name_aedt, project_name, design_name, aedt_version, ge
 generator = HacklGenerator_SixLambdas(design, r_stator_end, offset=offset)
 
 ref_cons_loss, _, ref_cons_ripple = objective_transform(ref_cons["loss"], 0.0, ref_cons["ripple"])
-ref_no_cons_torque, ref_no_cons_ripple = objective_transform(ref_no_cons["torque"], ref_no_cons["ripple"])
-objective_fallback_tuple = (objective_fallback["torque"], objective_fallback["ripple"])
+objective_fallback_tuple = (objective_fallback["loss"], objective_fallback["torque"], objective_fallback["ripple"])
 
-for generator in generators:
-    for use_constraints in [True, False]:
-        method = generator.__class__.__name__
-        output_name = f"results_{method}_{use_constraints}.npz"
+method = generator.__class__.__name__
+output_name = f"results_{method}_{method}.npz"
 
-        if os.path.exists(output_name):
-            data = np.load(output_name)
-            train_X = torch.from_numpy(data["train_X"])
-            train_Y = torch.from_numpy(data["train_Y"])
-        else:
-            train_X, train_Y = init_points(root_init, method)
+if os.path.exists(output_name):
+    data = np.load(output_name)
+    train_X = torch.from_numpy(data["train_X"])
+    train_Y = torch.from_numpy(data["train_Y"])
+else:
+    train_X, train_Y = init_points(root_init, method)
 
-        bounds = torch.from_numpy(np.vstack(generator.bounds))
-        bounds_normalized = normalize(bounds, bounds)
-        train_X = normalize(train_X, bounds)
+bounds = torch.from_numpy(np.hstack([np.vstack(generator.bounds), current_bounds]))
+bounds_normalized = normalize(bounds, bounds)
+train_X = normalize(train_X, bounds)
 
-        def objective_lambda(Xs):
-            return objective(Xs, design, generator, bounds, num_cores, objective_fallback=objective_fallback_tuple)
+def objective_lambda(Xs):
+    return objective(Xs, design, generator, current_n, bounds, num_cores, objective_fallback=objective_fallback_tuple)
 
-        def penalty_objective(n_penalty):
-            obj = objective_transform(None, None, objective_fallback=objective_fallback_tuple)
-            y = torch.tensor(obj, dtype=torch.float64)
-            return y.repeat(n_penalty, 1)
+def penalty_objective(n_penalty):
+    obj = objective_transform(None, None, None, objective_fallback=objective_fallback_tuple)
+    y = torch.tensor(obj, dtype=torch.float64)
+    return y.repeat(n_penalty, 1)
 
-        def ripple_constraint(Y):
-            ripple = -Y[..., 1]
-            ripple_max = -ref_cons_ripple
-            return ripple - ripple_max
+def torque_constraint(Y):
+    return t_target-Y[..., 1]
 
-        if use_constraints:
-            constraints = [ripple_constraint]
-            ref_point = torch.tensor([ref_cons_torque, ref_cons_ripple])
-        else:
-            constraints = None
-            ref_point = torch.tensor([ref_no_cons_torque, ref_no_cons_ripple])
 
-        while len(train_X) < n_evals:
-            # Fit surrogate
-            model = SingleTaskGP(train_X, train_Y)
-            mll = ExactMarginalLogLikelihood(model.likelihood, model)
-            fit_gpytorch_mll(mll)
+constraints = [torque_constraint]
+ref_point = torch.tensor([ref_cons_loss, ref_cons_ripple])
 
-            # Compute Pareto front
-            pareto_Y = train_Y[is_non_dominated(train_Y)]
-            partitioning = NondominatedPartitioning(ref_point=ref_point, Y=pareto_Y)
+while len(train_X) < n_evals:
+    # Fit surrogate
+    model = SingleTaskGP(train_X, train_Y)
+    mll = ExactMarginalLogLikelihood(model.likelihood, model)
+    fit_gpytorch_mll(mll)
 
-            # Define acquisition function
-            acq = qLogExpectedHypervolumeImprovement(
-                model=model,
-                ref_point=ref_point.tolist(),
-                partitioning=partitioning,
-                constraints=constraints,
+    # Compute Pareto front, loss, ripplem, here TorAvg is not an objective, it fits the constraint
+    train_Y_obj=train_Y[:, [0, 2]]
+    pareto_Y = train_Y_obj[is_non_dominated(train_Y_obj)]
+    partitioning = NondominatedPartitioning(ref_point=ref_point, Y=pareto_Y)
+
+    # Define acquisition function
+    acq = qLogExpectedHypervolumeImprovement(
+        model=model,
+        ref_point=ref_point.tolist(),
+        partitioning=partitioning,
+        objective=IdentityMCMultiOutputObjective(outcomes=[0, 2]),
+        constraints=constraints,
             )
 
-            # Optimize acquisition function to select candidate points. Reject unfeasible points
-            candidates_feasible = []
-            candidates_infeasible = []
-            n_acqf_calls = 0
-            t_acqf = 0.0
-            for _ in range(max_candidate_tries):
-                n_needed = batch_size - len(candidates_feasible)
+    # Optimize acquisition function to select candidate points. Reject unfeasible points
+    candidates_feasible = []
+    candidates_infeasible = []
+    for _ in range(max_candidate_tries):
+        candidates, _ = optimize_acqf(
+            acq_function=acq,
+            bounds=bounds_normalized,
+            q=batch_size,
+            num_restarts=10,
+            raw_samples=128,
+        )
 
-                candidates, _ = optimize_acqf(
-                    acq_function=acq,
-                    bounds=bounds_normalized,
-                    q=batch_size,
-                    num_restarts=10,
-                    raw_samples=128,
-                )
+        for candidate in candidates:
+            candidate_unnormalized = unnormalize(candidate, bounds)
+            barrier_X=candidate_unnormalized[:-current_n]
+            params = generator.X_to_params(barrier_X.numpy())
 
-                for candidate in candidates:
-                    candidate_unnormalized = unnormalize(candidate, bounds)
-                    params = generator.X_to_params(candidate_unnormalized.numpy())
-
-                    generator.set_parameters(params)
-                    barriers = generator.generate_barriers()
-                    barriers = generator.split_barriers(barriers)
-                    feasible = generator.feasible_barriers(barriers)
-                    if feasible:
-                        candidates_feasible.append(candidate)
-                    else:
-                        candidates_infeasible.append(candidate)
-                    if len(candidates_feasible) >= batch_size:
-                        break
-                if len(candidates_feasible) >= batch_size:
-                    break
-
-            assert len(candidates_feasible) + len(candidates_infeasible) >= batch_size
-            n_missing = batch_size - len(candidates_feasible)
-
-            # Fill missing candidates from infeasible
-            if len(candidates_feasible) > 0:
-                candidates_all = torch.stack(candidates_feasible)
-                new_Y_all = objective_lambda(candidates_all)
+            generator.set_parameters(params)
+            barriers = generator.generate_barriers()
+            barriers = generator.split_barriers(barriers)
+            feasible = generator.feasible_barriers(barriers)
+            if feasible:
+                candidates_feasible.append(candidate)
             else:
-                candidates_all = torch.empty((0, bounds.shape[1]), dtype=torch.float64)
-                new_Y_all = torch.empty((0, 2), dtype=torch.float64)
-            if n_missing > 0:
-                candidates_all = torch.cat([candidates_all, torch.stack(candidates_infeasible[:n_missing])], dim=0)
-                new_Y_all = torch.cat([new_Y_all, penalty_objective(n_missing)], dim=0)
+                candidates_infeasible.append(candidate)
+            if len(candidates_feasible) >= batch_size:
+                break
+        if len(candidates_feasible) >= batch_size:
+            break
 
-            train_X = torch.cat([train_X, candidates_all])
-            train_Y = torch.cat([train_Y, new_Y_all])
+    assert len(candidates_feasible) + len(candidates_infeasible) >= batch_size
+    n_missing = batch_size - len(candidates_feasible)
 
-            print(len(train_Y))
-            print(train_Y[is_non_dominated(train_Y)])
+    # Fill missing candidates from infeasible
+    if len(candidates_feasible) > 0:
+        candidates_all = torch.stack(candidates_feasible)
+        new_Y_all = objective_lambda(candidates_all)
+    else:
+        candidates_all = torch.empty((0, bounds.shape[1]), dtype=torch.float64)
+        new_Y_all = torch.empty((0, 3), dtype=torch.float64)
+    if n_missing > 0:
+        candidates_all = torch.cat([candidates_all, torch.stack(candidates_infeasible[:n_missing])], dim=0)
+        new_Y_all = torch.cat([new_Y_all, penalty_objective(n_missing)], dim=0)
 
-            # Save candidates
-            np.savez(output_name, train_X=unnormalize(train_X, bounds), train_Y=train_Y)
+    train_X = torch.cat([train_X, candidates_all])
+    train_Y = torch.cat([train_Y, new_Y_all])
+
+    print(len(train_Y))
+    print(train_Y[is_non_dominated(train_Y)])
+
+    # Save candidates
+    np.savez(output_name, train_X=unnormalize(train_X, bounds), train_Y=train_Y)
 
 design.close_project()

@@ -26,10 +26,24 @@ R_STATOR_END = 0.7
 OFFSET = 0.35
 SEEDS = (42, 43)
 NUM_CORES = 1
-current_setpoints = (1.5, 1.5)
+current_setpoints = (3.0, 3.0)
+
+
+class Geometry3fSameNc(Geometry3f):
+    def set_winds_params(self):
+        super().set_winds_params()
+        self.wind_params["Nc"] = "113"
+
+
+class Geometry5fSameNc(Geometry5f):
+    def set_winds_params(self):
+        super().set_winds_params()
+        self.wind_params["Nc"] = "113"
+
+
 Machines = [
-    ("synrm_3f_60s", Geometry3f, Computation3f, current_setpoints),
-    ("synrm_5f_60s", Geometry5f, Computation5f, (*current_setpoints, 0.0, 0.0)),
+    ("synrm_3f_60s", Geometry3fSameNc, Computation3f, current_setpoints),
+    ("synrm_5f_60s", Geometry5fSameNc, Computation5f, (*current_setpoints, 0.0, 0.0)),
 ]
 
 
@@ -84,4 +98,4 @@ def test_synrm_5f_60s_i3_zero_performs_same_with_3f_60s(tmp_path):
         torque_5f = results["synrm_5f_60s"]
         diff_pct = abs(torque_3f - torque_5f) / abs(torque_3f) * 100
         print(f"seed {seed}: 3f TorAvg={torque_3f:.4f} Nm, 5f(i3=0) TorAvg={torque_5f:.4f} Nm, diff={diff_pct:.2f}%")
-        assert diff_pct < 50, f"seed {seed}: 3f and 5f(i3=0) torque differ by {diff_pct:.2f}%, expected roughly comparable"
+        assert diff_pct < 20, f"seed {seed}: 3f and 5f(i3=0) torque differ by {diff_pct:.2f}%, expected roughly comparable"

@@ -87,11 +87,15 @@ def _create_design(design_cls, project_name, file_name, extra_args=()):
     )
 
 
-def _compute_torque(design, barriers, add_rotor, setpoint=current_setpoint):
+def _compute_torque(design, barriers, add_rotor, setpoint=current_setpoint, check_expressions=None):
     add_rotor(design, barriers)
     torque = design.compute(*setpoint, NUM_CORES=NUM_CORES)
+    check=None
+    if check_expressions is not None:
+        solutions=design.m2d.post.get_solution_data(expressions=check_expressions, primary_sweep_variable="Time")
+        check={expr: np.array(solutions.data_real(expr)) for expr in check_expressions}
     design.delete_rotor()
-    return torque
+    return (torque, check) if check_expressions is not None else torque
 
 
 def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
@@ -112,9 +116,7 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
         )
 
         for seed, barriers in zip(SEEDS, barrier_sets):
-            torque_legacy = _compute_torque(legacy_design, barriers, _add_rotor)
-            solutions=legacy_design.m2d.post.get_solution_data(expressions=check_expressions, primary_sweep_variable="Time")
-            check_legacy={expr: np.array(solutions.data_real(expr)) for expr in check_expressions}
+            torque_legacy, check_legacy = _compute_torque(legacy_design, barriers, _add_rotor, check_expressions=check_expressions)
             torque_live = _compute_torque(live_design, barriers, _add_rotor)
 
             assert torque_legacy is not None, f"legacy torque is None for seed {seed}"

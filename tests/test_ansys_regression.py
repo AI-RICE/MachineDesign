@@ -41,6 +41,7 @@ check_expressions = [
     "L_q",
     "Irms",
 ]
+# we should very all the above 9 vars + Moving1.Torque (a total of 10 vars with different seeds)
 
 
 def _load_legacy_design_class():

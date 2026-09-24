@@ -6,6 +6,7 @@ from ansys.aedt.core.modeler.modeler_2d import Modeler2D
 
 from machine_design.designs.computation import ComputationBase
 from machine_design.designs.geometry import GeometryBase
+from machine_design.generic.transforms import to_dq
 
 
 class Geometry(GeometryBase):
@@ -174,12 +175,13 @@ class Computation(ComputationBase):
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
+        self.InitPos = -30  # deg
         self.oper_params = {
             "Id": "0.0A",
             "Iq": "0.0A",
             "epsI": "atan2(Iq,Id)",  # current angle
             "Im": "sqrt(Id^2+Iq^2)",
-            "InitPos": "-30deg",
+            "InitPos": f"{self.InitPos}deg",
             "w": f"{w}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
             "Nper": "1/6",  # number of included periods
@@ -187,7 +189,14 @@ class Computation(ComputationBase):
         }
 
     def set_solution_expressions(self):
-        self.solution_expressions = "Moving1.Torque"
+        self.solution_expressions = [
+            "Moving1.Position",
+            "Moving1.Torque",
+            *[f"FluxLinkage(Phase{p})" for p in "ABC"],
+            *[f"InducedVoltage(Phase{p})" for p in "ABC"],
+            *[f"InputCurrent(Phase{p})" for p in "ABC"],
+            *[f"L(Phase{x},Phase{y})" for x in "ABC" for y in "ABC"],
+        ]
 
     def set_output_vars(self):
         self.output_vars = {

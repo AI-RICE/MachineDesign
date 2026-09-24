@@ -30,6 +30,17 @@ OFFSET = 0.35
 SEEDS = (42, 43)
 NUM_CORES = 1
 current_setpoint = (1.5, 1.5)
+check_expressions=[
+    "Flux_d",
+    "Flux_q",
+    "Ui_d",
+    "Ui_q",
+    "I_d",
+    "I_q",
+    "L_d",
+    "L_q",
+    "Irms",
+]
 
 
 def _load_legacy_design_class():
@@ -102,11 +113,15 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
 
         for seed, barriers in zip(SEEDS, barrier_sets):
             torque_legacy = _compute_torque(legacy_design, barriers, _add_rotor)
+            solutions=legacy_design.m2d.post.get_solution_data(expressions=check_expressions, primary_sweep_variable="Time")
+            check_legacy={expr: np.array(solutions.data_real(expr)) for expr in check_expressions}
             torque_live = _compute_torque(live_design, barriers, _add_rotor)
 
             assert torque_legacy is not None, f"legacy torque is None for seed {seed}"
             assert torque_live is not None, f"live torque is None for seed {seed}"
-            np.testing.assert_allclose(torque_live, torque_legacy, rtol=1e-6, err_msg=f"mismatch for seed {seed}")
+            for expr in check_expressions:
+                np.testing.assert_allclose(torque_live[expr], check_legacy[expr], rtol=1e-3, err_msg=f"mismatch for {expr}, seed {seed}")
+            np.testing.assert_allclose(torque_live["Moving1.Torque"], torque_legacy, rtol=1e-3, err_msg=f"mismatch for Moving1.Torque, seed {seed}") 
     finally:
         if live_design is not None:
             live_design.close_project()

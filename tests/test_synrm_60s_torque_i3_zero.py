@@ -10,6 +10,7 @@ Requires a running Ansys Electronics Desktop session and a free license seat.
 import os
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from machine_design.config import load_config
@@ -137,6 +138,7 @@ if __name__ == "__main__":
     barriers = _generate_one_lambda_barriers(SEEDS[0])
 
     results = {"synrm_3f_60s": [], "synrm_5f_60s": []}
+    sweep_results = pd.DataFrame()
     for beta_deg in betas_deg:
         beta = np.deg2rad(beta_deg)
         Id = I_mag * np.cos(beta)
@@ -147,6 +149,13 @@ if __name__ == "__main__":
         results["synrm_3f_60s"].append(torque_3f)
         results["synrm_5f_60s"].append(torque_5f)
         print(f"beta={beta_deg:>3}deg: 3f TorAvg={torque_3f:.4f} Nm, 5f(i3=0) TorAvg={torque_5f:.4f} Nm")
+        sweep_results_new = {
+            "beta_deg": beta_deg,
+            "synrm_3f_60s": torque_3f,
+            "synrm_5f_60s": torque_5f,
+        }
+        sweep_results = pd.concat((sweep_results, pd.DataFrame([sweep_results_new])), ignore_index=True)
+        sweep_results.to_csv(f"{data_dir}/angle_sweep_results.csv", index=False)
 
     for name, values in results.items():
         peak_idx = int(np.argmax(values))

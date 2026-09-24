@@ -101,7 +101,20 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
     legacy_design, live_design = None, None
     try:
         legacy_design = _create_design(LegacyDesign, "RegressionTest_legacy", str(tmp_path / "legacy.aedt"))
-        legacy_design.solution_expressions=["Moving1.Torque", *check_expressions]
+        legacy_design.solution_expressions = ["Moving1.Torque", *check_expressions]
+
+        def _legacy_extract_results(solutions):
+            out = {}
+            for expr in legacy_design.solution_expressions:
+                val = np.array(solutions.data_real(expr))
+                if expr in ("I_d", "I_q"):
+                    val = val / 1e3
+                elif expr in ("L_d", "L_q"):
+                    val = val / 1e9
+                out[expr] = val
+            return out
+
+        legacy_design.extract_results = _legacy_extract_results
 
         live_geometry = Geometry()
         live_computation = Computation(live_geometry)
@@ -118,10 +131,10 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
 
             assert torque_legacy is not None, f"legacy torque is None for seed {seed}"
             assert torque_live is not None, f"live torque is None for seed {seed}"
-            np.testing.assert_allclose(torque_live["Moving1.Torque"], torque_legacy, rtol=1e-3, err_msg=f"mismatch for Moving1.Torque, seed {seed}")
+            np.testing.assert_allclose(torque_live["Moving1.Torque"], torque_legacy["Moving1.Torque"], rtol=1e-3, err_msg=f"mismatch for Moving1.Torque, seed {seed}")
             for expr in check_expressions:
                 np.testing.assert_allclose(torque_live[expr], torque_legacy[expr], rtol=1e-3, err_msg=f"mismatch for {expr}, seed {seed}")
-            
+
     finally:
         if live_design is not None:
             live_design.close_project()

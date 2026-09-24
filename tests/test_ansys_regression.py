@@ -41,7 +41,7 @@ check_expressions = [
     "L_q",
     "Irms",
 ]
-# we should very all the above 9 vars + Moving1.Torque (a total of 10 vars with different seeds)
+# we should verify all the above 9 vars + Moving1.Torque (a total of 10 vars with different seeds)
 
 
 def _load_legacy_design_class():
@@ -109,9 +109,9 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
             for expr in legacy_design.solution_expressions:
                 val = np.array(solutions.data_real(expr))
                 if expr in ("I_d", "I_q"):
-                    val = val / 1e3
+                    val = val / 1e3  # mA to A
                 elif expr in ("L_d", "L_q"):
-                    val = val / 1e9
+                    val = val / 1e9  # nH to H
                 out[expr] = val
             return out
 

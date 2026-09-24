@@ -87,8 +87,8 @@ def test_synrm_5f_60s_i3_zero_performs_same_with_3f_60s(tmp_path):
                 design.add_rotor()
                 for barrier in barriers:
                     design.add_rotor_barrier(barrier)
-                design.m2d.variable_manager["Nper"] = "1"
-                design.m2d.variable_manager["PointPer"] = "301"
+                # design.m2d.variable_manager["Nper"] = "1"
+                # design.m2d.variable_manager["PointPer"] = "301"  #results: 13.03%, 13.97%
                 torque = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
                 assert torque is not None, f"{name} seed {seed}: torque is None"
                 TorAvg, _, TorRippleRms = analyze_results(torque["Moving1.Torque"])

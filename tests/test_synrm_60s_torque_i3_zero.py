@@ -47,6 +47,13 @@ class Geometry5fSameNc(Geometry5f):
         self.wind_params["Nc"] = "113"
 
 
+class Computation5fInitPosTest(Computation5f):
+    def set_oper_params(self):
+        super().set_oper_params()
+        self.InitPos = -42  # deg, test 6deg electrical/(p=2) =3deg
+        self.oper_params["InitPos"] = f"{self.InitPos}deg"
+
+
 Machines = [
     ("synrm_3f_60s", Geometry3fSameNc, Computation3f, current_setpoints),
     ("synrm_5f_60s", Geometry5fSameNc, Computation5f, (*current_setpoints, 0.0, 0.0)),

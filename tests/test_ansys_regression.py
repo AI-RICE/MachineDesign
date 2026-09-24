@@ -30,7 +30,7 @@ OFFSET = 0.35
 SEEDS = (42, 43)
 NUM_CORES = 1
 current_setpoint = (1.5, 1.5)
-check_expressions=[
+check_expressions = [
     "Flux_d",
     "Flux_q",
     "Ui_d",
@@ -90,10 +90,10 @@ def _create_design(design_cls, project_name, file_name, extra_args=()):
 def _compute_torque(design, barriers, add_rotor, setpoint=current_setpoint, check_expressions=None):
     add_rotor(design, barriers)
     torque = design.compute(*setpoint, NUM_CORES=NUM_CORES)
-    check=None
+    check = None
     if check_expressions is not None:
-        solutions=design.m2d.post.get_solution_data(expressions=check_expressions, primary_sweep_variable="Time")
-        check={expr: np.array(solutions.data_real(expr)) for expr in check_expressions}
+        solutions = design.m2d.post.get_solution_data(expressions=check_expressions, primary_sweep_variable="Time")
+        check = {expr: np.array(solutions.data_real(expr)) for expr in check_expressions}
     design.delete_rotor()
     return (torque, check) if check_expressions is not None else torque
 
@@ -123,7 +123,7 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
             assert torque_live is not None, f"live torque is None for seed {seed}"
             for expr in check_expressions:
                 np.testing.assert_allclose(torque_live[expr], check_legacy[expr], rtol=1e-3, err_msg=f"mismatch for {expr}, seed {seed}")
-            np.testing.assert_allclose(torque_live["Moving1.Torque"], torque_legacy, rtol=1e-3, err_msg=f"mismatch for Moving1.Torque, seed {seed}") 
+            np.testing.assert_allclose(torque_live["Moving1.Torque"], torque_legacy, rtol=1e-3, err_msg=f"mismatch for Moving1.Torque, seed {seed}")
     finally:
         if live_design is not None:
             live_design.close_project()

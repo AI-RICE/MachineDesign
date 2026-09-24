@@ -157,7 +157,7 @@ def test_extract_results_converts_units(computation):
     solutions = SimpleNamespace(data_real=data_real, primary_sweep_values=[0.0, 1.0])
     out = computation.extract_results(solutions)
 
-    theta_el = np.deg2rad(np.full(2, 7.0)-computation.InitPos)*computation.geometry.PolePairs
+    theta_el = np.deg2rad(np.full(2, 7.0) - computation.InitPos) * computation.geometry.PolePairs
     current_phases = np.stack([np.full(2, i + 1.0) for i in range(3)], axis=-1)
     expected_I_d, _ = to_dq(current_phases, theta_el, harmonic=1)
 

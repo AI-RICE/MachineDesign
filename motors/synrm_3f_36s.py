@@ -260,7 +260,7 @@ class Computation(ComputationBase):
         position = np.array(solutions.data_real("Moving1.Position"))
         torque = np.array(solutions.data_real("Moving1.Torque"))
 
-        theta_el = np.deg2rad(position-self.InitPos)*self.geometry.PolePairs
+        theta_el = np.deg2rad(position - self.InitPos) * self.geometry.PolePairs
         flux_phases = np.stack([np.array(solutions.data_real(f"FluxLinkage(Phase{p})")) for p in "ABC"], axis=-1)
         vind_phases = np.stack([np.array(solutions.data_real(f"InducedVoltage(Phase{p})")) for p in "ABC"], axis=-1)
         current_phases = np.stack([np.array(solutions.data_real(f"InputCurrent(Phase{p})")) for p in "ABC"], axis=-1)
@@ -276,14 +276,13 @@ class Computation(ComputationBase):
         L_d_row = np.zeros((len(position), 3))
         L_q_row = np.zeros((len(position), 3))
         for i, L_row in enumerate(L_raw):
-            L_d_row[:, i], L_q_row[:, i] = (v*m for v, m in zip(to_dq(L_row, theta_el, harmonic=1), (3/2, -3/2)))
+            L_d_row[:, i], L_q_row[:, i] = (v * m for v, m in zip(to_dq(L_row, theta_el, harmonic=1), (3 / 2, -3 / 2)))
 
         L_d, _ = to_dq(L_d_row, theta_el, harmonic=1)
         _, L_q_raw = to_dq(L_q_row, theta_el, harmonic=1)
         L_q = -L_q_raw
 
-        Irms=np.sqrt(I_d**2+I_q**2)/np.sqrt(2)
-
+        Irms = np.sqrt(I_d**2 + I_q**2) / np.sqrt(2)
 
         out = {
             "Flux_d": Flux_d,

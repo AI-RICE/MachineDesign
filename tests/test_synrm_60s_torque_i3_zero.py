@@ -152,7 +152,7 @@ if __name__ == "__main__":
         Iq = I_mag * np.sin(beta)
 
         torque_3f = _check_angle("synrm_3f_60s", Geometry3fSameNc, Computation3f, (Id, Iq), barriers)
-        torque_5f = _check_angle("synrm_5f_60s", Geometry5fSameNc, Computation5f, (Id, Iq, 0.0, 0.0), barriers)
+        torque_5f = _check_angle("synrm_5f_60s", Geometry5fSameNc, Computation5fInitPosTest, (Id, Iq, 0.0, 0.0), barriers)
         results["synrm_3f_60s"].append(torque_3f)
         results["synrm_5f_60s"].append(torque_5f)
         print(f"beta={beta_deg:>3}deg: 3f TorAvg={torque_3f:.4f} Nm, 5f(i3=0) TorAvg={torque_5f:.4f} Nm")

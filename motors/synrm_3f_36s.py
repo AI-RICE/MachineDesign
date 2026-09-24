@@ -6,6 +6,7 @@ from ansys.aedt.core.modeler.modeler_2d import Modeler2D
 
 from machine_design.designs.computation import ComputationBase
 from machine_design.designs.geometry import GeometryBase
+from machine_design.generic.transforms import to_dq
 
 
 class Geometry(GeometryBase):
@@ -174,12 +175,13 @@ class Computation(ComputationBase):
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
+        self.InitPos = -30  # deg
         self.oper_params = {
             "Id": "0.0A",
             "Iq": "0.0A",
             "epsI": "atan2(Iq,Id)",  # current angle
             "Im": "sqrt(Id^2+Iq^2)",
-            "InitPos": "-30deg",
+            "InitPos": f"{self.InitPos}deg",
             "w": f"{w}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
             "Nper": "1/6",  # number of included periods
@@ -187,33 +189,17 @@ class Computation(ComputationBase):
         }
 
     def set_solution_expressions(self):
-        self.solution_expressions = "Moving1.Torque"
+        self.solution_expressions = [
+            "Moving1.Position",
+            "Moving1.Torque",
+            *[f"FluxLinkage(Phase{p})" for p in "ABC"],
+            *[f"InducedVoltage(Phase{p})" for p in "ABC"],
+            *[f"InputCurrent(Phase{p})" for p in "ABC"],
+            *[f"L(Phase{x},Phase{y})" for x in "ABC" for y in "ABC"],
+        ]
 
     def set_output_vars(self):
-        self.output_vars = {
-            "pos": "(Moving1.Position -InitPos) * Poles/2",
-            "cos0": "cos(pos)",
-            "cos1": "cos(pos-2*PI/3)",
-            "cos2": "cos(pos-4*PI/3)",
-            "sin0": "sin(pos)",
-            "sin1": "sin(pos-2*PI/3)",
-            "sin2": "sin(pos-4*PI/3)",
-            "Lad": "L(PhaseA,PhaseA)*cos0 + L(PhaseA,PhaseB)*cos1 + L(PhaseA,PhaseC)*cos2",
-            "Laq": "L(PhaseA,PhaseA)*sin0 + L(PhaseA,PhaseB)*sin1 + L(PhaseA,PhaseC)*sin2",
-            "Lbd": "L(PhaseB,PhaseA)*cos0 + L(PhaseB,PhaseB)*cos1 + L(PhaseB,PhaseC)*cos2",
-            "Lbq": "L(PhaseB,PhaseA)*sin0 + L(PhaseB,PhaseB)*sin1 + L(PhaseB,PhaseC)*sin2",
-            "Lcd": "L(PhaseC,PhaseA)*cos0 + L(PhaseC,PhaseB)*cos1 + L(PhaseC,PhaseC)*cos2",
-            "Lcq": "L(PhaseC,PhaseA)*sin0 + L(PhaseC,PhaseB)*sin1 + L(PhaseC,PhaseC)*sin2",
-            "L_d": "(Lad*cos0 + Lbd*cos1 + Lcd*cos2) * 2/3",
-            "L_q": "(Laq*sin0 + Lbq*sin1 + Lcq*sin2) * 2/3",
-            "Flux_d": "(FluxLinkage(PhaseA)*cos0+FluxLinkage(PhaseB)*cos1+FluxLinkage(PhaseC)*cos2)*2/3",
-            "Flux_q": "-(FluxLinkage(PhaseA)*sin0+FluxLinkage(PhaseB)*sin1+FluxLinkage(PhaseC)*sin2)*2/3",
-            "Ui_d": "(InducedVoltage(PhaseA)*cos0+InducedVoltage(PhaseB)*cos1+InducedVoltage(PhaseC)*cos2)*2/3",
-            "Ui_q": "-(InducedVoltage(PhaseA)*sin0+InducedVoltage(PhaseB)*sin1+InducedVoltage(PhaseC)*sin2)*2/3",
-            "I_d": "(InputCurrent(PhaseA)*cos0 + InputCurrent(PhaseB)*cos1 + InputCurrent(PhaseC)*cos2)*2/3",
-            "I_q": "-(InputCurrent(PhaseA)*sin0 + InputCurrent(PhaseB)*sin1 + InputCurrent(PhaseC)*sin2)*2/3",
-            "Irms": "sqrt(I_d^2+I_q^2)/sqrt(2)",
-        }
+        self.output_vars = {}
 
     def set_post_params(self):
         self.post_params = {  # reports
@@ -266,8 +252,49 @@ class Computation(ComputationBase):
         m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=False)
 
     def set_variables(self, m2d: Maxwell2d, Id, Iq):
+        self.Id, self.Iq = Id, Iq
         m2d.variable_manager["Id"] = f"{Id}A"
         m2d.variable_manager["Iq"] = f"{Iq}A"
 
     def extract_results(self, solutions):
-        return solutions.data_magnitude()
+        position = np.array(solutions.data_real("Moving1.Position"))
+        torque = np.array(solutions.data_real("Moving1.Torque"))
+
+        theta_el = np.deg2rad(position - self.InitPos) * self.geometry.PolePairs
+        flux_phases = np.stack([np.array(solutions.data_real(f"FluxLinkage(Phase{p})")) for p in "ABC"], axis=-1)
+        vind_phases = np.stack([np.array(solutions.data_real(f"InducedVoltage(Phase{p})")) for p in "ABC"], axis=-1)
+        current_phases = np.stack([np.array(solutions.data_real(f"InputCurrent(Phase{p})")) for p in "ABC"], axis=-1)
+
+        Flux_d, Flux_q = to_dq(flux_phases, theta_el, harmonic=1)
+        Ui_d, Ui_q = to_dq(vind_phases, theta_el, harmonic=1)
+        I_d, I_q = (v / 1e3 for v in to_dq(current_phases, theta_el, harmonic=1))
+        # mA to A
+
+        L_raw = [np.stack([np.array(solutions.data_real(f"L(Phase{x},Phase{y})")) for y in "ABC"], axis=-1) / 1e9 for x in "ABC"]
+        # nH to H
+
+        L_d_row = np.zeros((len(position), 3))
+        L_q_row = np.zeros((len(position), 3))
+        for i, L_row in enumerate(L_raw):
+            L_d_row[:, i], L_q_row[:, i] = (v * m for v, m in zip(to_dq(L_row, theta_el, harmonic=1), (3 / 2, -3 / 2)))
+
+        L_d, _ = to_dq(L_d_row, theta_el, harmonic=1)
+        _, L_q_raw = to_dq(L_q_row, theta_el, harmonic=1)
+        L_q = -L_q_raw
+
+        Irms = np.sqrt(I_d**2 + I_q**2) / np.sqrt(2)
+
+        out = {
+            "Flux_d": Flux_d,
+            "Flux_q": Flux_q,
+            "Ui_d": Ui_d,
+            "Ui_q": Ui_q,
+            "I_d": I_d,
+            "I_q": I_q,
+            "L_d": L_d,
+            "L_q": L_q,
+            "Irms": Irms,
+            "Moving1.Torque": torque,
+        }
+
+        return out

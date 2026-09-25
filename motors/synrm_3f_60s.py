@@ -28,8 +28,8 @@ class Geometry(BaseGeometry):
 
 
 class Computation(BaseComputation):
-    def set_output_vars(self):
-        self.output_vars = {}
+    def set_solution_expressions(self):
+        self.solution_expressions = ["Moving1.Torque"]
 
     def set_post_params(self):
         self.post_params = {  # reports

@@ -69,9 +69,5 @@ class Computation(BaseComputation):
             )
             m2d.add_winding_coils(assignment=f"Phase{phase_name}", coils=[f"CS_{coil_name}" for coil_name, _ in group])
 
-    def set_variables(self, m2d: Maxwell2d, Id, Iq):
-        super().set_variables(m2d, Id, Iq)
-        self.Id, self.Iq = Id, Iq
-
     def extract_results(self, solutions):
         return {"Moving1.Torque": np.array(solutions.data_real("Moving1.Torque"))}

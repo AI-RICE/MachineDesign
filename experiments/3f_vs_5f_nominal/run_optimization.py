@@ -17,12 +17,11 @@ from gpytorch.mlls import ExactMarginalLogLikelihood
 from machine_design.config import load_config
 from machine_design.designs import load_design
 from machine_design.optimization import HacklGenerator_SixLambdas
-from .optimization import (
+from optimization import (
     init_points,
     objective,
     objective_transform,
     )
-from motors.synrm_3f_36s import Computation, Geometry
 
 torch.set_default_dtype(torch.float64)
 
@@ -31,12 +30,12 @@ phases=3
 if phases==3:
     from motors.synrm_3f_60s import Computation, Geometry
     current_n=2
-    current_bounds=np.array([0.0, 0.0], [4.0, 4.0])  #Id, Iq bounds for 3f
+    current_bounds=np.array([[0.0, 0.0], [4.0, 4.0]])  #Id, Iq bounds for 3f
     ref_loss=20
 else:
     from motors.synrm_5f_60s import Computation, Geometry
     current_n=4
-    current_bounds=np.array([0.0, 0.0, 0.0, 0.0], [10.0, 10.0, 10.0, 10.0])  #Id1, Iq1, Id3, Iq3 bounds for 5f
+    current_bounds=np.array([[0.0, 0.0, 0.0, 0.0], [10.0, 10.0, 10.0, 10.0]])  #Id1, Iq1, Id3, Iq3 bounds for 5f
     ref_loss=40
 
 config = load_config()
@@ -68,7 +67,7 @@ ref_cons_loss, _, ref_cons_ripple = objective_transform(ref_cons["loss"], 0.0, r
 objective_fallback_tuple = (objective_fallback["loss"], objective_fallback["torque"], objective_fallback["ripple"])
 
 method = generator.__class__.__name__
-output_name = f"results_{method}_{method}.npz"
+output_name = f"results_{method}_{phases}f.npz"
 
 if os.path.exists(output_name):
     data = np.load(output_name)
@@ -164,7 +163,7 @@ while len(train_X) < n_evals:
     train_Y = torch.cat([train_Y, new_Y_all])
 
     print(len(train_Y))
-    print(train_Y[is_non_dominated(train_Y)])
+    print(train_Y[is_non_dominated(train_Y[:,[0, 2]])])
 
     # Save candidates
     np.savez(output_name, train_X=unnormalize(train_X, bounds), train_Y=train_Y)

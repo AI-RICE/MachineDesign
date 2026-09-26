@@ -7,8 +7,6 @@ Run explicitly with:
 Requires a running Ansys Electronics Desktop session and a free license seat.
 """
 
-import os
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -30,9 +28,6 @@ OFFSET = 0.35
 SEEDS = (42, 43)
 NUM_CORES = 1
 current_setpoints = (3.0, 3.0)
-I_mag = 3 * np.sqrt(2)  # (Id, Iq)=(3.0, 3.0) at 45deg
-betas_deg = [35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85]
-data_dir = os.path.join(os.getcwd(), "data")
 
 
 class Geometry3fSameNc(Geometry3f):
@@ -45,13 +40,6 @@ class Geometry5fSameNc(Geometry5f):
     def set_winds_params(self):
         super().set_winds_params()
         self.wind_params["Nc"] = "113"
-
-
-class Computation5fInitPosTest(Computation5f):
-    def set_oper_params(self):
-        super().set_oper_params()
-        self.InitPos = -42  # deg, test 6deg electrical/(p=2) =3deg
-        self.oper_params["InitPos"] = f"{self.InitPos}deg"
 
 
 Machines = [
@@ -113,57 +101,4 @@ def test_synrm_5f_60s_i3_zero_performs_same_with_3f_60s(tmp_path):
         torque_5f = results["synrm_5f_60s"]
         diff_pct = abs(torque_3f - torque_5f) / abs(torque_3f) * 100
         print(f"seed {seed}: 3f TorAvg={torque_3f:.4f} Nm, 5f(i3=0) TorAvg={torque_5f:.4f} Nm, diff={diff_pct:.2f}%")
-        assert diff_pct < 20, f"seed {seed}: 3f and 5f(i3=0) torque differ by {diff_pct:.2f}%, expected roughly comparable"
-
-
-def _check_angle(name, geometry_cls, computation_cls, current_setpoint, barriers):
-    geometry = geometry_cls()
-    computation = computation_cls(geometry)
-    design = LiveDesign.create(
-        f"CheckAngle_{name}",
-        "Design01",
-        f"{data_dir}/{name}_angle.aedt",
-        geometry,
-        computation,
-        version=AEDT_VERSION,
-        non_graphical=True,
-        new_desktop=False,
-        close_on_exit=False,
-    )
-    try:
-        design.add_rotor()
-        for barrier in barriers:
-            design.add_rotor_barrier(barrier)
-        torque = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
-        TorAvg, _, TorRippleRms = analyze_results(torque["Moving1.Torque"])
-        return TorAvg
-    finally:
-        design.close_project()
-
-
-if __name__ == "__main__":
-    barriers = _generate_one_lambda_barriers(SEEDS[0])
-
-    results = {"synrm_3f_60s": [], "synrm_5f_60s": []}
-    sweep_results = pd.DataFrame()
-    for beta_deg in betas_deg:
-        beta = np.deg2rad(beta_deg)
-        Id = I_mag * np.cos(beta)
-        Iq = I_mag * np.sin(beta)
-
-        torque_3f = _check_angle("synrm_3f_60s", Geometry3fSameNc, Computation3f, (Id, Iq), barriers)
-        torque_5f = _check_angle("synrm_5f_60s", Geometry5fSameNc, Computation5fInitPosTest, (Id, Iq, 0.0, 0.0), barriers)
-        results["synrm_3f_60s"].append(torque_3f)
-        results["synrm_5f_60s"].append(torque_5f)
-        print(f"beta={beta_deg:>3}deg: 3f TorAvg={torque_3f:.4f} Nm, 5f(i3=0) TorAvg={torque_5f:.4f} Nm")
-        sweep_results_new = {
-            "beta_deg": beta_deg,
-            "synrm_3f_60s": torque_3f,
-            "synrm_5f_60s": torque_5f,
-        }
-        sweep_results = pd.concat((sweep_results, pd.DataFrame([sweep_results_new])), ignore_index=True)
-        sweep_results.to_csv(f"{data_dir}/angle_sweep_results.csv", index=False)
-
-    for name, values in results.items():
-        peak_idx = int(np.argmax(values))
-        print(f"{name}: peak at beta={betas_deg[peak_idx]}deg, TorAvg={values[peak_idx]:.4f} Nm")
+        assert diff_pct < 10, f"seed {seed}: 3f and 5f(i3=0) torque differ by {diff_pct:.2f}%, expected roughly comparable"

@@ -328,4 +328,7 @@ class Computation(ComputationBase):
             "Moving1.Torque": torque,
         }
 
+        for key, value in out.items():
+            print(f"{key}: {np.asarray(value).flat[0]:.4g}")
+
         return out

@@ -3,7 +3,6 @@
 import numpy as np
 from ansys.aedt.core import Maxwell2d
 
-from machine_design.generic.compute_initpos import compute_initpos
 from machine_design.generic.winding import phase_groups
 
 from .synrm_3f_36s import Computation as BaseComputation

@@ -6,6 +6,7 @@ from ansys.aedt.core.modeler.modeler_2d import Modeler2D
 
 from machine_design.designs.computation import ComputationBase
 from machine_design.designs.geometry import GeometryBase
+from machine_design.generic.compute_initpos import compute_initpos
 from machine_design.generic.transforms import to_dq
 
 
@@ -175,18 +176,23 @@ class Computation(ComputationBase):
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
-        self.InitPos = -30  # deg
         self.oper_params = {
             "Id": "0.0A",
             "Iq": "0.0A",
             "epsI": "atan2(Iq,Id)",  # current angle
             "Im": "sqrt(Id^2+Iq^2)",
-            "InitPos": f"{self.InitPos}deg",
             "w": f"{w}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
             "Nper": "1/6",  # number of included periods
             "PointPer": "101",  # number of time points per period
         }
+        self.set_initpos()
+
+    def set_initpos(self):
+        Q = int(self.geometry.geom_params["SlotNumber"])
+        p = self.geometry.PolePairs
+        self.InitPos = compute_initpos(Q, p, 3, belt_offset=0)
+        self.oper_params["InitPos"] = f"{self.InitPos}deg"
 
     def set_solution_expressions(self):
         self.solution_expressions = [

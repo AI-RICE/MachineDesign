@@ -7,6 +7,7 @@ phases. Excitation is dq1 + dq3.
 import numpy as np
 from ansys.aedt.core import Maxwell2d
 
+from machine_design.generic.compute_initpos import compute_initpos
 from machine_design.generic.winding import phase_groups
 
 from .synrm_5f_40s import Computation as BaseComputation
@@ -34,7 +35,9 @@ class Geometry(BaseGeometry):
 class Computation(BaseComputation):
     def set_oper_params(self):
         super().set_oper_params()
-        self.InitPos = -42  # it should be computed first for different machines
+        Q = int(self.geometry.geom_params["SlotNumber"])
+        p = self.geometry.PolePairs
+        self.InitPos = compute_initpos(Q, p, 5, belt_offset=1)
         self.oper_params["InitPos"] = f"{self.InitPos}deg"
 
     def set_solution_expressions(self):

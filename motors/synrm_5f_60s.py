@@ -32,6 +32,11 @@ class Geometry(BaseGeometry):
 
 
 class Computation(BaseComputation):
+    def set_oper_params(self):
+        super().set_oper_params()
+        self.InitPos = -42  # it should be computed first for different machines
+        self.oper_params["InitPos"] = f"{self.InitPos}deg"
+
     def set_solution_expressions(self):
         self.solution_expressions = ["Moving1.Torque"]
 

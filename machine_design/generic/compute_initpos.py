@@ -20,5 +20,5 @@ def compute_initpos(Q: int, p: int, m: int, belt_offset: int):
             eff_deg = theta_e_deg + 180.0
         xa += math.cos(math.radians(eff_deg))
         ya += math.sin(math.radians(eff_deg))
-    gamma_e_deg = math.degrees(math.atan2(ya, xa)) % 360
+    gamma_e_deg = math.degrees(math.atan2(ya, xa))
     return (gamma_e_deg - 90.0) / p

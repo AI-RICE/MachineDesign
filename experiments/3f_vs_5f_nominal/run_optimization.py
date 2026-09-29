@@ -5,12 +5,10 @@ import os
 import numpy as np
 import torch
 from botorch import fit_gpytorch_mll
-from botorch.acquisition.multi_objective.logei import qLogExpectedHypervolumeImprovement
-from botorch.acquisition.multi_objective.objective import IdentityMCMultiOutputObjective
+from botorch.acquisition.logei import qLogNoisyExpectedImprovement
+from botorch.acquisition.objective import GenericMCObjective
 from botorch.models import SingleTaskGP
 from botorch.optim import optimize_acqf
-from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning
-from botorch.utils.multi_objective.pareto import is_non_dominated
 from botorch.utils.transforms import normalize, unnormalize
 from gpytorch.mlls import ExactMarginalLogLikelihood
 
@@ -63,7 +61,6 @@ computation = Computation(geometry)
 design = load_design(file_name_aedt, project_name, design_name, aedt_version, geometry, computation)
 generator = HacklGenerator_SixLambdas(design, r_stator_end, offset=offset)
 
-ref_cons_loss, _, ref_cons_ripple = objective_transform(ref_cons["loss"], 0.0, ref_cons["ripple"])
 objective_fallback_tuple = (objective_fallback["loss"], objective_fallback["torque"], objective_fallback["ripple"])
 
 method = generator.__class__.__name__
@@ -92,8 +89,12 @@ def torque_constraint(Y):
     return t_target-Y[..., 1]
 
 
-constraints = [torque_constraint]
-ref_point = torch.tensor([ref_cons_loss, ref_cons_ripple])
+def ripple_constraint(Y):
+    return -100*Y[..., 2]-ref_cons["ripple"]  #  train_Y[...,2] stores -TorRippleRms/100
+
+
+constraints = [torque_constraint, ripple_constraint]
+loss_objective=GenericMCObjective(lambda Y, X=None: Y[...,0])
 
 while len(train_X) < n_evals:
     # Fit surrogate
@@ -101,18 +102,14 @@ while len(train_X) < n_evals:
     mll = ExactMarginalLogLikelihood(model.likelihood, model)
     fit_gpytorch_mll(mll)
 
-    # Compute Pareto front, loss, ripplem, here TorAvg is not an objective, it fits the constraint
-    train_Y_obj=train_Y[:, [0, 2]]
-    pareto_Y = train_Y_obj[is_non_dominated(train_Y_obj)]
-    partitioning = NondominatedPartitioning(ref_point=ref_point, Y=pareto_Y)
 
     # Define acquisition function
-    acq = qLogExpectedHypervolumeImprovement(
+    acq = qLogNoisyExpectedImprovement(
         model=model,
-        ref_point=ref_point.tolist(),
-        partitioning=partitioning,
-        objective=IdentityMCMultiOutputObjective(outcomes=[0, 2]),
+        X_baseline=train_X,
+        objective=loss_objective,
         constraints=constraints,
+        prune_baseline=True,
             )
 
     # Optimize acquisition function to select candidate points. Reject unfeasible points
@@ -162,8 +159,9 @@ while len(train_X) < n_evals:
     train_X = torch.cat([train_X, candidates_all])
     train_Y = torch.cat([train_Y, new_Y_all])
 
-    print(len(train_Y))
-    print(train_Y[is_non_dominated(train_Y[:,[0, 2]])])
+    feasible=(train_Y[:,1]>=t_target) & (-100*train_Y[:, 2]<=ref_cons["ripple"])
+    print(len(train_Y), feasible.sum().item())
+    print(train_Y[feasible][:,0].max() if feasible.any() else None)
 
     # Save candidates
     np.savez(output_name, train_X=unnormalize(train_X, bounds), train_Y=train_Y)

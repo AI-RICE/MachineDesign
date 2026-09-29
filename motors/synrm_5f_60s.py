@@ -33,13 +33,6 @@ class Geometry(BaseGeometry):
 
 
 class Computation(BaseComputation):
-    def set_oper_params(self):
-        super().set_oper_params()
-        Q = int(self.geometry.geom_params["SlotNumber"])
-        p = self.geometry.PolePairs
-        self.InitPos = compute_initpos(Q, p, 5, belt_offset=1)
-        self.oper_params["InitPos"] = f"{self.InitPos}deg"
-
     def set_solution_expressions(self):
         self.solution_expressions = ["Moving1.Torque"]
 

@@ -98,13 +98,6 @@ class Computation(ComputationBase):
                 "FluxLinkage(PhaseD)",
                 "FluxLinkage(PhaseE)",
             ): "FluxLinkage",
-            ("I_d1", "I_q1", "I_d3", "I_q3"): "Current_dq",
-            ("Flux_d1", "Flux_q1", "Flux_d3", "Flux_q3"): "FluxLinkage_dq",
-            ("Flux_e_d1", "Flux_e_q1", "Flux_e_d3", "Flux_e_q3"): "FluxLinkage excitation_dq",
-            ("Vind_d1", "Vind_q1", "Vind_d3", "Vind_q3"): "InducedVoltage_dq",
-            ("V_d1", "V_q1", "V_d3", "V_q3"): "TerminalVoltage_dq",
-            ("Ld1", "Lq1", "Ld3", "Lq3"): "Inductance_dq main",
-            ("Ld1q1", "Ld1d3", "Ld1q3", "Lq1d3", "Lq1q3", "Ld3q3"): "Inductance_dq cross-coupling",
         }
 
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:

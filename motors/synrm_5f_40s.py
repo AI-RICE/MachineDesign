@@ -245,8 +245,8 @@ class Computation(ComputationBase):
 
         Flux_d1, Flux_q1 = to_dq(flux_phases, theta_el, harmonic=1)
         Flux_d3, Flux_q3 = to_dq(flux_phases, theta_el, harmonic=3)
-        Vind_d1, Vind_q1 = to_dq(vind_phases, theta_el, harmonic=1)
-        Vind_d3, Vind_q3 = to_dq(vind_phases, theta_el, harmonic=3)
+        Vind_d1, Vind_q1 = (v/1e3 for v in to_dq(vind_phases, theta_el, harmonic=1))
+        Vind_d3, Vind_q3 = (v/1e3 for v in to_dq(vind_phases, theta_el, harmonic=3))
         I_d1, I_q1 = (v / 1e3 for v in to_dq(current_phases, theta_el, harmonic=1))
         I_d3, I_q3 = (v / 1e3 for v in to_dq(current_phases, theta_el, harmonic=3))
         # mA to A
@@ -262,7 +262,7 @@ class Computation(ComputationBase):
             phase_offset = -2 * np.pi * k / 5  # 5 angles, 0deg, -72deg, -144deg, -216deg, -288deg
             dI_dt_phases[:, k] = -Im1 * self.w * np.sin(self.w * time + phase_offset + epsI1 - np.pi) - Im3 * 3 * self.w * np.sin(3 * (self.w * time + phase_offset) + epsI3 - np.pi)
 
-        V_phases = vind_phases + self.Rstat * current_phases + self.Lew * dI_dt_phases
+        V_phases = vind_phases/1e3 + self.Rstat * current_phases / 1e3 + self.Lew * dI_dt_phases
 
         V_d1, V_q1 = to_dq(V_phases, theta_el, harmonic=1)
         V_d3, V_q3 = to_dq(V_phases, theta_el, harmonic=3)

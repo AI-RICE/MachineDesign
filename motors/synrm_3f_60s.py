@@ -3,6 +3,7 @@
 import numpy as np
 from ansys.aedt.core import Maxwell2d
 
+from machine_design.generic.compute_initpos import compute_initpos
 from machine_design.generic.winding import phase_groups
 
 from .synrm_3f_36s import Computation as BaseComputation
@@ -28,8 +29,15 @@ class Geometry(BaseGeometry):
 
 
 class Computation(BaseComputation):
-    def set_output_vars(self):
-        self.output_vars = {}
+    def set_oper_params(self):
+        super().set_oper_params()
+        Q = int(self.geometry.geom_params["SlotNumber"])
+        p = self.geometry.PolePairs
+        self.InitPos = compute_initpos(Q, p, 3, belt_offset=0)
+        self.oper_params["InitPos"] = f"{self.InitPos}deg"
+
+    def set_solution_expressions(self):
+        self.solution_expressions = ["Moving1.Torque"]
 
     def set_post_params(self):
         self.post_params = {  # reports
@@ -68,10 +76,6 @@ class Computation(BaseComputation):
                 name=f"Phase{phase_name}",
             )
             m2d.add_winding_coils(assignment=f"Phase{phase_name}", coils=[f"CS_{coil_name}" for coil_name, _ in group])
-
-    def set_variables(self, m2d: Maxwell2d, Id, Iq):
-        super().set_variables(m2d, Id, Iq)
-        self.Id, self.Iq = Id, Iq
 
     def extract_results(self, solutions):
         return {"Moving1.Torque": np.array(solutions.data_real("Moving1.Torque"))}

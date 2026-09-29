@@ -31,18 +31,6 @@ class Computation(BaseComputation):
     def set_solution_expressions(self):
         self.solution_expressions = ["Moving1.Torque"]
 
-    def set_post_params(self):
-        self.post_params = {  # reports
-            ("InducedVoltage(PhaseA)", "InducedVoltage(PhaseB)", "InducedVoltage(PhaseC)"): "InducedVoltage",
-            ("Moving1.Torque"): "Torque",
-            ("InputCurrent(PhaseA)", "InputCurrent(PhaseB)", "InputCurrent(PhaseC)"): "Current",
-            (
-                "FluxLinkage(PhaseA)",
-                "FluxLinkage(PhaseB)",
-                "FluxLinkage(PhaseC)",
-            ): "FluxLinkage",
-        }
-
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:
         # Excitations
         I_A = "Im * cos(w*Time+epsI)"

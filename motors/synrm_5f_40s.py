@@ -223,6 +223,7 @@ class Computation(ComputationBase):
         m2d.variable_manager["Iq3"] = f"{Iq3}A"
 
     def extract_results(self, solutions):
+        print(solutions.units_data)
         position = np.array(solutions.data_real("Moving1.Position"))
         torque = np.array(solutions.data_real("Moving1.Torque"))
 

@@ -2,10 +2,10 @@ from abc import ABC, abstractmethod
 
 from ansys.aedt.core import Maxwell2d
 
+from machine_design.generic.compute_initpos import compute_initpos
+
 from .geometry import GeometryBase
 from .reserved_variables import check_no_reserved_variable_names
-
-from machine_design.generic.compute_initpos import compute_initpos
 
 
 class ComputationBase(ABC):

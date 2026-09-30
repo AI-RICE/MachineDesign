@@ -267,8 +267,7 @@ class Computation(ComputationBase):
         Ui_d, Ui_q = to_dq(vind_phases, theta_el, harmonic=1)
         I_d, I_q = to_dq(current_phases, theta_el, harmonic=1)
 
-        L_raw = [np.stack([np.array(solutions.data_real(f"L(Phase{x},Phase{y})", convert_to_SI=True)) for y in "ABC"], axis=-1) / 1e9 for x in "ABC"]
-        # nH to H
+        L_raw = [np.stack([np.array(solutions.data_real(f"L(Phase{x},Phase{y})", convert_to_SI=True)) for y in "ABC"], axis=-1) for x in "ABC"]
 
         L_d_row = np.zeros((len(position), 3))
         L_q_row = np.zeros((len(position), 3))

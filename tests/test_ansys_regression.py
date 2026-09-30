@@ -107,7 +107,7 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
         def _legacy_extract_results(solutions):
             out = {}
             for expr in legacy_design.solution_expressions:
-                out[expr]=np.array(solutions.data_real(expr, convert_to_SI=True)) # use SI units to compare
+                out[expr] = np.array(solutions.data_real(expr, convert_to_SI=True))  # use SI units to compare
             return out
 
         legacy_design.extract_results = _legacy_extract_results

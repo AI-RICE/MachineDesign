@@ -12,6 +12,16 @@ class Geometry(GeometryBase):
     def set_iron(self):
         self.Fe = "Cogent Power - M350-50A, B-H at 50Hz"
 
+    def set_magnets(self):
+        self.Magnet = GeometryBase.create_material(
+            name="NdFeb",
+            permeability=1.05,
+            conductivity=0,
+            density=7500,
+            coercivity=900000,
+            coercivity_dir=(1.0, 0.0, 0.0),
+        )
+
     def set_geom_params(self):
         self.geom_params = {
             "DiaStatorGap": "79mm",

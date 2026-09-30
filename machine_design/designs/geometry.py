@@ -194,10 +194,8 @@ class GeometryBase(ABC):
         )
         m2d.assign_vector_potential(assignment=id_bc_az, vector_value=0, boundary="A0")
 
-    def add_rotor_magnet(self, m2d: Maxwell2d, mag: np.ndarray, material, segment_type=None):
+    def add_rotor_magnet(self, m2d: Maxwell2d, mag: np.ndarray, material, fill_height=0.9, fill_width=0.9, segment_type=None):
         modeler = m2d.modeler
-        fill_height = 0.9
-        fill_width = 0.9
 
         if isinstance(mag, (list, tuple)):
             mag = np.concatenate([np.asarray(m) for m in mag], axis=0)
@@ -237,20 +235,26 @@ class GeometryBase(ABC):
 
         modeler.set_working_coordinate_system("Global")
 
-    def create_pm_material(self, m2d: Maxwell2d, PM: str) -> None:
-        if PM in m2d.materials.material_keys:
-            return m2d.materials[PM]
+    def create_material(
+        self,
+        m2d: Maxwell2d,
+        name: str,
+        permeability: float,
+        conductivity: float,
+        density: float,
+        coercivity: float | None = None,
+        coercivity_dir: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    ) -> None:
+        if name in m2d.materials.material_keys:
+            return m2d.materials[name]
 
-        mat = m2d.materials.add_material(PM)
-        mat.permeability = 1.05
-        mat.conductivity = 0
-        mat.mass_density = 7500
-        mat.set_magnetic_coercivity(
-            value=900000,  # A/m
-            x=1,
-            y=0,
-            z=0,
-        )
+        mat = m2d.materials.add_material(name)
+        mat.permeability = permeability
+        mat.conductivity = conductivity
+        mat.mass_density = density
+
+        if coercivity is not None:
+            mat.set_magnetic_coercivity(value=coercivity, x=coercivity_dir[0], y=coercivity_dir[1], z=coercivity_dir[2])
 
         return mat
 

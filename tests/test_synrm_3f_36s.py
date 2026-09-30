@@ -77,7 +77,7 @@ def test_oper_params(computation):
         "Iq": "0.0A",
         "epsI": "atan2(Iq,Id)",
         "Im": "sqrt(Id^2+Iq^2)",
-        "InitPos": "-30deg",
+        "InitPos": "-30.0deg",
         "w": f"{2 * np.pi * 50}Hz",
         "RotSpeed": "1500.0rpm",
         "Nper": "1/6",

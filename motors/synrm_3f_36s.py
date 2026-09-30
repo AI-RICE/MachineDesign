@@ -172,21 +172,22 @@ class Geometry(GeometryBase):
 
 class Computation(ComputationBase):
     def set_oper_params(self):
+        self.phases = 3
+        self.belt_offset = 0
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
-        self.InitPos = -30  # deg
         self.oper_params = {
             "Id": "0.0A",
             "Iq": "0.0A",
             "epsI": "atan2(Iq,Id)",  # current angle
             "Im": "sqrt(Id^2+Iq^2)",
-            "InitPos": f"{self.InitPos}deg",
             "w": f"{w}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
             "Nper": "1/6",  # number of included periods
             "PointPer": "101",  # number of time points per period
         }
+        self.set_initpos()
 
     def set_solution_expressions(self):
         self.solution_expressions = [
@@ -211,10 +212,6 @@ class Computation(ComputationBase):
                 "FluxLinkage(PhaseB)",
                 "FluxLinkage(PhaseC)",
             ): "FluxLinkage",
-            ("I_d", "I_q"): "Current_dq",
-            ("Flux_d", "Flux_q"): "FluxLinkage_dq",
-            ("Ui_d", "Ui_q"): "InducedVoltage_dq",
-            ("L_d", "L_q"): "Inductance_dq",
         }
 
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:

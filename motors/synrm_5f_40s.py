@@ -31,10 +31,11 @@ class Geometry(BaseGeometry):
 
 class Computation(ComputationBase):
     def set_oper_params(self):
+        self.phases = 5
+        self.belt_offset = 1
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
-        self.InitPos = -45  # deg
         self.RotSign = 1
         self.Rstat = 19.0
         self.Lew = 0.0
@@ -48,12 +49,12 @@ class Computation(ComputationBase):
             "epsI3": "atan2(Iq3,Id3)",  # current angle, 1st harmonic
             "Im1": "sqrt(Id1^2+Iq1^2)",
             "Im3": "sqrt(Id3^2+Iq3^2)",
-            "InitPos": f"{self.InitPos}deg",
             "w": f"{w}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
             "Nper": "1/10",  # number of included periods
             "PointPer": "101",  # number of time points per period
         }
+        self.set_initpos()
 
     def set_solution_expressions(self):
         self.solution_expressions = [
@@ -92,13 +93,6 @@ class Computation(ComputationBase):
                 "FluxLinkage(PhaseD)",
                 "FluxLinkage(PhaseE)",
             ): "FluxLinkage",
-            ("I_d1", "I_q1", "I_d3", "I_q3"): "Current_dq",
-            ("Flux_d1", "Flux_q1", "Flux_d3", "Flux_q3"): "FluxLinkage_dq",
-            ("Flux_e_d1", "Flux_e_q1", "Flux_e_d3", "Flux_e_q3"): "FluxLinkage excitation_dq",
-            ("Vind_d1", "Vind_q1", "Vind_d3", "Vind_q3"): "InducedVoltage_dq",
-            ("V_d1", "V_q1", "V_d3", "V_q3"): "TerminalVoltage_dq",
-            ("Ld1", "Lq1", "Ld3", "Lq3"): "Inductance_dq main",
-            ("Ld1q1", "Ld1d3", "Ld1q3", "Lq1d3", "Lq1q3", "Ld3q3"): "Inductance_dq cross-coupling",
         }
 
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:

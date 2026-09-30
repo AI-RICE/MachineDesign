@@ -100,7 +100,7 @@ def test_extract_results_converts_units(computation2):
     solutions = SimpleNamespace(data_real=data_real, primary_sweep_values=[0.0, 1.0])
     out = computation2.extract_results(solutions)
 
-    theta_el = electrical_angle(np.full(2, 7.0), computation2.InitPos, computation2.geometry.PolePairs, computation2.RotSign, degrees=True)
+    theta_el = electrical_angle(np.full(2, 7.0), np.deg2rad(computation2.InitPos), computation2.geometry.PolePairs, computation2.RotSign, degrees=False)
     current_phases = np.stack([np.full(2, i + 1.0) for i in range(5)], axis=-1)
     expected_I_d1, _ = to_dq(current_phases, theta_el, harmonic=1)
 

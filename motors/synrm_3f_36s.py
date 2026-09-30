@@ -172,8 +172,8 @@ class Geometry(GeometryBase):
 
 class Computation(ComputationBase):
     def set_oper_params(self):
-        self.phases=3
-        self.belt_offset=0
+        self.phases = 3
+        self.belt_offset = 0
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f

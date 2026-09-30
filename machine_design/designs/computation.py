@@ -7,6 +7,7 @@ from .reserved_variables import check_no_reserved_variable_names
 
 from machine_design.generic.compute_initpos import compute_initpos
 
+
 class ComputationBase(ABC):
     def __init__(self, geometry: GeometryBase) -> None:
         self.geometry = geometry
@@ -43,9 +44,9 @@ class ComputationBase(ABC):
     def extract_results(self, solutions): ...
 
     def set_initpos(self) -> None:
-        Q=int(self.geometry.geom_params["SlotNumber"])
-        p=self.geometry.PolePairs
-        self.InitPos=compute_initpos(Q, p, self.phases, belt_offset=self.belt_offset)
+        Q = int(self.geometry.geom_params["SlotNumber"])
+        p = self.geometry.PolePairs
+        self.InitPos = compute_initpos(Q, p, self.phases, belt_offset=self.belt_offset)
         self.oper_params["InitPos"] = f"{self.InitPos}deg"
 
     def push_variables(self, m2d: Maxwell2d) -> None:

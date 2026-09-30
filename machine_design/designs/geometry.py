@@ -10,6 +10,7 @@ from .reserved_variables import check_no_reserved_variable_names
 class GeometryBase(ABC):
     def __init__(self) -> None:
         self.set_iron()
+        self.set_magnets()
         self.set_geom_params()
         self.set_slot_params()
         self.set_winds_params()
@@ -21,6 +22,9 @@ class GeometryBase(ABC):
 
     @abstractmethod
     def set_iron(self): ...
+
+    @abstractmethod
+    def set_magnets(self): ...
 
     @abstractmethod
     def set_geom_params(self): ...
@@ -228,35 +232,12 @@ class GeometryBase(ABC):
         cs_angle_deg = np.degrees(np.arctan2(radial[1], radial[0]))
 
         self.assign_magnet_cs(m2d, mag_id, cs_angle_deg)
-        mag_id.material_name = material
+        mag_id.material_name = self.magnet
         mag_id.solve_inside = True
         mag_id.color = (255, 0, 0)
         mag_id.transparency = 0.0
 
         modeler.set_working_coordinate_system("Global")
-
-    def create_material(
-        self,
-        m2d: Maxwell2d,
-        name: str,
-        permeability: float,
-        conductivity: float,
-        density: float,
-        coercivity: float | None = None,
-        coercivity_dir: tuple[float, float, float] = (0.0, 0.0, 0.0),
-    ) -> None:
-        if name in m2d.materials.material_keys:
-            return m2d.materials[name]
-
-        mat = m2d.materials.add_material(name)
-        mat.permeability = permeability
-        mat.conductivity = conductivity
-        mat.mass_density = density
-
-        if coercivity is not None:
-            mat.set_magnetic_coercivity(value=coercivity, x=coercivity_dir[0], y=coercivity_dir[1], z=coercivity_dir[2])
-
-        return mat
 
     def _create_magnet_cs(self, m2d: Maxwell2d, name: str, angle_deg: float) -> None:
         m2d.modeler.create_coordinate_system(

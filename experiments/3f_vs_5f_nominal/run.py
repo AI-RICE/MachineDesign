@@ -25,7 +25,7 @@ else:
 config = load_config()
 aedt_version = config["aedt_version"]
 num_cores = config["num_cores"]
-n_designs = 50
+n_designs = 10
 r_stator_end = 0.7
 offset = 0.7 / 2
 plot_design = True
@@ -33,7 +33,7 @@ plot_design = True
 project_name = f"SynRM_{phases}f_nominal"
 design_name = "Design01"
 path_data = os.path.join(os.getcwd(), "data")
-path_results = "results"
+path_results = f"results_{phases}"
 for path in [path_data, path_results]:
     os.makedirs(path, exist_ok=True)
 file_name_aedt = f"{path_data}/{project_name}.aedt"

@@ -8,7 +8,6 @@ import numpy as np
 from ansys.aedt.core import Maxwell2d
 
 from machine_design.designs.computation import ComputationBase
-from machine_design.generic.compute_initpos import compute_initpos
 from machine_design.generic.transforms import electrical_angle, to_dq
 
 from .synrm_3f_36s import Geometry as BaseGeometry
@@ -32,6 +31,8 @@ class Geometry(BaseGeometry):
 
 class Computation(ComputationBase):
     def set_oper_params(self):
+        self.phases=5
+        self.belt_offset=1
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
@@ -54,12 +55,6 @@ class Computation(ComputationBase):
             "PointPer": "101",  # number of time points per period
         }
         self.set_initpos()
-
-    def set_initpos(self):
-        Q = int(self.geometry.geom_params["SlotNumber"])
-        p = self.geometry.PolePairs
-        self.InitPos = compute_initpos(Q, p, 5, belt_offset=1)
-        self.oper_params["InitPos"] = f"{self.InitPos}deg"
 
     def set_solution_expressions(self):
         self.solution_expressions = [

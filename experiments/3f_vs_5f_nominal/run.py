@@ -14,13 +14,13 @@ from machine_design.optimization import (
     save_params,
 )
 
-phases=3 
+phases=5 
 if phases==3:
     from motors.synrm_3f_60s import Computation, Geometry
-    current_bounds=np.array([0.0, 0.0], [4.0, 4.0])  #Id, Iq bounds for 3f
+    current_bounds=np.array([[0.0, 0.0], [4.0, 4.0]])  #Id, Iq bounds for 3f
 else:
     from motors.synrm_5f_60s import Computation, Geometry
-    current_bounds=np.array([0.0, 0.0, 0.0, 0.0], [10.0, 10.0, 10.0, 10.0])  #Id1, Iq1, Id3, Iq3 bounds for 5f
+    current_bounds=np.array([[0.0, 0.0, 0.0, 0.0], [10.0, 10.0, 10.0, 10.0]])  #Id1, Iq1, Id3, Iq3 bounds for 5f
 
 config = load_config()
 aedt_version = config["aedt_version"]
@@ -33,7 +33,7 @@ plot_design = True
 project_name = f"SynRM_{phases}f_nominal"
 design_name = "Design01"
 path_data = os.path.join(os.getcwd(), "data")
-path_results = f"results_{phases}"
+path_results = f"results_{phases}f"
 for path in [path_data, path_results]:
     os.makedirs(path, exist_ok=True)
 file_name_aedt = f"{path_data}/{project_name}.aedt"

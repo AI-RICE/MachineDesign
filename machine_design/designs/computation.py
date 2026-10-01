@@ -44,9 +44,9 @@ class ComputationBase(ABC):
     def extract_results(self, solutions): ...
 
     def set_initpos(self) -> None:
-        Q = int(self.geometry.geom_params["SlotNumber"])
-        p = self.geometry.PolePairs
-        self.InitPos = compute_initpos(Q, p, self.phases, belt_offset=self.belt_offset)
+        g=self.geometry
+        Q = int(g.geom_params["SlotNumber"])
+        self.InitPos = compute_initpos(Q, g.PolePairs, g.n_phases, belt_offset=g.belt_offset)
         self.oper_params["InitPos"] = f"{self.InitPos}deg"
 
     def push_variables(self, m2d: Maxwell2d) -> None:

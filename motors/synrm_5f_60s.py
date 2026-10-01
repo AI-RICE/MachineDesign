@@ -4,7 +4,6 @@ Derives from `synrm_5f_40s`, overriding only the slotting and winding it needs f
 phases. Excitation is dq1 + dq3.
 """
 
-import numpy as np
 from ansys.aedt.core import Maxwell2d
 
 from machine_design.generic.winding import phase_groups

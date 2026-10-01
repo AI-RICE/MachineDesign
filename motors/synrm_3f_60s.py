@@ -1,6 +1,5 @@
 """Anchor `synrm_3f_60s`: 3-phase synchronous reluctance machine, 60 stator slots."""
 
-import numpy as np
 from ansys.aedt.core import Maxwell2d
 
 from machine_design.generic.winding import phase_groups

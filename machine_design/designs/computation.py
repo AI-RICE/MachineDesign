@@ -1,7 +1,6 @@
-import numpy as np
-
 from abc import ABC, abstractmethod
 
+import numpy as np
 from ansys.aedt.core import Maxwell2d
 
 from machine_design.generic.compute_initpos import compute_initpos

@@ -71,6 +71,15 @@ class ComputationBase(ABC):
             *[f"L(Phase{x},Phase{y})" for x in phases for y in phases],
         ]
 
+    def extract_phase_results(self, solutions):
+        # SI units
+        phases = "ABCDE"[: self.geometry.n_phases]
+        flux_phases = np.stack([self.extract_expression(solutions, f"FluxLinkage(Phase{p})") for p in phases], axis=-1)
+        vind_phases = np.stack([self.extract_expression(solutions, f"InducedVoltage(Phase{p})") for p in phases], axis=-1)
+        current_phases = np.stack([self.extract_expression(solutions, f"InputCurrent(Phase{p})") for p in phases], axis=-1)
+        L_raw = [np.stack([self.extract_expression(solutions, f"L(Phase{x},Phase{y})") for y in phases], axis=-1) for x in phases]
+        return flux_phases, vind_phases, current_phases, L_raw
+
     def push_variables(self, m2d: Maxwell2d) -> None:
         for k, v in self.oper_params.items():
             m2d[k] = v

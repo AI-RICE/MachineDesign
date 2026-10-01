@@ -252,16 +252,12 @@ class Computation(ComputationBase):
         torque = self.extract_expression(solutions, "Moving1.Torque")
 
         theta_el = (position - np.deg2rad(self.InitPos)) * self.geometry.PolePairs
-        phases = "ABCDE"[: self.geometry.n_phases]
-        flux_phases = np.stack([self.extract_expression(solutions, f"FluxLinkage(Phase{p})") for p in phases], axis=-1)
-        vind_phases = np.stack([self.extract_expression(solutions, f"InducedVoltage(Phase{p})") for p in phases], axis=-1)
-        current_phases = np.stack([self.extract_expression(solutions, f"InputCurrent(Phase{p})") for p in phases], axis=-1)
+
+        flux_phases, vind_phases, current_phases, L_raw = self.extract_phase_results(solutions)
 
         Flux_d, Flux_q = to_dq(flux_phases, theta_el, harmonic=1)
         Ui_d, Ui_q = to_dq(vind_phases, theta_el, harmonic=1)
         I_d, I_q = to_dq(current_phases, theta_el, harmonic=1)
-
-        L_raw = [np.stack([self.extract_expression(solutions, f"L(Phase{x},Phase{y})") for y in phases], axis=-1) for x in phases]
 
         L_d_row = np.zeros((len(position), self.geometry.n_phases))
         L_q_row = np.zeros((len(position), self.geometry.n_phases))

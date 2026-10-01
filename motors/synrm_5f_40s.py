@@ -224,10 +224,8 @@ class Computation(ComputationBase):
         torque = self.extract_expression(solutions, "Moving1.Torque")
 
         theta_el = electrical_angle(position, np.deg2rad(self.InitPos), self.geometry.PolePairs, self.RotSign, degrees=False)
-        phases = "ABCDE"[: self.geometry.n_phases]
-        flux_phases = np.stack([self.extract_expression(solutions, f"FluxLinkage(Phase{p})") for p in phases], axis=-1)
-        vind_phases = np.stack([self.extract_expression(solutions, f"InducedVoltage(Phase{p})") for p in phases], axis=-1)
-        current_phases = np.stack([self.extract_expression(solutions, f"InputCurrent(Phase{p})") for p in phases], axis=-1)
+
+        flux_phases, vind_phases, current_phases, L_raw = self.extract_phase_results(solutions)
 
         Flux_d1, Flux_q1 = to_dq(flux_phases, theta_el, harmonic=1)
         Flux_d3, Flux_q3 = to_dq(flux_phases, theta_el, harmonic=3)
@@ -251,8 +249,6 @@ class Computation(ComputationBase):
 
         V_d1, V_q1 = to_dq(V_phases, theta_el, harmonic=1)
         V_d3, V_q3 = to_dq(V_phases, theta_el, harmonic=3)
-
-        L_raw = [np.stack([self.extract_expression(solutions, f"L(Phase{x},Phase{y})") for y in phases], axis=-1) for x in phases]
 
         L_d1_row = np.zeros((len(time), self.geometry.n_phases))
         L_q1_row = np.zeros((len(time), self.geometry.n_phases))

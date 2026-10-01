@@ -26,24 +26,12 @@ R_STATOR_END = 0.7
 OFFSET = 0.35
 SEEDS = (42, 43)
 NUM_CORES = 1
-current_setpoints = (7.0711, 7.0711)
-
-
-class Geometry3fSameNc(Geometry3f):
-    def set_winds_params(self):
-        super().set_winds_params()
-        self.wind_params["Nc"] = "113"
-
-
-class Geometry5fSameNc(Geometry5f):
-    def set_winds_params(self):
-        super().set_winds_params()
-        self.wind_params["Nc"] = "113"
-
+current_setpoints_3f = (2.5, 2.5)
+current_setpoints_5f = (1.5, 1.5, 0.0, 0.0)
 
 Machines = [
-    ("synrm_3f_60s", Geometry3fSameNc, Computation3f, current_setpoints),
-    ("synrm_5f_60s", Geometry5fSameNc, Computation5f, (*current_setpoints, 0.0, 0.0)),
+    ("synrm_3f_60s", Geometry3f, Computation3f, current_setpoints_3f),
+    ("synrm_5f_60s", Geometry5f, Computation5f, current_setpoints_5f),
 ]
 
 

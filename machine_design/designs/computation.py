@@ -1,6 +1,10 @@
 from abc import ABC, abstractmethod
 
+import numpy as np
 from ansys.aedt.core import Maxwell2d
+
+from machine_design.generic.compute_initpos import compute_initpos
+from machine_design.generic.winding import phase_groups
 
 from .geometry import GeometryBase
 from .reserved_variables import check_no_reserved_variable_names
@@ -40,6 +44,21 @@ class ComputationBase(ABC):
 
     @abstractmethod
     def extract_results(self, solutions): ...
+
+    @staticmethod
+    def extract_expression(solutions, expr: str) -> np.ndarray:
+        return np.asarray(solutions.data_real(expr, convert_to_SI=True))
+
+    def set_initpos(self) -> None:
+        g = self.geometry
+        Q = int(g.geom_params["SlotNumber"])
+        self.InitPos = compute_initpos(Q, g.PolePairs, g.n_phases, belt_offset=g.belt_offset)
+        self.oper_params["InitPos"] = f"{self.InitPos}deg"
+
+    def compute_phase_groups(self):
+        g = self.geometry
+        Q = int(g.geom_params["SlotNumber"])
+        return phase_groups(Q, g.PolePairs, g.n_phases, belt_offset=g.belt_offset)
 
     def push_variables(self, m2d: Maxwell2d) -> None:
         for k, v in self.oper_params.items():

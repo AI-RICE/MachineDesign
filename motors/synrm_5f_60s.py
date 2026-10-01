@@ -4,11 +4,7 @@ Derives from `synrm_5f_40s`, overriding only the slotting and winding it needs f
 phases. Excitation is dq1 + dq3.
 """
 
-import numpy as np
 from ansys.aedt.core import Maxwell2d
-
-from machine_design.generic.compute_initpos import compute_initpos
-from machine_design.generic.winding import phase_groups
 
 from .synrm_5f_40s import Computation as BaseComputation
 from .synrm_5f_40s import Geometry as BaseGeometry
@@ -33,41 +29,8 @@ class Geometry(BaseGeometry):
 
 
 class Computation(BaseComputation):
-    def set_oper_params(self):
-        super().set_oper_params()
-        Q = int(self.geometry.geom_params["SlotNumber"])
-        p = self.geometry.PolePairs
-        self.InitPos = compute_initpos(Q, p, 5, belt_offset=1)
-        self.oper_params["InitPos"] = f"{self.InitPos}deg"
-
     def set_solution_expressions(self):
         self.solution_expressions = ["Moving1.Torque"]
-
-    def set_post_params(self):
-        self.post_params = {  # reports
-            (
-                "InducedVoltage(PhaseA)",
-                "InducedVoltage(PhaseB)",
-                "InducedVoltage(PhaseC)",
-                "InducedVoltage(PhaseD)",
-                "InducedVoltage(PhaseE)",
-            ): "InducedVoltage",
-            ("Moving1.Torque"): "Torque",
-            (
-                "InputCurrent(PhaseA)",
-                "InputCurrent(PhaseB)",
-                "InputCurrent(PhaseC)",
-                "InputCurrent(PhaseD)",
-                "InputCurrent(PhaseE)",
-            ): "Current",
-            (
-                "FluxLinkage(PhaseA)",
-                "FluxLinkage(PhaseB)",
-                "FluxLinkage(PhaseC)",
-                "FluxLinkage(PhaseD)",
-                "FluxLinkage(PhaseE)",
-            ): "FluxLinkage",
-        }
 
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:
         # Excitations
@@ -77,10 +40,7 @@ class Computation(BaseComputation):
         I_D = "Im1*cos(w*Time-216deg+epsI1-pi) + Im3*cos(3*(w*Time-216deg)+epsI3-pi)"
         I_E = "Im1*cos(w*Time-288deg+epsI1-pi) + Im3*cos(3*(w*Time-288deg)+epsI3-pi)"
 
-        Q = int(self.geometry.geom_params["SlotNumber"])
-        p = self.geometry.PolePairs
-        # belt_offset=1 reproduces the 5-phase(40-slot) base winding.
-        groups = phase_groups(Q, p, 5, belt_offset=1)
+        groups = self.compute_phase_groups()
 
         for group in groups:
             for coil_name, polarity in group:
@@ -98,4 +58,4 @@ class Computation(BaseComputation):
             m2d.add_winding_coils(assignment=f"Phase{phase_name}", coils=[f"CS_{coil_name}" for coil_name, _ in group])
 
     def extract_results(self, solutions):
-        return {"Moving1.Torque": np.array(solutions.data_real("Moving1.Torque"))}
+        return {"Moving1.Torque": self.extract_expression(solutions, "Moving1.Torque")}

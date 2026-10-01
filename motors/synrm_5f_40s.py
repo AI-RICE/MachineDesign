@@ -28,13 +28,17 @@ class Geometry(BaseGeometry):
         super().set_winds_params()
         self.wind_params["Nc"] = "113"
 
+    def set_mod_params(self):
+        super().set_mod_params()
+        self.n_phases = 5
+        self.belt_offset = 1
+
 
 class Computation(ComputationBase):
     def set_oper_params(self):
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
-        self.InitPos = -45  # deg
         self.RotSign = 1
         self.Rstat = 19.0
         self.Lew = 0.0
@@ -48,12 +52,12 @@ class Computation(ComputationBase):
             "epsI3": "atan2(Iq3,Id3)",  # current angle, 1st harmonic
             "Im1": "sqrt(Id1^2+Iq1^2)",
             "Im3": "sqrt(Id3^2+Iq3^2)",
-            "InitPos": f"{self.InitPos}deg",
             "w": f"{w}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
             "Nper": "1/10",  # number of included periods
             "PointPer": "101",  # number of time points per period
         }
+        self.set_initpos()
 
     def set_solution_expressions(self):
         self.solution_expressions = [
@@ -92,13 +96,6 @@ class Computation(ComputationBase):
                 "FluxLinkage(PhaseD)",
                 "FluxLinkage(PhaseE)",
             ): "FluxLinkage",
-            ("I_d1", "I_q1", "I_d3", "I_q3"): "Current_dq",
-            ("Flux_d1", "Flux_q1", "Flux_d3", "Flux_q3"): "FluxLinkage_dq",
-            ("Flux_e_d1", "Flux_e_q1", "Flux_e_d3", "Flux_e_q3"): "FluxLinkage excitation_dq",
-            ("Vind_d1", "Vind_q1", "Vind_d3", "Vind_q3"): "InducedVoltage_dq",
-            ("V_d1", "V_q1", "V_d3", "V_q3"): "TerminalVoltage_dq",
-            ("Ld1", "Lq1", "Ld3", "Lq3"): "Inductance_dq main",
-            ("Ld1q1", "Ld1d3", "Ld1q3", "Lq1d3", "Lq1q3", "Ld3q3"): "Inductance_dq cross-coupling",
         }
 
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:
@@ -229,21 +226,21 @@ class Computation(ComputationBase):
         m2d.variable_manager["Iq3"] = f"{Iq3}A"
 
     def extract_results(self, solutions):
-        position = np.array(solutions.data_real("Moving1.Position"))
-        torque = np.array(solutions.data_real("Moving1.Torque"))
+        # SI units
+        position = self.extract_expression(solutions, "Moving1.Position")
+        torque = self.extract_expression(solutions, "Moving1.Torque")
 
-        theta_el = electrical_angle(position, self.InitPos, self.geometry.PolePairs, self.RotSign, degrees=True)
-        flux_phases = np.stack([np.array(solutions.data_real(f"FluxLinkage(Phase{p})")) for p in "ABCDE"], axis=-1)
-        vind_phases = np.stack([np.array(solutions.data_real(f"InducedVoltage(Phase{p})")) for p in "ABCDE"], axis=-1)
-        current_phases = np.stack([np.array(solutions.data_real(f"InputCurrent(Phase{p})")) for p in "ABCDE"], axis=-1)
+        theta_el = electrical_angle(position, np.deg2rad(self.InitPos), self.geometry.PolePairs, self.RotSign, degrees=False)
+        flux_phases = np.stack([self.extract_expression(solutions, f"FluxLinkage(Phase{p})") for p in "ABCDE"], axis=-1)
+        vind_phases = np.stack([self.extract_expression(solutions, f"InducedVoltage(Phase{p})") for p in "ABCDE"], axis=-1)
+        current_phases = np.stack([self.extract_expression(solutions, f"InputCurrent(Phase{p})") for p in "ABCDE"], axis=-1)
 
         Flux_d1, Flux_q1 = to_dq(flux_phases, theta_el, harmonic=1)
         Flux_d3, Flux_q3 = to_dq(flux_phases, theta_el, harmonic=3)
         Vind_d1, Vind_q1 = to_dq(vind_phases, theta_el, harmonic=1)
         Vind_d3, Vind_q3 = to_dq(vind_phases, theta_el, harmonic=3)
-        I_d1, I_q1 = (v / 1e3 for v in to_dq(current_phases, theta_el, harmonic=1))
-        I_d3, I_q3 = (v / 1e3 for v in to_dq(current_phases, theta_el, harmonic=3))
-        # mA to A
+        I_d1, I_q1 = to_dq(current_phases, theta_el, harmonic=1)
+        I_d3, I_q3 = to_dq(current_phases, theta_el, harmonic=3)
 
         Im1 = np.sqrt(self.Id1**2 + self.Iq1**2)
         Im3 = np.sqrt(self.Id3**2 + self.Iq3**2)
@@ -261,8 +258,7 @@ class Computation(ComputationBase):
         V_d1, V_q1 = to_dq(V_phases, theta_el, harmonic=1)
         V_d3, V_q3 = to_dq(V_phases, theta_el, harmonic=3)
 
-        L_raw = [np.stack([np.array(solutions.data_real(f"L(Phase{x},Phase{y})")) for y in "ABCDE"], axis=-1) / 1e9 for x in "ABCDE"]
-        # nH to H
+        L_raw = [np.stack([self.extract_expression(solutions, f"L(Phase{x},Phase{y})") for y in "ABCDE"], axis=-1) for x in "ABCDE"]
 
         L_d1_row = np.zeros((len(time), 5))
         L_q1_row = np.zeros((len(time), 5))

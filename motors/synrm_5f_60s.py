@@ -45,8 +45,7 @@ class Computation(BaseComputation):
 
         Q = int(self.geometry.geom_params["SlotNumber"])
         p = self.geometry.PolePairs
-        # belt_offset=1 reproduces the 5-phase(40-slot) base winding.
-        groups = phase_groups(Q, p, 5, belt_offset=1)
+        groups = phase_groups(Q, p, self.geometry.n_phases, belt_offset=self.geometry.belt_offset)
 
         for group in groups:
             for coil_name, polarity in group:

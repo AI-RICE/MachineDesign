@@ -44,7 +44,7 @@ class ComputationBase(ABC):
     def extract_results(self, solutions): ...
 
     def set_initpos(self) -> None:
-        g=self.geometry
+        g = self.geometry
         Q = int(g.geom_params["SlotNumber"])
         self.InitPos = compute_initpos(Q, g.PolePairs, g.n_phases, belt_offset=g.belt_offset)
         self.oper_params["InitPos"] = f"{self.InitPos}deg"

@@ -255,19 +255,19 @@ class Computation(ComputationBase):
 
     def extract_results(self, solutions):
         # SI units
-        position = np.array(solutions.data_real("Moving1.Position", convert_to_SI=True))
-        torque = np.array(solutions.data_real("Moving1.Torque", convert_to_SI=True))
+        position = self.extract_expression(solutions, "Moving1.Position")
+        torque = self.extract_expression(solutions, "Moving1.Torque")
 
         theta_el = (position - np.deg2rad(self.InitPos)) * self.geometry.PolePairs
-        flux_phases = np.stack([np.array(solutions.data_real(f"FluxLinkage(Phase{p})", convert_to_SI=True)) for p in "ABC"], axis=-1)
-        vind_phases = np.stack([np.array(solutions.data_real(f"InducedVoltage(Phase{p})", convert_to_SI=True)) for p in "ABC"], axis=-1)
-        current_phases = np.stack([np.array(solutions.data_real(f"InputCurrent(Phase{p})", convert_to_SI=True)) for p in "ABC"], axis=-1)
+        flux_phases = np.stack([self.extract_expression(solutions, f"FluxLinkage(Phase{p})") for p in "ABC"], axis=-1)
+        vind_phases = np.stack([self.extract_expression(solutions, f"InducedVoltage(Phase{p})") for p in "ABC"], axis=-1)
+        current_phases = np.stack([self.extract_expression(solutions, f"InputCurrent(Phase{p})") for p in "ABC"], axis=-1)
 
         Flux_d, Flux_q = to_dq(flux_phases, theta_el, harmonic=1)
         Ui_d, Ui_q = to_dq(vind_phases, theta_el, harmonic=1)
         I_d, I_q = to_dq(current_phases, theta_el, harmonic=1)
 
-        L_raw = [np.stack([np.array(solutions.data_real(f"L(Phase{x},Phase{y})", convert_to_SI=True)) for y in "ABC"], axis=-1) for x in "ABC"]
+        L_raw = [np.stack([self.extract_expression(solutions, f"L(Phase{x},Phase{y})") for y in "ABC"], axis=-1) for x in "ABC"]
 
         L_d_row = np.zeros((len(position), 3))
         L_q_row = np.zeros((len(position), 3))

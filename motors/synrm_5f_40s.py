@@ -224,13 +224,13 @@ class Computation(ComputationBase):
 
     def extract_results(self, solutions):
         # SI units
-        position = np.array(solutions.data_real("Moving1.Position", convert_to_SI=True))
-        torque = np.array(solutions.data_real("Moving1.Torque", convert_to_SI=True))
+        position = self.extract_expression(solutions, "Moving1.Position")
+        torque = self.extract_expression(solutions, "Moving1.Torque")
 
         theta_el = electrical_angle(position, np.deg2rad(self.InitPos), self.geometry.PolePairs, self.RotSign, degrees=False)
-        flux_phases = np.stack([np.array(solutions.data_real(f"FluxLinkage(Phase{p})", convert_to_SI=True)) for p in "ABCDE"], axis=-1)
-        vind_phases = np.stack([np.array(solutions.data_real(f"InducedVoltage(Phase{p})", convert_to_SI=True)) for p in "ABCDE"], axis=-1)
-        current_phases = np.stack([np.array(solutions.data_real(f"InputCurrent(Phase{p})", convert_to_SI=True)) for p in "ABCDE"], axis=-1)
+        flux_phases = np.stack([self.extract_expression(solutions, f"FluxLinkage(Phase{p})") for p in "ABCDE"], axis=-1)
+        vind_phases = np.stack([self.extract_expression(solutions, f"InducedVoltage(Phase{p})") for p in "ABCDE"], axis=-1)
+        current_phases = np.stack([self.extract_expression(solutions, f"InputCurrent(Phase{p})") for p in "ABCDE"], axis=-1)
 
         Flux_d1, Flux_q1 = to_dq(flux_phases, theta_el, harmonic=1)
         Flux_d3, Flux_q3 = to_dq(flux_phases, theta_el, harmonic=3)
@@ -255,7 +255,7 @@ class Computation(ComputationBase):
         V_d1, V_q1 = to_dq(V_phases, theta_el, harmonic=1)
         V_d3, V_q3 = to_dq(V_phases, theta_el, harmonic=3)
 
-        L_raw = [np.stack([np.array(solutions.data_real(f"L(Phase{x},Phase{y})", convert_to_SI=True)) for y in "ABCDE"], axis=-1) for x in "ABCDE"]
+        L_raw = [np.stack([self.extract_expression(solutions, f"L(Phase{x},Phase{y})") for y in "ABCDE"], axis=-1) for x in "ABCDE"]
 
         L_d1_row = np.zeros((len(time), 5))
         L_q1_row = np.zeros((len(time), 5))

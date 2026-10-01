@@ -190,15 +190,7 @@ class Computation(ComputationBase):
         self.set_initpos()
 
     def set_solution_expressions(self):
-        phases = "ABCDE"[: self.geometry.n_phases]
-        self.solution_expressions = [
-            "Moving1.Position",
-            "Moving1.Torque",
-            *[f"FluxLinkage(Phase{p})" for p in phases],
-            *[f"InducedVoltage(Phase{p})" for p in phases],
-            *[f"InputCurrent(Phase{p})" for p in phases],
-            *[f"L(Phase{x},Phase{y})" for x in phases for y in phases],
-        ]
+        self.solution_expressions = self.compute_solution_expressions()
 
     def set_output_vars(self):
         self.output_vars = {}

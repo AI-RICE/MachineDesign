@@ -60,6 +60,17 @@ class ComputationBase(ABC):
         Q = int(g.geom_params["SlotNumber"])
         return phase_groups(Q, g.PolePairs, g.n_phases, belt_offset=g.belt_offset)
 
+    def compute_solution_expressions(self):
+        phases = "ABCDE"[: self.geometry.n_phases]
+        return [
+            "Moving1.Position",
+            "Moving1.Torque",
+            *[f"FluxLinkage(Phase{p})" for p in phases],
+            *[f"InducedVoltage(Phase{p})" for p in phases],
+            *[f"InputCurrent(Phase{p})" for p in phases],
+            *[f"L(Phase{x},Phase{y})" for x in phases for y in phases],
+        ]
+
     def push_variables(self, m2d: Maxwell2d) -> None:
         for k, v in self.oper_params.items():
             m2d[k] = v

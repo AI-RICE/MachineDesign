@@ -28,11 +28,14 @@ class Geometry(BaseGeometry):
         super().set_winds_params()
         self.wind_params["Nc"] = "113"
 
+    def set_mod_params(self):
+        super().set_mod_params()
+        self.n_phases = 5
+        self.belt_offset = 1
+
 
 class Computation(ComputationBase):
     def set_oper_params(self):
-        self.phases = 5
-        self.belt_offset = 1
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f

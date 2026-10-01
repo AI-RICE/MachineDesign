@@ -7,8 +7,6 @@ phases. Excitation is dq1 + dq3.
 import numpy as np
 from ansys.aedt.core import Maxwell2d
 
-from machine_design.generic.winding import phase_groups
-
 from .synrm_5f_40s import Computation as BaseComputation
 from .synrm_5f_40s import Geometry as BaseGeometry
 
@@ -43,10 +41,7 @@ class Computation(BaseComputation):
         I_D = "Im1*cos(w*Time-216deg+epsI1-pi) + Im3*cos(3*(w*Time-216deg)+epsI3-pi)"
         I_E = "Im1*cos(w*Time-288deg+epsI1-pi) + Im3*cos(3*(w*Time-288deg)+epsI3-pi)"
 
-        Q = int(self.geometry.geom_params["SlotNumber"])
-        p = self.geometry.PolePairs
-        # belt_offset=1 reproduces the 5-phase(40-slot) base winding.
-        groups = phase_groups(Q, p, 5, belt_offset=1)
+        groups = self.compute_phase_groups()
 
         for group in groups:
             for coil_name, polarity in group:

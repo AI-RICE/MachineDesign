@@ -48,6 +48,8 @@ class Geometry(GeometryBase):
 
     def set_mod_params(self):
         self.PolePairs = 2
+        self.n_phases = 3
+        self.belt_offset = 0
         self.mod_params = {
             "Poles": f"2*{self.PolePairs}",
             "ModelLength": "85mm",
@@ -172,8 +174,6 @@ class Geometry(GeometryBase):
 
 class Computation(ComputationBase):
     def set_oper_params(self):
-        self.phases = 3
-        self.belt_offset = 0
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f

@@ -10,7 +10,6 @@ from .reserved_variables import check_no_reserved_variable_names
 class GeometryBase(ABC):
     def __init__(self) -> None:
         self.set_iron()
-        self.set_magnets()
         self.set_geom_params()
         self.set_slot_params()
         self.set_winds_params()
@@ -22,9 +21,6 @@ class GeometryBase(ABC):
 
     @abstractmethod
     def set_iron(self): ...
-
-    @abstractmethod
-    def set_magnets(self): ...
 
     @abstractmethod
     def set_geom_params(self): ...

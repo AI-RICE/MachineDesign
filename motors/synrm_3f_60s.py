@@ -3,8 +3,6 @@
 import numpy as np
 from ansys.aedt.core import Maxwell2d
 
-from machine_design.generic.winding import phase_groups
-
 from .synrm_3f_36s import Computation as BaseComputation
 from .synrm_3f_36s import Geometry as BaseGeometry
 
@@ -37,9 +35,7 @@ class Computation(BaseComputation):
         I_B = "Im * cos(w*Time-120deg+epsI)"
         I_C = "Im * cos(w*Time-240deg+epsI)"
 
-        Q = int(self.geometry.geom_params["SlotNumber"])
-        p = self.geometry.PolePairs
-        groups = phase_groups(Q, p, self.geometry.n_phases, belt_offset=self.geometry.belt_offset)
+        groups = self.compute_phase_groups()
 
         for group in groups:
             for coil_name, polarity in group:

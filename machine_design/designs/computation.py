@@ -1,3 +1,5 @@
+import numpy as np
+
 from abc import ABC, abstractmethod
 
 from ansys.aedt.core import Maxwell2d
@@ -42,6 +44,10 @@ class ComputationBase(ABC):
 
     @abstractmethod
     def extract_results(self, solutions): ...
+
+    @staticmethod
+    def extract_expression(solutions, expr: str) -> np.ndarray:
+        return np.asarray(solutions.data_real(expr, convert_to_SI=True))
 
     def set_initpos(self) -> None:
         Q = int(self.geometry.geom_params["SlotNumber"])

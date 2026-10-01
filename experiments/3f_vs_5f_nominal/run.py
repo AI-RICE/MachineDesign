@@ -17,10 +17,10 @@ from machine_design.optimization import (
 phases=5 
 if phases==3:
     from motors.synrm_3f_60s import Computation, Geometry
-    current_bounds=np.array([[0.0, 0.0], [4.0, 4.0]])  #Id, Iq bounds for 3f
+    current_bounds=np.array([[0.0, 0.0], [5.0, 5.0]])  #Id, Iq bounds for 3f
 else:
     from motors.synrm_5f_60s import Computation, Geometry
-    current_bounds=np.array([[0.0, 0.0, 0.0, 0.0], [10.0, 10.0, 10.0, 10.0]])  #Id1, Iq1, Id3, Iq3 bounds for 5f
+    current_bounds=np.array([[0.0, 0.0, 0.0, 0.0], [3.0, 3.0, 3.0, 3.0]])  #Id1, Iq1, Id3, Iq3 bounds for 5f
 
 config = load_config()
 aedt_version = config["aedt_version"]

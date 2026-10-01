@@ -91,17 +91,18 @@ def test_Rstat_Lew_values(computation2):
 def test_extract_results_converts_units(computation2):
     computation2.set_variables(SimpleNamespace(variable_manager={}), Id1=1.0, Iq1=2.0, Id3=3.0, Iq3=4.0)
 
-    def data_real(expr):
+    def data_real(expr, convert_to_SI=False):
+        assert convert_to_SI, f"expected convert_to_SI=True for {expr}"
         letters = ["ABCDE".index(part[0]) + 1 for part in expr.split("Phase")[1:]]
         value = float(np.prod(letters) if letters else 7.0)
-        return np.full(2, value * 1e9 if expr.startswith("L(") else value)
+        return np.full(2, value)
 
     solutions = SimpleNamespace(data_real=data_real, primary_sweep_values=[0.0, 1.0])
     out = computation2.extract_results(solutions)
 
-    theta_el = electrical_angle(np.full(2, 7.0), computation2.InitPos, computation2.geometry.PolePairs, computation2.RotSign, degrees=True)
+    theta_el = electrical_angle(np.full(2, 7.0), np.deg2rad(computation2.InitPos), computation2.geometry.PolePairs, computation2.RotSign, degrees=False)
     current_phases = np.stack([np.full(2, i + 1.0) for i in range(5)], axis=-1)
     expected_I_d1, _ = to_dq(current_phases, theta_el, harmonic=1)
 
-    assert out["I_d1"] == pytest.approx(expected_I_d1 / 1e3)
+    assert out["I_d1"] == pytest.approx(expected_I_d1)
     assert out["Moving1.Torque"] == pytest.approx(np.full(2, 7.0))

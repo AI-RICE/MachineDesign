@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+import numpy as np
 from ansys.aedt.core import Maxwell2d
 
 from machine_design.generic.compute_initpos import compute_initpos
@@ -43,6 +44,10 @@ class ComputationBase(ABC):
 
     @abstractmethod
     def extract_results(self, solutions): ...
+
+    @staticmethod
+    def extract_expression(solutions, expr: str) -> np.ndarray:
+        return np.asarray(solutions.data_real(expr, convert_to_SI=True))
 
     def set_initpos(self) -> None:
         g = self.geometry

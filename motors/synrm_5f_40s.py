@@ -226,21 +226,21 @@ class Computation(ComputationBase):
         m2d.variable_manager["Iq3"] = f"{Iq3}A"
 
     def extract_results(self, solutions):
-        position = np.array(solutions.data_real("Moving1.Position"))
-        torque = np.array(solutions.data_real("Moving1.Torque"))
+        # SI units
+        position = self.extract_expression(solutions, "Moving1.Position")
+        torque = self.extract_expression(solutions, "Moving1.Torque")
 
-        theta_el = electrical_angle(position, self.InitPos, self.geometry.PolePairs, self.RotSign, degrees=True)
-        flux_phases = np.stack([np.array(solutions.data_real(f"FluxLinkage(Phase{p})")) for p in "ABCDE"], axis=-1)
-        vind_phases = np.stack([np.array(solutions.data_real(f"InducedVoltage(Phase{p})")) for p in "ABCDE"], axis=-1)
-        current_phases = np.stack([np.array(solutions.data_real(f"InputCurrent(Phase{p})")) for p in "ABCDE"], axis=-1)
+        theta_el = electrical_angle(position, np.deg2rad(self.InitPos), self.geometry.PolePairs, self.RotSign, degrees=False)
+        flux_phases = np.stack([self.extract_expression(solutions, f"FluxLinkage(Phase{p})") for p in "ABCDE"], axis=-1)
+        vind_phases = np.stack([self.extract_expression(solutions, f"InducedVoltage(Phase{p})") for p in "ABCDE"], axis=-1)
+        current_phases = np.stack([self.extract_expression(solutions, f"InputCurrent(Phase{p})") for p in "ABCDE"], axis=-1)
 
         Flux_d1, Flux_q1 = to_dq(flux_phases, theta_el, harmonic=1)
         Flux_d3, Flux_q3 = to_dq(flux_phases, theta_el, harmonic=3)
         Vind_d1, Vind_q1 = to_dq(vind_phases, theta_el, harmonic=1)
         Vind_d3, Vind_q3 = to_dq(vind_phases, theta_el, harmonic=3)
-        I_d1, I_q1 = (v / 1e3 for v in to_dq(current_phases, theta_el, harmonic=1))
-        I_d3, I_q3 = (v / 1e3 for v in to_dq(current_phases, theta_el, harmonic=3))
-        # mA to A
+        I_d1, I_q1 = to_dq(current_phases, theta_el, harmonic=1)
+        I_d3, I_q3 = to_dq(current_phases, theta_el, harmonic=3)
 
         Im1 = np.sqrt(self.Id1**2 + self.Iq1**2)
         Im3 = np.sqrt(self.Id3**2 + self.Iq3**2)
@@ -258,8 +258,7 @@ class Computation(ComputationBase):
         V_d1, V_q1 = to_dq(V_phases, theta_el, harmonic=1)
         V_d3, V_q3 = to_dq(V_phases, theta_el, harmonic=3)
 
-        L_raw = [np.stack([np.array(solutions.data_real(f"L(Phase{x},Phase{y})")) for y in "ABCDE"], axis=-1) / 1e9 for x in "ABCDE"]
-        # nH to H
+        L_raw = [np.stack([self.extract_expression(solutions, f"L(Phase{x},Phase{y})") for y in "ABCDE"], axis=-1) for x in "ABCDE"]
 
         L_d1_row = np.zeros((len(time), 5))
         L_q1_row = np.zeros((len(time), 5))

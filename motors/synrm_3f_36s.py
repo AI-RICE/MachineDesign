@@ -209,8 +209,8 @@ class Computation(ComputationBase):
 
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:
         # Excitations
-
-        phase_currents = [f"Im * cos(w*Time-{360 * k / self.geometry.n_phases}deg+epsI)" for k in range(self.geometry.n_phases)]
+        m = self.geometry.n_phases
+        phase_currents = [f"Im * cos(w*Time-{360 * k / m}deg+epsI)" for k in range(m)]
 
         groups = self.compute_phase_groups()
 

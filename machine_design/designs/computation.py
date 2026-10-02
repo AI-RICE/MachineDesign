@@ -71,6 +71,23 @@ class ComputationBase(ABC):
             *[f"L(Phase{x},Phase{y})" for x in self.phases for y in self.phases],
         ]
 
+    def assign_phase_windings(self, m2d: Maxwell2d, phase_currents: list) -> None:
+        groups = self.compute_phase_groups()
+        for group in groups:
+            for coil_name, polarity in group:
+                m2d.assign_coil(assignment=[coil_name], conductors_number="Nc", polarity=polarity, name=f"CS_{coil_name}")
+
+        for phase_name, current, group in zip(self.phases, phase_currents, groups):
+            m2d.assign_winding(
+                assignment=None,
+                winding_type="Current",
+                is_solid=False,
+                current=current,
+                parallel_branches="ParallelPaths",
+                name=f"Phase{phase_name}",
+            )
+            m2d.add_winding_coils(assignment=f"Phase{phase_name}", coils=[f"CS_{coil_name}" for coil_name, _ in group])
+
     def extract_phase_results(self, solutions):
         # SI units
         flux_phases = np.stack([self.extract_expression(solutions, f"FluxLinkage(Phase{p})") for p in self.phases], axis=-1)

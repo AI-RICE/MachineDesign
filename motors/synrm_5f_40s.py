@@ -95,23 +95,7 @@ class Computation(ComputationBase):
         # Excitations
         m = self.geometry.n_phases
         phase_currents = [f"Im1 * cos(w*Time-{360 * k / m}deg+epsI1-pi)+Im3*cos(3*(w*Time-{360 * k / m}deg)+epsI3-pi)" for k in range(m)]
-
-        groups = self.compute_phase_groups()
-
-        for group in groups:
-            for coil_name, polarity in group:
-                m2d.assign_coil(assignment=[coil_name], conductors_number="Nc", polarity=polarity, name=f"CS_{coil_name}")
-
-        for phase_name, current, group in zip("ABCDE", phase_currents, groups):
-            m2d.assign_winding(
-                assignment=None,
-                winding_type="Current",
-                is_solid=False,
-                current=current,
-                parallel_branches="ParallelPaths",
-                name=f"Phase{phase_name}",
-            )
-            m2d.add_winding_coils(assignment=f"Phase{phase_name}", coils=[f"CS_{coil_name}" for coil_name, _ in group])
+        self.assign_phase_windings(m2d, phase_currents)
 
     def inductance_computation(self, m2d: Maxwell2d) -> None:
         m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=True)

@@ -13,6 +13,7 @@ from .reserved_variables import check_no_reserved_variable_names
 class ComputationBase(ABC):
     def __init__(self, geometry: GeometryBase) -> None:
         self.geometry = geometry
+        self.phases = "ABCDEFGHIJK"[: self.geometry.n_phases]
         self.setup_name = "Setup1"
         self.rotor_mesh = None
         self.set_oper_params()
@@ -59,6 +60,24 @@ class ComputationBase(ABC):
         g = self.geometry
         Q = int(g.geom_params["SlotNumber"])
         return phase_groups(Q, g.PolePairs, g.n_phases, belt_offset=g.belt_offset)
+
+    def compute_solution_expressions(self):
+        return [
+            "Moving1.Position",
+            "Moving1.Torque",
+            *[f"FluxLinkage(Phase{p})" for p in self.phases],
+            *[f"InducedVoltage(Phase{p})" for p in self.phases],
+            *[f"InputCurrent(Phase{p})" for p in self.phases],
+            *[f"L(Phase{x},Phase{y})" for x in self.phases for y in self.phases],
+        ]
+
+    def extract_phase_results(self, solutions):
+        # SI units
+        flux_phases = np.stack([self.extract_expression(solutions, f"FluxLinkage(Phase{p})") for p in self.phases], axis=-1)
+        vind_phases = np.stack([self.extract_expression(solutions, f"InducedVoltage(Phase{p})") for p in self.phases], axis=-1)
+        current_phases = np.stack([self.extract_expression(solutions, f"InputCurrent(Phase{p})") for p in self.phases], axis=-1)
+        L_raw = [np.stack([self.extract_expression(solutions, f"L(Phase{x},Phase{y})") for y in self.phases], axis=-1) for x in self.phases]
+        return flux_phases, vind_phases, current_phases, L_raw
 
     def push_variables(self, m2d: Maxwell2d) -> None:
         for k, v in self.oper_params.items():

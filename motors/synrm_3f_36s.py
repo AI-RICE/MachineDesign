@@ -214,7 +214,7 @@ class Computation(ComputationBase):
         I_C = "Im * cos(w*Time-240deg+epsI)"
 
         groups = self.compute_phase_groups()
-        
+
         for group in groups:
             for coil_name, polarity in group:
                 m2d.assign_coil(assignment=[coil_name], conductors_number="Nc", polarity=polarity, name=f"CS_{coil_name}")

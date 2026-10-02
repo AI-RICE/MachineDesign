@@ -71,6 +71,14 @@ class ComputationBase(ABC):
             *[f"L(Phase{x},Phase{y})" for x in self.phases for y in self.phases],
         ]
 
+    def compute_post_params(self):
+        return {
+            tuple(f"InducedVoltage(Phase{p})" for p in self.phases): "InducedVoltage",
+            ("Moving1.Torque"): "Torque",
+            tuple(f"InputCurrent(Phase{p})" for p in self.phases): "Current",
+            tuple(f"FluxLinkage(Phase{p})" for p in self.phases): "FluxLinkage",
+        }
+
     def assign_phase_windings(self, m2d: Maxwell2d, phase_currents: list) -> None:
         groups = self.compute_phase_groups()
         for group in groups:

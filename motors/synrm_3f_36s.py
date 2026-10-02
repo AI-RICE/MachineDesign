@@ -196,12 +196,7 @@ class Computation(ComputationBase):
         self.output_vars = {}
 
     def set_post_params(self):
-        self.post_params = {  # reports
-            tuple(f"InducedVoltage(Phase{p})" for p in self.phases): "InducedVoltage",
-            ("Moving1.Torque"): "Torque",
-            tuple(f"InputCurrent(Phase{p})" for p in self.phases): "Current",
-            tuple(f"FluxLinkage(Phase{p})" for p in self.phases): "FluxLinkage",
-        }
+        self.post_params = self.compute_post_params()
 
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:
         # Excitations

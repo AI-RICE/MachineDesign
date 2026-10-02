@@ -209,9 +209,8 @@ class Computation(ComputationBase):
 
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:
         # Excitations
-        I_A = "Im * cos(w*Time+epsI)"
-        I_B = "Im * cos(w*Time-120deg+epsI)"
-        I_C = "Im * cos(w*Time-240deg+epsI)"
+
+        phase_currents = [f"Im * cos(w*Time-{360 * k / self.geometry.n_phases}deg+epsI)" for k in range(self.geometry.n_phases)]
 
         groups = self.compute_phase_groups()
 
@@ -219,7 +218,7 @@ class Computation(ComputationBase):
             for coil_name, polarity in group:
                 m2d.assign_coil(assignment=[coil_name], conductors_number="Nc", polarity=polarity, name=f"CS_{coil_name}")
 
-        for phase_name, current, group in zip("ABC", [I_A, I_B, I_C], groups):
+        for phase_name, current, group in zip("ABC", phase_currents, groups):
             m2d.assign_winding(
                 assignment=None,
                 winding_type="Current",

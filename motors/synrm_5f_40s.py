@@ -60,14 +60,7 @@ class Computation(ComputationBase):
         self.set_initpos()
 
     def set_solution_expressions(self):
-        self.solution_expressions = [
-            "Moving1.Position",
-            "Moving1.Torque",
-            *[f"FluxLinkage(Phase{p})" for p in "ABCDE"],
-            *[f"InducedVoltage(Phase{p})" for p in "ABCDE"],
-            *[f"InputCurrent(Phase{p})" for p in "ABCDE"],
-            *[f"L(Phase{x},Phase{y})" for x in "ABCDE" for y in "ABCDE"],
-        ]
+        self.solution_expressions = self.compute_solution_expressions()
 
     def set_output_vars(self):
         self.output_vars = {}
@@ -231,9 +224,8 @@ class Computation(ComputationBase):
         torque = self.extract_expression(solutions, "Moving1.Torque")
 
         theta_el = electrical_angle(position, np.deg2rad(self.InitPos), self.geometry.PolePairs, self.RotSign, degrees=False)
-        flux_phases = np.stack([self.extract_expression(solutions, f"FluxLinkage(Phase{p})") for p in "ABCDE"], axis=-1)
-        vind_phases = np.stack([self.extract_expression(solutions, f"InducedVoltage(Phase{p})") for p in "ABCDE"], axis=-1)
-        current_phases = np.stack([self.extract_expression(solutions, f"InputCurrent(Phase{p})") for p in "ABCDE"], axis=-1)
+
+        flux_phases, vind_phases, current_phases, L_raw = self.extract_phase_results(solutions)
 
         Flux_d1, Flux_q1 = to_dq(flux_phases, theta_el, harmonic=1)
         Flux_d3, Flux_q3 = to_dq(flux_phases, theta_el, harmonic=3)
@@ -248,9 +240,9 @@ class Computation(ComputationBase):
         epsI3 = np.atan2(self.Iq3, self.Id3)
 
         time = np.array(solutions.primary_sweep_values)
-        dI_dt_phases = np.zeros((len(time), 5))
-        for k in range(5):
-            phase_offset = -2 * np.pi * k / 5  # 5 angles, 0deg, -72deg, -144deg, -216deg, -288deg
+        dI_dt_phases = np.zeros((len(time), self.geometry.n_phases))
+        for k in range(self.geometry.n_phases):
+            phase_offset = -2 * np.pi * k / self.geometry.n_phases
             dI_dt_phases[:, k] = -Im1 * self.w * np.sin(self.w * time + phase_offset + epsI1 - np.pi) - Im3 * 3 * self.w * np.sin(3 * (self.w * time + phase_offset) + epsI3 - np.pi)
 
         V_phases = vind_phases + self.Rstat * current_phases + self.Lew * dI_dt_phases
@@ -258,15 +250,13 @@ class Computation(ComputationBase):
         V_d1, V_q1 = to_dq(V_phases, theta_el, harmonic=1)
         V_d3, V_q3 = to_dq(V_phases, theta_el, harmonic=3)
 
-        L_raw = [np.stack([self.extract_expression(solutions, f"L(Phase{x},Phase{y})") for y in "ABCDE"], axis=-1) for x in "ABCDE"]
-
-        L_d1_row = np.zeros((len(time), 5))
-        L_q1_row = np.zeros((len(time), 5))
-        L_d3_row = np.zeros((len(time), 5))
-        L_q3_row = np.zeros((len(time), 5))
+        L_d1_row = np.zeros((len(time), self.geometry.n_phases))
+        L_q1_row = np.zeros((len(time), self.geometry.n_phases))
+        L_d3_row = np.zeros((len(time), self.geometry.n_phases))
+        L_q3_row = np.zeros((len(time), self.geometry.n_phases))
         for i, L_row in enumerate(L_raw):
-            L_d1_row[:, i], L_q1_row[:, i] = (v * 5 / 2 for v in to_dq(L_row, theta_el, harmonic=1))
-            L_d3_row[:, i], L_q3_row[:, i] = (v * 5 / 2 for v in to_dq(L_row, theta_el, harmonic=3))
+            L_d1_row[:, i], L_q1_row[:, i] = (v * self.geometry.n_phases / 2 for v in to_dq(L_row, theta_el, harmonic=1))
+            L_d3_row[:, i], L_q3_row[:, i] = (v * self.geometry.n_phases / 2 for v in to_dq(L_row, theta_el, harmonic=3))
 
         Ld1, Ld1q1 = to_dq(L_d1_row, theta_el, harmonic=1)
         Lq1d1, Lq1 = to_dq(L_q1_row, theta_el, harmonic=1)
@@ -282,7 +272,7 @@ class Computation(ComputationBase):
         Flux_e_d3 = Flux_d3 - (Ld3d1 * I_d1 + Ld3q1 * I_q1 + Ld3 * I_d3 + Ld3q3 * I_q3)
         Flux_e_q3 = Flux_q3 - (Lq3d1 * I_d1 + Lq3q1 * I_q1 + Lq3d3 * I_d3 + Lq3 * I_q3)
 
-        # Torque_dq = 5 / 2 * self.geometry.PolePairs * ((Flux_d1 * I_q1 - Flux_q1 * I_d1) + 3 * (Flux_d3 * I_q3 - Flux_q3 * I_d3))
+        # Torque_dq = self.geometry.n_phases / 2 * self.geometry.PolePairs * ((Flux_d1 * I_q1 - Flux_q1 * I_d1) + 3 * (Flux_d3 * I_q3 - Flux_q3 * I_d3))
 
         out = {
             "V_d1": V_d1,

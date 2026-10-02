@@ -13,7 +13,7 @@ from .reserved_variables import check_no_reserved_variable_names
 class ComputationBase(ABC):
     def __init__(self, geometry: GeometryBase) -> None:
         self.geometry = geometry
-        self.phases="ABCDEFGHIJK"[: self.geometry.n_phases]
+        self.phases = "ABCDEFGHIJK"[: self.geometry.n_phases]
         self.setup_name = "Setup1"
         self.rotor_mesh = None
         self.set_oper_params()

@@ -67,28 +67,10 @@ class Computation(ComputationBase):
 
     def set_post_params(self):
         self.post_params = {  # reports
-            (
-                "InducedVoltage(PhaseA)",
-                "InducedVoltage(PhaseB)",
-                "InducedVoltage(PhaseC)",
-                "InducedVoltage(PhaseD)",
-                "InducedVoltage(PhaseE)",
-            ): "InducedVoltage",
+            tuple(f"InducedVoltage(Phase{p})" for p in self.phases): "InducedVoltage",
             ("Moving1.Torque"): "Torque",
-            (
-                "InputCurrent(PhaseA)",
-                "InputCurrent(PhaseB)",
-                "InputCurrent(PhaseC)",
-                "InputCurrent(PhaseD)",
-                "InputCurrent(PhaseE)",
-            ): "Current",
-            (
-                "FluxLinkage(PhaseA)",
-                "FluxLinkage(PhaseB)",
-                "FluxLinkage(PhaseC)",
-                "FluxLinkage(PhaseD)",
-                "FluxLinkage(PhaseE)",
-            ): "FluxLinkage",
+            tuple(f"InputCurrent(Phase{p})" for p in self.phases): "Current",
+            tuple(f"FluxLinkage(Phase{p})" for p in self.phases): "FluxLinkage",
         }
 
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:

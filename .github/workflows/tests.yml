@@ -24,6 +24,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
+      - name: Install CPU torch
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
       - name: Install package
         run: pip install -e ".[dev]"
 

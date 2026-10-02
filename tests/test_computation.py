@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import pytest
 
 from machine_design.designs.computation import ComputationBase
@@ -35,19 +37,19 @@ class _DummyComputation(ComputationBase):
 
 
 def test_no_reserved_names_does_not_raise():
-    _DummyComputation(object(), {"Im": "1A"}, {"pos": "Moving1.Position"})
+    _DummyComputation(SimpleNamespace(n_phases=3), {"Im": "1A"}, {"pos": "Moving1.Position"})
 
 
 def test_reserved_name_in_oper_params_raises():
     with pytest.raises(ValueError, match="F"):
-        _DummyComputation(object(), {"F": "50Hz"}, {})
+        _DummyComputation(SimpleNamespace(n_phases=3), {"F": "50Hz"}, {})
 
 
 def test_reserved_name_in_output_vars_raises():
     with pytest.raises(ValueError, match="Time"):
-        _DummyComputation(object(), {}, {"Time": "0s"})
+        _DummyComputation(SimpleNamespace(n_phases=3), {}, {"Time": "0s"})
 
 
 def test_reserved_name_check_is_case_insensitive():
     with pytest.raises(ValueError, match="f"):
-        _DummyComputation(object(), {"f": "50Hz"}, {})
+        _DummyComputation(SimpleNamespace(n_phases=3), {"f": "50Hz"}, {})

@@ -4,8 +4,6 @@ Derives from `synrm_5f_40s`, overriding only the slotting and winding it needs f
 phases. Excitation is dq1 + dq3.
 """
 
-from ansys.aedt.core import Maxwell2d
-
 from .synrm_5f_40s import Computation as BaseComputation
 from .synrm_5f_40s import Geometry as BaseGeometry
 

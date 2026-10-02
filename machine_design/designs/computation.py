@@ -26,15 +26,6 @@ class ComputationBase(ABC):
     def set_oper_params(self): ...
 
     @abstractmethod
-    def set_solution_expressions(self): ...
-
-    @abstractmethod
-    def set_output_vars(self): ...
-
-    @abstractmethod
-    def set_post_params(self): ...
-
-    @abstractmethod
     def assign_stator_coils(self, m2d: Maxwell2d) -> None: ...
 
     @abstractmethod
@@ -78,6 +69,15 @@ class ComputationBase(ABC):
             tuple(f"InputCurrent(Phase{p})" for p in self.phases): "Current",
             tuple(f"FluxLinkage(Phase{p})" for p in self.phases): "FluxLinkage",
         }
+
+    def set_solution_expressions(self):
+        self.solution_expressions = self.compute_solution_expressions()
+
+    def set_output_vars(self):
+        self.output_vars = {}
+
+    def set_post_params(self):
+        self.post_params = self.compute_post_params()
 
     def assign_phase_windings(self, m2d: Maxwell2d, phase_currents: list) -> None:
         groups = self.compute_phase_groups()

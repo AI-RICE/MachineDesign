@@ -59,15 +59,6 @@ class Computation(ComputationBase):
         }
         self.set_initpos()
 
-    def set_solution_expressions(self):
-        self.solution_expressions = self.compute_solution_expressions()
-
-    def set_output_vars(self):
-        self.output_vars = {}
-
-    def set_post_params(self):
-        self.post_params = self.compute_post_params()
-
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:
         # Excitations
         m = self.geometry.n_phases

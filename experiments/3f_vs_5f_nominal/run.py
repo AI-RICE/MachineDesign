@@ -14,13 +14,15 @@ from machine_design.optimization import (
     save_params,
 )
 
-phases=5 
-if phases==3:
+phases = 3
+if phases == 3:
     from motors.synrm_3f_60s import Computation, Geometry
-    current_bounds=np.array([[0.0, 0.0], [5.0, 5.0]])  #Id, Iq bounds for 3f
+
+    current_bounds = np.array([[0.0, 0.0], [5.0, 5.0]])  # Id, Iq bounds for 3f
 else:
     from motors.synrm_5f_60s import Computation, Geometry
-    current_bounds=np.array([[0.0, 0.0, 0.0, 0.0], [3.0, 3.0, 3.0, 3.0]])  #Id1, Iq1, Id3, Iq3 bounds for 5f
+
+    current_bounds = np.array([[0.0, 0.0, 0.0, 0.0], [3.0, 3.0, 3.0, 3.0]])  # Id1, Iq1, Id3, Iq3 bounds for 5f
 
 config = load_config()
 aedt_version = config["aedt_version"]
@@ -45,7 +47,7 @@ generator = HacklGenerator_SixLambdas(design, r_stator_end, offset=offset)
 
 metadata = pd.DataFrame()
 for i in range(0, n_designs):
-        # Generate a feasible design
+    # Generate a feasible design
     while True:
         barrier_params = generator.random_parameters()
         generator.set_parameters(barrier_params)
@@ -55,7 +57,7 @@ for i in range(0, n_designs):
         if feasible:
             break
 
-    current_setpoint=np.random.uniform(current_bounds[0], current_bounds[1])
+    current_setpoint = np.random.uniform(current_bounds[0], current_bounds[1])
 
     # Generate the geometry
     design.add_rotor()
@@ -64,7 +66,7 @@ for i in range(0, n_designs):
 
     # Compute the torque
     out = design.compute(*current_setpoint, NUM_CORES=num_cores)
-        # Tor = design.compute(num_cores)
+    # Tor = design.compute(num_cores)
     if out is None:
         TorAvg, TorRippleRms = np.nan, np.nan
     else:
@@ -73,7 +75,7 @@ for i in range(0, n_designs):
     # Delete the rotor
     design.delete_rotor()
 
-    loss=float(np.sum(current_setpoint**2))
+    loss = float(np.sum(current_setpoint**2))
 
     # Potentially save the design
     if plot_design:
@@ -88,7 +90,7 @@ for i in range(0, n_designs):
         "T": TorAvg,
         "ripple": TorRippleRms,
         "loss": loss,
-        }
+    }
     metadata = pd.concat((metadata, pd.DataFrame([metadata_new])), ignore_index=True)
     metadata.to_csv(f"{path_results}/metadata.csv", index=False)
 

@@ -19,22 +19,24 @@ from optimization import (
     init_points,
     objective,
     objective_transform,
-    )
+)
 
 torch.set_default_dtype(torch.float64)
 
-phases=3
+phases = 3
 
-if phases==3:
+if phases == 3:
     from motors.synrm_3f_60s import Computation, Geometry
-    current_n=2
-    current_bounds=np.array([[0.0, 0.0], [4.0, 4.0]])  #Id, Iq bounds for 3f
-    ref_loss=20
+
+    current_n = 2
+    current_bounds = np.array([[0.0, 0.0], [4.0, 4.0]])  # Id, Iq bounds for 3f
+    ref_loss = 20
 else:
     from motors.synrm_5f_60s import Computation, Geometry
-    current_n=4
-    current_bounds=np.array([[0.0, 0.0, 0.0, 0.0], [10.0, 10.0, 10.0, 10.0]])  #Id1, Iq1, Id3, Iq3 bounds for 5f
-    ref_loss=40
+
+    current_n = 4
+    current_bounds = np.array([[0.0, 0.0, 0.0, 0.0], [10.0, 10.0, 10.0, 10.0]])  # Id1, Iq1, Id3, Iq3 bounds for 5f
+    ref_loss = 40
 
 config = load_config()
 aedt_version = config["aedt_version"]
@@ -44,7 +46,7 @@ r_stator_end = 0.7
 offset = 0.7 / 2
 batch_size = 4
 max_candidate_tries = 10
-t_target=20.0
+t_target = 20.0
 objective_fallback = {"loss": ref_loss, "torque": 1.0, "ripple": 40.0}
 ref_cons = {"loss": ref_loss, "ripple": 10.0}
 # ref_no_cons = {"torque": 4.0, "ripple": 30.0}
@@ -77,31 +79,33 @@ bounds = torch.from_numpy(np.hstack([np.vstack(generator.bounds), current_bounds
 bounds_normalized = normalize(bounds, bounds)
 train_X = normalize(train_X, bounds)
 
+
 def objective_lambda(Xs):
     return objective(Xs, design, generator, current_n, bounds, num_cores, objective_fallback=objective_fallback_tuple)
+
 
 def penalty_objective(n_penalty):
     obj = objective_transform(None, None, None, objective_fallback=objective_fallback_tuple)
     y = torch.tensor(obj, dtype=torch.float64)
     return y.repeat(n_penalty, 1)
 
+
 def torque_constraint(Y):
-    return t_target-Y[..., 1]
+    return t_target - Y[..., 1]
 
 
 def ripple_constraint(Y):
-    return -100*Y[..., 2]-ref_cons["ripple"]  #  train_Y[...,2] stores -TorRippleRms/100
+    return -100 * Y[..., 2] - ref_cons["ripple"]  #  train_Y[...,2] stores -TorRippleRms/100
 
 
 constraints = [torque_constraint, ripple_constraint]
-loss_objective=GenericMCObjective(lambda Y, X=None: Y[...,0])
+loss_objective = GenericMCObjective(lambda Y, X=None: Y[..., 0])
 
 while len(train_X) < n_evals:
     # Fit surrogate
     model = SingleTaskGP(train_X, train_Y)
     mll = ExactMarginalLogLikelihood(model.likelihood, model)
     fit_gpytorch_mll(mll)
-
 
     # Define acquisition function
     acq = qLogNoisyExpectedImprovement(
@@ -110,7 +114,7 @@ while len(train_X) < n_evals:
         objective=loss_objective,
         constraints=constraints,
         prune_baseline=True,
-            )
+    )
 
     # Optimize acquisition function to select candidate points. Reject unfeasible points
     candidates_feasible = []
@@ -126,7 +130,7 @@ while len(train_X) < n_evals:
 
         for candidate in candidates:
             candidate_unnormalized = unnormalize(candidate, bounds)
-            barrier_X=candidate_unnormalized[:-current_n]
+            barrier_X = candidate_unnormalized[:-current_n]
             params = generator.X_to_params(barrier_X.numpy())
 
             generator.set_parameters(params)
@@ -159,9 +163,9 @@ while len(train_X) < n_evals:
     train_X = torch.cat([train_X, candidates_all])
     train_Y = torch.cat([train_Y, new_Y_all])
 
-    feasible=(train_Y[:,1]>=t_target) & (-100*train_Y[:, 2]<=ref_cons["ripple"])
+    feasible = (train_Y[:, 1] >= t_target) & (-100 * train_Y[:, 2] <= ref_cons["ripple"])
     print(len(train_Y), feasible.sum().item())
-    print(train_Y[feasible][:,0].max() if feasible.any() else None)
+    print(train_Y[feasible][:, 0].max() if feasible.any() else None)
 
     # Save candidates
     np.savez(output_name, train_X=unnormalize(train_X, bounds), train_Y=train_Y)

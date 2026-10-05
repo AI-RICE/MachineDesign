@@ -189,54 +189,11 @@ class Computation(ComputationBase):
         }
         self.set_initpos()
 
-    def set_solution_expressions(self):
-        self.solution_expressions = self.compute_solution_expressions()
-
-    def set_output_vars(self):
-        self.output_vars = {}
-
-    def set_post_params(self):
-        self.post_params = {  # reports
-            ("InducedVoltage(PhaseA)", "InducedVoltage(PhaseB)", "InducedVoltage(PhaseC)"): "InducedVoltage",
-            ("Moving1.Torque"): "Torque",
-            ("InputCurrent(PhaseA)", "InputCurrent(PhaseB)", "InputCurrent(PhaseC)"): "Current",
-            (
-                "FluxLinkage(PhaseA)",
-                "FluxLinkage(PhaseB)",
-                "FluxLinkage(PhaseC)",
-            ): "FluxLinkage",
-        }
-
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:
         # Excitations
-        I_A = "Im * cos(w*Time+epsI)"
-        I_B = "Im * cos(w*Time-120deg+epsI)"
-        I_C = "Im * cos(w*Time-240deg+epsI)"
-
-        phases_polarity = ["Positive", "Negative", "Positive"]
-        phases_name = ["A", "C", "B"]
-        phases_current = [I_A, I_C, I_B]
-        i_coil = 0
-        for phase_polarity, phase_name, phase_current in zip(phases_polarity, phases_name, phases_current):
-            names = []
-            for _ in range(3):
-                m2d.assign_coil(
-                    assignment=[self.geometry.id_coils[i_coil]],
-                    conductors_number="Nc",
-                    polarity=phase_polarity,
-                    name=f"CS{i_coil + 1}",
-                )
-                names.append(f"CS{i_coil + 1}")
-                i_coil += 1
-            m2d.assign_winding(
-                assignment=None,
-                winding_type="Current",
-                is_solid=False,
-                current=phase_current,
-                parallel_branches="ParallelPaths",
-                name=f"Phase{phase_name}",
-            )
-            m2d.add_winding_coils(assignment=f"Phase{phase_name}", coils=names)
+        m = self.geometry.n_phases
+        phase_currents = [f"Im * cos(w*Time-{360 * k / m}deg+epsI)" for k in range(m)]
+        self.assign_phase_windings(m2d, phase_currents)
 
     def inductance_computation(self, m2d: Maxwell2d) -> None:
         m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=False)

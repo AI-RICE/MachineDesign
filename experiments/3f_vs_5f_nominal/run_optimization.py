@@ -168,4 +168,4 @@ for n_phases in [3, 5]:
         # Save candidates
         np.savez(output_name, train_X=unnormalize(train_X, bounds), train_Y=train_Y)
 
-    design.close_project()
+design.close_project()

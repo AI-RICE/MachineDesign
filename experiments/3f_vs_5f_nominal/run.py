@@ -94,4 +94,4 @@ for n_phases in [3, 5]:
         metadata = pd.concat((metadata, pd.DataFrame([metadata_new])), ignore_index=True)
         metadata.to_csv(f"{path_results}/metadata.csv", index=False)
 
-    design.close_project()
+design.close_project()

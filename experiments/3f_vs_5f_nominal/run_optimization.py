@@ -29,19 +29,19 @@ if phases == 3:
     from motors.synrm_3f_60s import Computation, Geometry
 
     current_n = 2
-    current_bounds = np.array([[0.0, 0.0], [4.0, 4.0]])  # Id, Iq bounds for 3f
+    current_bounds = np.array([[0.0, 0.0], [2.5, 2.5]])  # Id, Iq bounds for 3f
     ref_loss = 20
 else:
     from motors.synrm_5f_60s import Computation, Geometry
 
     current_n = 4
-    current_bounds = np.array([[0.0, 0.0, 0.0, 0.0], [10.0, 10.0, 10.0, 10.0]])  # Id1, Iq1, Id3, Iq3 bounds for 5f
+    current_bounds = np.array([[0.0, 0.0, 0.0, 0.0], [1.5, 1.5, 1.5, 1.5]])  # Id1, Iq1, Id3, Iq3 bounds for 5f
     ref_loss = 40
 
 config = load_config()
 aedt_version = config["aedt_version"]
 num_cores = config["num_cores"]
-n_evals = 250
+n_evals = 20
 r_stator_end = 0.7
 offset = 0.7 / 2
 batch_size = 4
@@ -54,7 +54,7 @@ ref_cons = {"loss": ref_loss, "ripple": 10.0}
 project_name = f"SynRM_{phases}f_nominal"
 design_name = "Design01"
 path_data = os.path.join(os.getcwd(), "data")
-root_init = "results"
+root_init = f"results_{phases}f"
 os.makedirs(path_data, exist_ok=True)
 file_name_aedt = f"{path_data}/{project_name}.aedt"
 

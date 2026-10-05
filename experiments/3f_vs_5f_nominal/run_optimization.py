@@ -55,7 +55,7 @@ _, _, ref_cons_ripple = objective_transform(0, 0, ref_cons["ripple"])
 project_name = f"SynRM_{phases}f_nominal"
 design_name = "Design01"
 path_data = os.path.join(os.getcwd(), "data")
-root_init = f"results_{phases}f"
+root_init = f"results/results_{phases}f"
 os.makedirs(path_data, exist_ok=True)
 file_name_aedt = f"{path_data}/{project_name}.aedt"
 
@@ -67,7 +67,7 @@ generator = HacklGenerator_SixLambdas(design, r_stator_end, offset=offset)
 objective_fallback_tuple = (objective_fallback["loss"], objective_fallback["torque"], objective_fallback["ripple"])
 
 method = generator.__class__.__name__
-output_name = f"results_{method}_{phases}f.npz"
+output_name = f"results/results_{method}_{phases}f.npz"
 
 if os.path.exists(output_name):
     data = np.load(output_name)

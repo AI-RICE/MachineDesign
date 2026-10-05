@@ -46,9 +46,10 @@ r_stator_end = 0.7
 offset = 0.7 / 2
 batch_size = 4
 max_candidate_tries = 10
-t_target = 20.0
+t_target = 6.0
 objective_fallback = {"loss": ref_loss, "torque": 1.0, "ripple": 40.0}
 ref_cons = {"loss": ref_loss, "ripple": 10.0}
+_, _, ref_cons_ripple=objective_transform(0,0,ref_cons["ripple"])
 # ref_no_cons = {"torque": 4.0, "ripple": 30.0}
 
 project_name = f"SynRM_{phases}f_nominal"
@@ -95,7 +96,9 @@ def torque_constraint(Y):
 
 
 def ripple_constraint(Y):
-    return -100 * Y[..., 2] - ref_cons["ripple"]  #  train_Y[...,2] stores -TorRippleRms/100
+    ripple = -Y[..., 2]
+    ripple_max = -ref_cons_ripple
+    return ripple - ripple_max
 
 
 constraints = [torque_constraint, ripple_constraint]
@@ -163,7 +166,7 @@ while len(train_X) < n_evals:
     train_X = torch.cat([train_X, candidates_all])
     train_Y = torch.cat([train_Y, new_Y_all])
 
-    feasible = (train_Y[:, 1] >= t_target) & (-100 * train_Y[:, 2] <= ref_cons["ripple"])
+    feasible = (train_Y[:, 1] >= t_target) & (train_Y[:, 2] >= ref_cons_ripple)
     print(len(train_Y), feasible.sum().item())
     print(train_Y[feasible][:, 0].max() if feasible.any() else None)
 

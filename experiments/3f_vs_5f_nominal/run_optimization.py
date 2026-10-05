@@ -49,7 +49,7 @@ max_candidate_tries = 10
 t_target = 6.0
 objective_fallback = {"loss": ref_loss, "torque": 1.0, "ripple": 40.0}
 ref_cons = {"loss": ref_loss, "ripple": 10.0}
-_, _, ref_cons_ripple=objective_transform(0,0,ref_cons["ripple"])
+_, _, ref_cons_ripple = objective_transform(0, 0, ref_cons["ripple"])
 # ref_no_cons = {"torque": 4.0, "ripple": 30.0}
 
 project_name = f"SynRM_{phases}f_nominal"

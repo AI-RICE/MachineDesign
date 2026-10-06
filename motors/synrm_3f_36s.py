@@ -101,7 +101,6 @@ class Geometry(GeometryBase):
         self._split_for_symmetry(m2d, [stator_id, shaft_id, region_id, band_id])
         self._assign_boundary_conditions(m2d)
         self._assign_stator_mesh(m2d, stator_id, id_coils)
-        self._create_material(m2d, self.magnet, **self.magnet_props)
 
         # core loss
         m2d.set_core_losses("Stator", core_loss_on_field=False)

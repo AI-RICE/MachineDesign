@@ -48,6 +48,8 @@ class Geometry(GeometryBase):
 
     def set_mod_params(self):
         self.PolePairs = 2
+        self.n_phases = 3
+        self.belt_offset = 0
         self.mod_params = {
             "Poles": f"2*{self.PolePairs}",
             "ModelLength": "85mm",
@@ -172,8 +174,6 @@ class Geometry(GeometryBase):
 
 class Computation(ComputationBase):
     def set_oper_params(self):
-        self.phases = 3
-        self.belt_offset = 0
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
@@ -189,61 +189,11 @@ class Computation(ComputationBase):
         }
         self.set_initpos()
 
-    def set_solution_expressions(self):
-        self.solution_expressions = [
-            "Moving1.Position",
-            "Moving1.Torque",
-            *[f"FluxLinkage(Phase{p})" for p in "ABC"],
-            *[f"InducedVoltage(Phase{p})" for p in "ABC"],
-            *[f"InputCurrent(Phase{p})" for p in "ABC"],
-            *[f"L(Phase{x},Phase{y})" for x in "ABC" for y in "ABC"],
-        ]
-
-    def set_output_vars(self):
-        self.output_vars = {}
-
-    def set_post_params(self):
-        self.post_params = {  # reports
-            ("InducedVoltage(PhaseA)", "InducedVoltage(PhaseB)", "InducedVoltage(PhaseC)"): "InducedVoltage",
-            ("Moving1.Torque"): "Torque",
-            ("InputCurrent(PhaseA)", "InputCurrent(PhaseB)", "InputCurrent(PhaseC)"): "Current",
-            (
-                "FluxLinkage(PhaseA)",
-                "FluxLinkage(PhaseB)",
-                "FluxLinkage(PhaseC)",
-            ): "FluxLinkage",
-        }
-
     def assign_stator_coils(self, m2d: Maxwell2d) -> None:
         # Excitations
-        I_A = "Im * cos(w*Time+epsI)"
-        I_B = "Im * cos(w*Time-120deg+epsI)"
-        I_C = "Im * cos(w*Time-240deg+epsI)"
-
-        phases_polarity = ["Positive", "Negative", "Positive"]
-        phases_name = ["A", "C", "B"]
-        phases_current = [I_A, I_C, I_B]
-        i_coil = 0
-        for phase_polarity, phase_name, phase_current in zip(phases_polarity, phases_name, phases_current):
-            names = []
-            for _ in range(3):
-                m2d.assign_coil(
-                    assignment=[self.geometry.id_coils[i_coil]],
-                    conductors_number="Nc",
-                    polarity=phase_polarity,
-                    name=f"CS{i_coil + 1}",
-                )
-                names.append(f"CS{i_coil + 1}")
-                i_coil += 1
-            m2d.assign_winding(
-                assignment=None,
-                winding_type="Current",
-                is_solid=False,
-                current=phase_current,
-                parallel_branches="ParallelPaths",
-                name=f"Phase{phase_name}",
-            )
-            m2d.add_winding_coils(assignment=f"Phase{phase_name}", coils=names)
+        m = self.geometry.n_phases
+        phase_currents = [f"Im * cos(w*Time-{360 * k / m}deg+epsI)" for k in range(m)]
+        self.assign_phase_windings(m2d, phase_currents)
 
     def inductance_computation(self, m2d: Maxwell2d) -> None:
         m2d.change_inductance_computation(compute_transient_inductance=True, incremental_matrix=False)
@@ -254,26 +204,22 @@ class Computation(ComputationBase):
         m2d.variable_manager["Iq"] = f"{Iq}A"
 
     def extract_results(self, solutions):
-        position = np.array(solutions.data_real("Moving1.Position"))
-        torque = np.array(solutions.data_real("Moving1.Torque"))
+        # SI units
+        position = self.extract_expression(solutions, "Moving1.Position")
+        torque = self.extract_expression(solutions, "Moving1.Torque")
 
-        theta_el = np.deg2rad(position - self.InitPos) * self.geometry.PolePairs
-        flux_phases = np.stack([np.array(solutions.data_real(f"FluxLinkage(Phase{p})")) for p in "ABC"], axis=-1)
-        vind_phases = np.stack([np.array(solutions.data_real(f"InducedVoltage(Phase{p})")) for p in "ABC"], axis=-1)
-        current_phases = np.stack([np.array(solutions.data_real(f"InputCurrent(Phase{p})")) for p in "ABC"], axis=-1)
+        theta_el = (position - np.deg2rad(self.InitPos)) * self.geometry.PolePairs
+
+        flux_phases, vind_phases, current_phases, L_raw = self.extract_phase_results(solutions)
 
         Flux_d, Flux_q = to_dq(flux_phases, theta_el, harmonic=1)
         Ui_d, Ui_q = to_dq(vind_phases, theta_el, harmonic=1)
-        I_d, I_q = (v / 1e3 for v in to_dq(current_phases, theta_el, harmonic=1))
-        # mA to A
+        I_d, I_q = to_dq(current_phases, theta_el, harmonic=1)
 
-        L_raw = [np.stack([np.array(solutions.data_real(f"L(Phase{x},Phase{y})")) for y in "ABC"], axis=-1) / 1e9 for x in "ABC"]
-        # nH to H
-
-        L_d_row = np.zeros((len(position), 3))
-        L_q_row = np.zeros((len(position), 3))
+        L_d_row = np.zeros((len(position), self.geometry.n_phases))
+        L_q_row = np.zeros((len(position), self.geometry.n_phases))
         for i, L_row in enumerate(L_raw):
-            L_d_row[:, i], L_q_row[:, i] = (v * m for v, m in zip(to_dq(L_row, theta_el, harmonic=1), (3 / 2, -3 / 2)))
+            L_d_row[:, i], L_q_row[:, i] = (v * m for v, m in zip(to_dq(L_row, theta_el, harmonic=1), (self.geometry.n_phases / 2, -self.geometry.n_phases / 2)))
 
         L_d, _ = to_dq(L_d_row, theta_el, harmonic=1)
         _, L_q_raw = to_dq(L_q_row, theta_el, harmonic=1)

@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
 
+import numpy as np
 from ansys.aedt.core import Maxwell2d
 
 from machine_design.generic.compute_initpos import compute_initpos
+from machine_design.generic.winding import phase_groups
 
 from .geometry import GeometryBase
 from .reserved_variables import check_no_reserved_variable_names
@@ -11,6 +13,7 @@ from .reserved_variables import check_no_reserved_variable_names
 class ComputationBase(ABC):
     def __init__(self, geometry: GeometryBase) -> None:
         self.geometry = geometry
+        self.phases = "ABCDEFGHIJK"[: self.geometry.n_phases]
         self.setup_name = "Setup1"
         self.rotor_mesh = None
         self.set_oper_params()
@@ -21,15 +24,6 @@ class ComputationBase(ABC):
 
     @abstractmethod
     def set_oper_params(self): ...
-
-    @abstractmethod
-    def set_solution_expressions(self): ...
-
-    @abstractmethod
-    def set_output_vars(self): ...
-
-    @abstractmethod
-    def set_post_params(self): ...
 
     @abstractmethod
     def assign_stator_coils(self, m2d: Maxwell2d) -> None: ...
@@ -43,11 +37,66 @@ class ComputationBase(ABC):
     @abstractmethod
     def extract_results(self, solutions): ...
 
+    @staticmethod
+    def extract_expression(solutions, expr: str) -> np.ndarray:
+        return np.asarray(solutions.data_real(expr, convert_to_SI=True))
+
     def set_initpos(self) -> None:
-        Q = int(self.geometry.geom_params["SlotNumber"])
-        p = self.geometry.PolePairs
-        self.InitPos = compute_initpos(Q, p, self.phases, belt_offset=self.belt_offset)
+        g = self.geometry
+        Q = int(g.geom_params["SlotNumber"])
+        self.InitPos = compute_initpos(Q, g.PolePairs, g.n_phases, belt_offset=g.belt_offset)
         self.oper_params["InitPos"] = f"{self.InitPos}deg"
+
+    def compute_phase_groups(self):
+        g = self.geometry
+        Q = int(g.geom_params["SlotNumber"])
+        return phase_groups(Q, g.PolePairs, g.n_phases, belt_offset=g.belt_offset)
+
+    def set_solution_expressions(self):
+        self.solution_expressions = [
+            "Moving1.Position",
+            "Moving1.Torque",
+            *[f"FluxLinkage(Phase{p})" for p in self.phases],
+            *[f"InducedVoltage(Phase{p})" for p in self.phases],
+            *[f"InputCurrent(Phase{p})" for p in self.phases],
+            *[f"L(Phase{x},Phase{y})" for x in self.phases for y in self.phases],
+        ]
+
+    def set_output_vars(self):
+        self.output_vars = {}
+
+    def set_post_params(self):
+        self.post_params = {
+            tuple(f"InducedVoltage(Phase{p})" for p in self.phases): "InducedVoltage",
+            ("Moving1.Torque"): "Torque",
+            tuple(f"InputCurrent(Phase{p})" for p in self.phases): "Current",
+            tuple(f"FluxLinkage(Phase{p})" for p in self.phases): "FluxLinkage",
+        }
+
+    def assign_phase_windings(self, m2d: Maxwell2d, phase_currents: list) -> None:
+        groups = self.compute_phase_groups()
+        for group in groups:
+            for coil_name, polarity in group:
+                m2d.assign_coil(assignment=[coil_name], conductors_number="Nc", polarity=polarity, name=f"CS_{coil_name}")
+
+        for phase_name, current, group in zip(self.phases, phase_currents, groups):
+            m2d.assign_winding(
+                assignment=None,
+                winding_type="Current",
+                is_solid=False,
+                current=current,
+                parallel_branches="ParallelPaths",
+                name=f"Phase{phase_name}",
+            )
+            m2d.add_winding_coils(assignment=f"Phase{phase_name}", coils=[f"CS_{coil_name}" for coil_name, _ in group])
+
+    def extract_phase_results(self, solutions):
+        # SI units
+        flux_phases = np.stack([self.extract_expression(solutions, f"FluxLinkage(Phase{p})") for p in self.phases], axis=-1)
+        vind_phases = np.stack([self.extract_expression(solutions, f"InducedVoltage(Phase{p})") for p in self.phases], axis=-1)
+        current_phases = np.stack([self.extract_expression(solutions, f"InputCurrent(Phase{p})") for p in self.phases], axis=-1)
+        L_raw = [np.stack([self.extract_expression(solutions, f"L(Phase{x},Phase{y})") for y in self.phases], axis=-1) for x in self.phases]
+        return flux_phases, vind_phases, current_phases, L_raw
 
     def push_variables(self, m2d: Maxwell2d) -> None:
         for k, v in self.oper_params.items():

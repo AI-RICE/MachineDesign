@@ -149,17 +149,18 @@ def test_mm_to_str_raises_without_mm_suffix(geometry):
 def test_extract_results_converts_units(computation):
     computation.set_variables(SimpleNamespace(variable_manager={}), Id=1.0, Iq=2.0)
 
-    def data_real(expr):
+    def data_real(expr, convert_to_SI=False):
+        assert convert_to_SI, f"expected convert_to_SI=True for {expr}"
         letters = ["ABC".index(part[0]) + 1 for part in expr.split("Phase")[1:]]
         value = float(np.prod(letters) if letters else 7.0)
-        return np.full(2, value * 1e9 if expr.startswith("L(") else value)
+        return np.full(2, value)
 
     solutions = SimpleNamespace(data_real=data_real, primary_sweep_values=[0.0, 1.0])
     out = computation.extract_results(solutions)
 
-    theta_el = np.deg2rad(np.full(2, 7.0) - computation.InitPos) * computation.geometry.PolePairs
+    theta_el = (np.full(2, 7.0) - np.deg2rad(computation.InitPos)) * computation.geometry.PolePairs
     current_phases = np.stack([np.full(2, i + 1.0) for i in range(3)], axis=-1)
     expected_I_d, _ = to_dq(current_phases, theta_el, harmonic=1)
 
-    assert out["I_d"] == pytest.approx(expected_I_d / 1e3)
+    assert out["I_d"] == pytest.approx(expected_I_d)
     assert out["Moving1.Torque"] == pytest.approx(np.full(2, 7.0))

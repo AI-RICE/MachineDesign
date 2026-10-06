@@ -32,6 +32,7 @@ class Geometry(BaseGeometry):
         super().set_mod_params()
         self.n_phases = 5
         self.belt_offset = 1
+        self.current_bounds = np.array([[0.0, 0.0, 0.0, 0.0], [1.5, 1.5, 1.5, 1.5]])
 
 
 class Computation(ComputationBase):

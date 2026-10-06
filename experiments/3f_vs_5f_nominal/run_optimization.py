@@ -2,6 +2,8 @@
 
 import os
 
+import importlib
+
 import numpy as np
 import torch
 from botorch import fit_gpytorch_mll
@@ -33,19 +35,28 @@ batch_size = 4
 max_candidate_tries = 10
 t_target = 6.0
 
-for n_phases in [3, 5]:
-    if n_phases == 3:
-        from motors.synrm_3f_60s import Computation, Geometry
+# for n_phases in [3, 5]:
+#     if n_phases == 3:
+#         from motors.synrm_3f_60s import Computation, Geometry
 
-        current_n = 2
-        current_bounds = np.array([[0.0, 0.0], [2.5, 2.5]])  # Id, Iq bounds for 3f
-        ref_loss = 20
-    else:
-        from motors.synrm_5f_60s import Computation, Geometry
+#         current_n = 2
+#         current_bounds = np.array([[0.0, 0.0], [2.5, 2.5]])  # Id, Iq bounds for 3f
+#         ref_loss = 20
+#     else:
+#         from motors.synrm_5f_60s import Computation, Geometry
 
-        current_n = 4
-        current_bounds = np.array([[0.0, 0.0, 0.0, 0.0], [1.5, 1.5, 1.5, 1.5]])  # Id1, Iq1, Id3, Iq3 bounds for 5f
-        ref_loss = 40
+#         current_n = 4
+#         current_bounds = np.array([[0.0, 0.0, 0.0, 0.0], [1.5, 1.5, 1.5, 1.5]])  # Id1, Iq1, Id3, Iq3 bounds for 5f
+#         ref_loss = 40
+
+for motor in [("motors.synrm_3f_60s",3),("motors.synrm_5f_60s",5)]:
+    module_name, n_phases=motor
+    module=importlib.import_module(module_name)
+    Computation,Geometry=module.Computation,module.Geometry
+    geometry = Geometry()
+    current_bounds=geometry.current_bounds
+    current_n=current_bounds.shape[1]
+    ref_loss=20 if n_phases==3 else 40
 
     objective_fallback = {"loss": ref_loss, "torque": 1.0, "ripple": 40.0}
     ref_cons = {"loss": ref_loss, "ripple": 10.0}
@@ -59,7 +70,6 @@ for n_phases in [3, 5]:
     os.makedirs(path_data, exist_ok=True)
     file_name_aedt = f"{path_data}/{project_name}.aedt"
 
-    geometry = Geometry()
     computation = Computation(geometry)
     design = load_design(file_name_aedt, project_name, design_name, aedt_version, geometry, computation)
     generator = HacklGenerator_SixLambdas(design, r_stator_end, offset=offset)

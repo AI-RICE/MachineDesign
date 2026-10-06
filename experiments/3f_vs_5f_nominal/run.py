@@ -2,6 +2,8 @@
 
 import os
 
+import importlib
+
 import numpy as np
 import pandas as pd
 
@@ -22,15 +24,22 @@ r_stator_end = 0.7
 offset = 0.7 / 2
 plot_design = True
 
-for n_phases in [3, 5]:
-    if n_phases == 3:
-        from motors.synrm_3f_60s import Computation, Geometry
+# for n_phases in [3, 5]:
+#     if n_phases == 3:
+#         from motors.synrm_3f_60s import Computation, Geometry
 
-        current_bounds = np.array([[0.0, 0.0], [2.5, 2.5]])  # Id, Iq bounds for 3f
-    else:
-        from motors.synrm_5f_60s import Computation, Geometry
+#         current_bounds = np.array([[0.0, 0.0], [2.5, 2.5]])  # Id, Iq bounds for 3f
+#     else:
+#         from motors.synrm_5f_60s import Computation, Geometry
 
-        current_bounds = np.array([[0.0, 0.0, 0.0, 0.0], [1.5, 1.5, 1.5, 1.5]])  # Id1, Iq1, Id3, Iq3 bounds for 5f
+#         current_bounds = np.array([[0.0, 0.0, 0.0, 0.0], [1.5, 1.5, 1.5, 1.5]])  # Id1, Iq1, Id3, Iq3 bounds for 5f
+
+for motor in [("motors.synrm_3f_60s",3),("motors.synrm_5f_60s",5)]:
+    module_name, n_phases=motor
+    module=importlib.import_module(module_name)
+    Computation,Geometry=module.Computation,module.Geometry
+    geometry = Geometry()
+    current_bounds=geometry.current_bounds
 
     project_name = f"SynRM_{n_phases}f_nominal"
     design_name = "Design01"
@@ -40,7 +49,6 @@ for n_phases in [3, 5]:
         os.makedirs(path, exist_ok=True)
     file_name_aedt = f"{path_data}/{project_name}.aedt"
 
-    geometry = Geometry()
     computation = Computation(geometry)
     design = load_design(file_name_aedt, project_name, design_name, aedt_version, geometry, computation)
     generator = HacklGenerator_SixLambdas(design, r_stator_end, offset=offset)

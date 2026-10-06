@@ -41,7 +41,7 @@ class Design:
         self.geometry.add_rotor_barrier(self.m2d, barrier_points, segment_type)
 
     def add_rotor_magnet(self, magnet_points, segment_type=None) -> None:
-        self.geometry.add_rotor_magnet(self.m2d, magnet_points, segment_type)
+        self.geometry.add_rotor_magnet(self.m2d, magnet_points, segment_type=segment_type)
 
     def delete_rotor(self) -> None:
         self.computation.delete_rotor_mesh()

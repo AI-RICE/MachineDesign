@@ -12,10 +12,6 @@ class Geometry(GeometryBase):
     def set_iron(self):
         self.Fe = "Cogent Power - M350-50A, B-H at 50Hz"
 
-    def set_magnets(self):
-        self.magnet = "NdFeb"
-        self.magnet_props = dict(permeability=1.05, conductivity=0, density=7500, coercivity=900000, coercivity_dir=(1.0, 0.0, 0.0))
-
     def set_geom_params(self):
         self.geom_params = {
             "DiaStatorGap": "79mm",
@@ -114,29 +110,6 @@ class Geometry(GeometryBase):
         self.region_id = region_id
         self.band_id = band_id
         self.id_coils = id_coils
-
-    def _create_material(
-        self,
-        m2d: Maxwell2d,
-        name: str,
-        permeability: float,
-        conductivity: float,
-        density: float,
-        coercivity: float | None = None,
-        coercivity_dir: tuple[float, float, float] = (0.0, 0.0, 0.0),
-    ) -> None:
-        if name in m2d.materials.material_keys:
-            return m2d.materials[name]
-
-        mat = m2d.materials.add_material(name)
-        mat.permeability = permeability
-        mat.conductivity = conductivity
-        mat.mass_density = density
-
-        if coercivity is not None:
-            mat.set_magnetic_coercivity(value=coercivity, x=coercivity_dir[0], y=coercivity_dir[1], z=coercivity_dir[2])
-
-        return mat
 
     def _assign_rotor_motion(self, m2d: Maxwell2d) -> None:
         m2d.assign_rotate_motion(

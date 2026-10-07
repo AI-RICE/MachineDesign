@@ -56,12 +56,10 @@ for motor in [("motors.synrm_3f_60s", 3), ("motors.synrm_5f_60s", 5)]:
     geometry = Geometry()
     current_bounds = geometry.current_bounds
     current_n = current_bounds.shape[1]
-    ref_loss = 20 if n_phases == 3 else 40
 
-    objective_fallback = {"loss": ref_loss, "torque": 1.0, "ripple": 40.0}
-    ref_cons = {"loss": ref_loss, "ripple": 10.0}
+    objective_fallback = {"loss": 40, "torque": 1.0, "ripple": 40.0}
+    ref_cons = {"ripple": 10.0}
     _, _, ref_cons_ripple = objective_transform(0, 0, ref_cons["ripple"])
-    # ref_no_cons = {"torque": 4.0, "ripple": 30.0}
 
     project_name = f"SynRM_{n_phases}f_nominal"
     design_name = "Design01"

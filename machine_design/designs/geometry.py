@@ -193,3 +193,81 @@ class GeometryBase(ABC):
             assignment="Region",
         )
         m2d.assign_vector_potential(assignment=id_bc_az, vector_value=0, boundary="A0")
+
+    def add_rotor_magnet(self, m2d: Maxwell2d, mag: np.ndarray, fill_height=0.9, fill_width=0.9, segment_type=None):
+        modeler = m2d.modeler
+
+        if isinstance(mag, (list, tuple)):
+            mag = np.concatenate([np.asarray(m) for m in mag], axis=0)
+
+        pts = np.asarray(mag)
+        center = pts.mean(axis=0)
+
+        r = np.linalg.norm(center)
+        if r < 1e-10:
+            return
+
+        radial = center / r
+        long_axis = np.array([-radial[1], radial[0]])
+
+        pts_centered = pts - center
+
+        proj_long = pts_centered @ long_axis
+        proj_short = pts_centered @ radial
+
+        pts_scaled = center + (np.outer(proj_long * fill_height, long_axis) + np.outer(proj_short * fill_width, radial))
+
+        points = [[f"{x}mm", f"{y}mm", "0mm"] for x, y in pts_scaled]
+
+        mag_id = modeler.create_polyline(
+            points=points,
+            close_surface=True,
+            cover_surface=True,
+            name="Magnet",
+        )
+        cs_angle_deg = np.degrees(np.arctan2(radial[1], radial[0]))
+
+        self.assign_magnet_cs(m2d, mag_id, cs_angle_deg)
+        mag_id.material_name = self.magnet
+        mag_id.solve_inside = True
+        mag_id.color = (255, 0, 0)
+        mag_id.transparency = 0.0
+
+        modeler.set_working_coordinate_system("Global")
+
+    def _create_magnet_cs(self, m2d: Maxwell2d, name: str, angle_deg: float) -> None:
+        m2d.modeler.create_coordinate_system(
+            origin=[0, 0, 0],
+            name=name,
+            mode="axis",
+            x_pointing=[float(np.cos(np.radians(angle_deg))), float(np.sin(np.radians(angle_deg))), 0],
+            y_pointing=[float(-np.sin(np.radians(angle_deg))), float(np.cos(np.radians(angle_deg))), 0],
+        )
+
+    def assign_magnet_cs(self, m2d: Maxwell2d, magnet_name: str, angle_deg: float) -> None:
+        cs_name = f"CS_{magnet_name}"
+        self._create_magnet_cs(m2d, cs_name, angle_deg)
+        m2d.modeler[magnet_name].part_coordinate_system = cs_name
+
+    def _create_material(
+        self,
+        m2d: Maxwell2d,
+        name: str,
+        permeability: float,
+        conductivity: float,
+        density: float,
+        coercivity: float | None = None,
+        coercivity_dir: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    ):
+        if name.lower() in m2d.materials.material_keys:
+            return m2d.materials[name]
+
+        mat = m2d.materials.add_material(name)
+        mat.permeability = permeability
+        mat.conductivity = conductivity
+        mat.mass_density = density
+
+        if coercivity is not None:
+            mat.set_magnetic_coercivity(value=coercivity, x=coercivity_dir[0], y=coercivity_dir[1], z=coercivity_dir[2])
+
+        return mat

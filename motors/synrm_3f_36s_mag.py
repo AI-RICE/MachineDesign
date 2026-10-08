@@ -14,6 +14,9 @@ class Geometry(Geometry3f36s):
         super().build_stator(m2d)
         self._create_material(m2d, self.magnet, **self.magnet_props)
 
+    def set_magnets(self):
+        self.magnet = "NdFeb"
+        self.magnet_props = dict(permeability=1.05, conductivity=0, density=7500, coercivity=900000, coercivity_dir=(1.0, 0.0, 0.0))
 
 class Computation(Computation3f36s):
     def set_oper_params(self) -> None:

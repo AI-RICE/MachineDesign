@@ -10,7 +10,6 @@ from .reserved_variables import check_no_reserved_variable_names
 class GeometryBase(ABC):
     def __init__(self) -> None:
         self.set_iron()
-        self.set_magnets()
         self.set_geom_params()
         self.set_slot_params()
         self.set_winds_params()
@@ -229,7 +228,6 @@ class GeometryBase(ABC):
         cs_angle_deg = np.degrees(np.arctan2(radial[1], radial[0]))
 
         self.assign_magnet_cs(m2d, mag_id, cs_angle_deg)
-        self._create_material(m2d, self.magnet, **self.magnet_props)
         mag_id.material_name = self.magnet
         mag_id.solve_inside = True
         mag_id.color = (255, 0, 0)
@@ -250,10 +248,6 @@ class GeometryBase(ABC):
         cs_name = f"CS_{magnet_name}"
         self._create_magnet_cs(m2d, cs_name, angle_deg)
         m2d.modeler[magnet_name].part_coordinate_system = cs_name
-
-    def set_magnets(self):
-        self.magnet = "NdFeb"
-        self.magnet_props = dict(permeability=1.05, conductivity=0, density=7500, coercivity=900000, coercivity_dir=(1.0, 0.0, 0.0))
 
     def _create_material(
         self,

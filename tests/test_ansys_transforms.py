@@ -104,6 +104,7 @@ def solved(tmp_path_factory):
         if design is not None:
             design.close_project()
 
+
 @pytest.mark.skip(reason="output_vars={}")
 @pytest.mark.parametrize(("label", "phase_exprs", "prefix"), SUBJECTS, ids=[s[0] for s in SUBJECTS])
 @pytest.mark.parametrize("harmonic", [1, 3])

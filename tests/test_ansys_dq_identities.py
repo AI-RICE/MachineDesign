@@ -61,6 +61,8 @@ def test_torque_and_voltage_identities(tmp_path):
         out = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
         assert out is not None, "solve returned no results"
 
+        print(f"torque rel err: {abs(np.mean(out['Torque_dq']) - np.mean(out['Moving1.Torque'])) / abs(np.mean(out['Moving1.Torque'])):.4%}")
+
         np.testing.assert_allclose(np.mean(out["Torque_dq"]), np.mean(out["Moving1.Torque"]), rtol=Rtol, err_msg="torque identity mismatch")
 
         for h in (1, 3):
@@ -68,6 +70,8 @@ def test_torque_and_voltage_identities(tmp_path):
             d, q = f"d{h}", f"q{h}"
             vl_q = out[f"V_{q}"] - computation.Rstat * out[f"I_{q}"]
             vl_d = out[f"V_{d}"] - computation.Rstat * out[f"I_{d}"]
+            rhs_q, rhs_d = np.mean(w * out[f"Flux_{d}"]), np.mean(-w * out[f"Flux_{q}"])
+            print(f"voltage rel err h={h}: q={abs(np.mean(vl_q) - rhs_q) / abs(rhs_q):.4%}, d={abs(np.mean(vl_d) - rhs_d) / abs(rhs_d):.4%}")
             np.testing.assert_allclose(np.mean(vl_q), np.mean(w * out[f"Flux_{d}"]), rtol=Rtol, err_msg=f"voltage identity mismatch, q-axis, harmonic {h}")
             np.testing.assert_allclose(np.mean(vl_d), np.mean(-w * out[f"Flux_{q}"]), rtol=Rtol, err_msg=f"voltage identity mismatch, d-axis, harmonic {h}")
     finally:

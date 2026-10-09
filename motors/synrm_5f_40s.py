@@ -163,6 +163,7 @@ class Computation(ComputationBase):
             "Flux_e_d3": Flux_e_d3,
             "Flux_e_q3": Flux_e_q3,
             "Moving1.Torque": torque,
+            "Torque_dq": Torque_dq,
         }
 
         return out

@@ -15,9 +15,10 @@ Two subjects, deliberately:
   both sides of the comparison, so it can only be run while they still exist. Once the
   Ansys-side voltage variables go, drop this half and keep the flux half.
 
-Marked `ansys`, so it is skipped by default. Run with:
+Marked `ansys`, since output_vars={} (noved to python side), this test is always skipped.
+Run with:
 
-    python -m pytest -m "" tests/test_ansys_transforms.py -v
+    pytest -m ansys "" tests/test_ansys_transforms.py -v
 """
 
 import numpy as np
@@ -103,7 +104,7 @@ def solved(tmp_path_factory):
         if design is not None:
             design.close_project()
 
-
+@pytest.mark.skip(reason="output_vars={}")
 @pytest.mark.parametrize(("label", "phase_exprs", "prefix"), SUBJECTS, ids=[s[0] for s in SUBJECTS])
 @pytest.mark.parametrize("harmonic", [1, 3])
 def test_python_transform_matches_ansys(solved, label, phase_exprs, prefix, harmonic):

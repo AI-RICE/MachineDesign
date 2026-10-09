@@ -68,8 +68,6 @@ def test_torque_and_voltage_identities(tmp_path):
             d, q = f"d{h}", f"q{h}"
             vl_q = out[f"V_{q}"] - computation.Rstat * out[f"I_{q}"]
             vl_d = out[f"V_{d}"] - computation.Rstat * out[f"I_{d}"]
-            print(f"h={h}: vl_d mean={np.mean(vl_d):.6f}, Vind_d mean={np.mean(out[f'Vind_{d}']):.6f}")
-            print(f"h={h}: vl_d mean={np.mean(vl_d):.4f}, -w*Flux_q mean={np.mean(-w * out[f'Flux_{q}']):.4f}, ratio={np.mean(vl_d) / np.mean(-w * out[f'Flux_{q}']):.4f}")
             np.testing.assert_allclose(np.mean(vl_q), np.mean(w * out[f"Flux_{d}"]), rtol=Rtol, err_msg=f"voltage identity mismatch, q-axis, harmonic {h}")
             np.testing.assert_allclose(np.mean(vl_d), np.mean(-w * out[f"Flux_{q}"]), rtol=Rtol, err_msg=f"voltage identity mismatch, d-axis, harmonic {h}")
     finally:

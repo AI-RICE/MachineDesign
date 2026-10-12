@@ -1,3 +1,8 @@
+"""
+run with:
+pytest -m ansys tests/test_ansys_dq_identities.py -v
+"""
+
 import numpy as np
 import pytest
 

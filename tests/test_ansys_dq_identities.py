@@ -10,6 +10,7 @@ from machine_design.config import load_config
 from machine_design.designs.design import Design
 from machine_design.optimization.generators import HacklGenerator_OneLambda
 from motors.synrm_5f_40s import Computation
+
 # from motors.synrm_5f_40s import Geometry
 from motors.synrm_5f_60s import Geometry
 
@@ -28,7 +29,7 @@ class ComputationMultiPeriod(Computation):
     def set_oper_params(self):
         super().set_oper_params()
         self.oper_params["Nper"] = "1"
-        self.oper_params["PointPer"]="2001"
+        self.oper_params["PointPer"] = "1001"
 
 
 def _feasible_barriers(geometry):

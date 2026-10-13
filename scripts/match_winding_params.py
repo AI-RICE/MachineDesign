@@ -1,4 +1,8 @@
-"""check winding.py and winding_layout_JL.py match"""
+"""check winding.py and winding_layout_JL.py match
+Run with:
+python scripts/match_winding_params.py
+
+"""
 
 from machine_design.generic.winding import sector_winding
 from machine_design.winding_layout_JL import compute_winding_layout
@@ -31,7 +35,7 @@ def find_matches(phases, slots, pole_pairs):
     return matches
 
 
-configs = [(5, 40, 2), (3, 36, 2), (3, 60, 2), (5, 60, 2)]
+configs = [(5, 40, 2), (3, 36, 2), (3, 60, 2), (5, 60, 2), (3, 36, 3)]
 
 for phases, slots, pole_pairs in configs:
     print(f"phases={phases} slots={slots} pole_pairs={pole_pairs}: {find_matches(phases, slots, pole_pairs)}")

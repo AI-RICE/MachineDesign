@@ -3,6 +3,7 @@ investigate torque/voltage dq identities
 Run with: 
     python scripts/dq_identity_sweep.py
 """
+import os
 
 import subprocess
 import sys
@@ -44,6 +45,7 @@ configs = [
 
 timeout_s = 2 * 3600
 results_path = "results/dq_identity_sweep.csv"
+os.makedirs("results", exist_ok=True)
 header = "geometry,pointper,time,torque,h1_q,h1_d,h3_q,h3_d"
 
 

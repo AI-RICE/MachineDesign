@@ -45,7 +45,7 @@ for phases in (3, 5, 7, 9, 11):
             for belt_offset, coil_pitch in matches:
                 initpos=compute_initpos(slots,pole_pairs,phases,belt_offset)
                 layout=compute_winding_layout(phases,slots,pole_pairs,coil_pitch=coil_pitch,layers=1)
-                initpos_from_new=(layout.phase_a_axis-180)/pole_pairs
+                initpos_from_new=(layout.phase_a_axis-180)/pole_pairs  # verify InitPos between old and new code
                 assert abs(initpos_from_new-initpos)<1e-6, f"InitPos mismatch: phases={phases} slots={slots} pole_pairs={pole_pairs}"
 
 print("all combinations matched")

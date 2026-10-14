@@ -53,7 +53,7 @@ def _phase_axis_tables(phases: int):
     shifted by 360/(2*m) electrical degrees. E.g. six phases are two
     symmetrical 3-phase sets (ACE and BDF) shifted by 30 degrees.
     """
-    if phases % 2 == 0:  # odd phases
+    if phases % 2 == 0:  # even phases
         phase_sets = 1
         reduced_phases = phases
         gcd_value = 2

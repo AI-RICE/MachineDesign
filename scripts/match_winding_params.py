@@ -41,8 +41,8 @@ for phases, slots, pole_pairs in configs:
     print(f"phases={phases} slots={slots} pole_pairs={pole_pairs}: {find_matches(phases, slots, pole_pairs)}")
 
 try:
-    sector_winding(12,5,3)
+    sector_winding(12, 5, 3)
     print("fractional slots: old didn't raise (unexpected)")
 except ValueError:
-    layout=compute_winding_layout(phases=3,slots=12,pole_pairs=5,coil_pitch=1,layers=1)
+    layout = compute_winding_layout(phases=3, slots=12, pole_pairs=5, coil_pitch=1, layers=1)
     print(f"fractional slots: old raised error as expected, new winding_factor={layout.winding_factor}")

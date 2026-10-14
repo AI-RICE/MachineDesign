@@ -4,7 +4,7 @@ import numpy as np
 from ansys.aedt.core import Maxwell2d
 
 from machine_design.generic.compute_initpos import compute_initpos
-from machine_design.generic.winding import coil_name, phase_groups
+from machine_design.generic.winding import phase_groups
 from machine_design.generic.winding_layout_JL import assign_slot_currents_to_aedt, compute_winding_layout
 
 from .geometry import GeometryBase
@@ -92,6 +92,8 @@ class ComputationBase(ABC):
             m2d.add_winding_coils(assignment=f"Phase{phase_name}", coils=[f"CS_{coil_name}" for coil_name, _ in group])
 
     def assign_phase_windings_new(self, m2d: Maxwell2d, phase_currents: list, coil_pitch: int) -> None:
+        from machine_design.generic.winding import coil_name
+        
         g = self.geometry
         Q = int(g.geom_params["SlotNumber"])
         n = Q // (2 * g.PolePairs)

@@ -53,9 +53,20 @@ for phases in (3, 5, 7, 9, 11):
                 initpos_from_new = (layout.phase_a_axis - 180) / pole_pairs
                 assert abs(initpos_from_new - initpos) < 1e-6, f"InitPos mismatch: phases={phases} slots={slots} pole_pairs={pole_pairs}"
 
-                # verify phase_anggles
+                # verify phase_angles
                 for k, letter in enumerate(layout.phase_order):
                     expected = -360.0 * k / phases
                     assert abs(layout.phase_angles[letter] - expected) < 1e-6, f"phase_angles mismatch: phases={phases} letter={letter}"
 
 print("all combinations matched")
+
+# fractional slots
+fractional_slots=[(3,12,5)]  #  (phases, slots, pole_pairs)
+for phases,slots,pole_pairs in fractional_slots:
+    try:
+        sector_winding(slots,pole_pairs,phases,0)
+        raise AssertionError(f"old supports fractional slots: phases={phases} slots={slots} pole_pairs={pole_pairs}")
+    except ValueError:
+        pass
+    layout=compute_winding_layout(phases,slots,pole_pairs,layers=1)
+    assert layout.winding_factor>0.9, f"low winding factor: phases={phases} slots={slots} pole_pairs={pole_pairs}"

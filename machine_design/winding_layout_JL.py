@@ -39,6 +39,7 @@ class WindingLayout:
     phase_back: Optional[List[str]] = None
     polarity_back: Optional[List[int]] = None
 
+
 def _phase_axis_tables(phases: int):
     """
     Returns (phase_letters, phase_signs, phase_angles): the phase letter and
@@ -52,7 +53,7 @@ def _phase_axis_tables(phases: int):
     shifted by 360/(2*m) electrical degrees. E.g. six phases are two
     symmetrical 3-phase sets (ACE and BDF) shifted by 30 degrees.
     """
-    if phases % 2 == 0: # odd phases
+    if phases % 2 == 0:  # odd phases
         phase_sets = 1
         reduced_phases = phases
         gcd_value = 2
@@ -68,11 +69,7 @@ def _phase_axis_tables(phases: int):
             set_shift = -360.0 / (2 * phases) * set_index
             phase_angle_matrix.append([v + set_shift for v in phase_angles_base])
         # Flatten column-major (set index varies fastest).
-        phase_angles = [
-            phase_angle_matrix[row][col]
-            for col in range(reduced_phases)
-            for row in range(phase_sets)
-        ]
+        phase_angles = [phase_angle_matrix[row][col] for col in range(reduced_phases) for row in range(phase_sets)]
         phase_angles.sort(reverse=True)
     else:  # even phases
         phase_shift_step = -360.0 / phases
@@ -119,18 +116,22 @@ def compute_winding_layout(
 
     pole_count = 2 * pole_pairs
     if slots % (phases) != 0:
-        raise ValueError(
-            f"slots ({slots}) must be divisible by number of phases ({phases})"
-        )
+        raise ValueError(f"slots ({slots}) must be divisible by number of phases ({phases})")
     slots_ppp = Fraction(slots, pole_count * phases)  # q, as an exact fraction n/c
     slots_ppp_numer = slots_ppp.numerator  # n
     slots_ppp_denom = slots_ppp.denominator  # c
     if gcd(slots_ppp_denom, phases) != 1:
-        raise ValueError(
-            f"c ({slots_ppp_denom}) and the number of phases ({phases}) must be "
-            "coprime for a symmetric winding"
-        )
-    pole_pitch_slots = slots / pole_count # t_pd
+        raise ValueError(f"c ({slots_ppp_denom}) and the number of phases ({phases}) must be coprime for a symmetric winding")
+    pole_pitch_slots = slots / pole_count  # t_pd
+
+    if not coil_pitch:
+        optimal_pitch_ratio = (2 * phases - 1) / (2 * phases)
+        optimal_coil_pitch = optimal_pitch_ratio * pole_pitch_slots
+        coil_pitch = round(optimal_coil_pitch)
+        if layers == 1 and coil_pitch % 2 == 0:
+            coil_pitch = coil_pitch - 1 if coil_pitch > optimal_coil_pitch else coil_pitch + 1
+    if layers == 1 and coil_pitch % 2 == 0:
+        raise ValueError(f"single-layer winding requires an odd coil pitch, got {coil_pitch}")
 
     # effective_n (coil sides per phase group, used for the distribution
     # factor) is derived from n, not q; it and c together fix p2_min - the minimum pole count for which the winding
@@ -147,22 +148,9 @@ def compute_winding_layout(
     else:
         effective_n = slots_ppp_numer
         p2_min = 2 * slots_ppp_denom
-        p2_min_fem = 2*slots_ppp_denom
+        p2_min_fem = slots_ppp_denom if coil_pitch == pole_pitch_slots else 2 * slots_ppp_denom
     if pole_count % p2_min != 0:
-        raise ValueError(
-            f"pole count ({pole_count}) must be a multiple of the minimum pole "
-            f"count {p2_min} required for this winding (phases={phases}, "
-            f"slots={slots}, layers={layers}) to close periodically"
-        )
-
-    if not coil_pitch:
-        optimal_pitch_ratio = (2 * phases - 1) / (2 * phases)
-        optimal_coil_pitch = optimal_pitch_ratio * pole_pitch_slots
-        coil_pitch = round(optimal_coil_pitch)
-        if layers == 1 and coil_pitch % 2 == 0:
-            coil_pitch = coil_pitch - 1 if coil_pitch > optimal_coil_pitch else coil_pitch + 1
-    if layers == 1 and coil_pitch % 2 == 0:
-        raise ValueError(f"single-layer winding requires an odd coil pitch, got {coil_pitch}")
+        raise ValueError(f"pole count ({pole_count}) must be a multiple of the minimum pole count {p2_min} required for this winding (phases={phases}, slots={slots}, layers={layers}) to close periodically")
 
     phase_letters, phase_signs, phase_angles = _phase_axis_tables(phases)
 
@@ -185,9 +173,7 @@ def compute_winding_layout(
         while cell_index > phases * slots_ppp_numer * pole_row:
             pole_row += 1
             sign = -sign
-        phase_group = ceil(
-            (cell_index - (pole_row - 1) * phases * slots_ppp_numer) / slots_ppp_numer
-        )  # 1..phases
+        phase_group = ceil((cell_index - (pole_row - 1) * phases * slots_ppp_numer) / slots_ppp_numer)  # 1..phases
         phase[slot_index] = phase_letters[phase_group - 1]
         polarity[slot_index] = sign * phase_signs[phase_group - 1]
         front_slot_indices.append(slot_index)
@@ -216,9 +202,7 @@ def compute_winding_layout(
 
     pitch_ratio = coil_pitch / pole_pitch_slots
     pitch_factor = sin(pitch_ratio * pi / 2)
-    distribution_factor = sin(pi / (2 * phases)) / (
-        effective_n * sin(pi / (2 * phases * effective_n))
-    )
+    distribution_factor = sin(pi / (2 * phases)) / (effective_n * sin(pi / (2 * phases * effective_n)))
     winding_factor = pitch_factor * distribution_factor
     if winding_factor < 0.9:
         warnings.warn(f"winding factor is low: {winding_factor:.3g} (< 0.9)")
@@ -298,7 +282,7 @@ def assign_slot_currents_to_aedt(
 if __name__ == "__main__":
     layout_6ph = compute_winding_layout(phases=6, slots=48, pole_pairs=5, coil_pitch=5, layers=1)
     layout_6ph_v2 = compute_winding_layout(phases=6, slots=48, pole_pairs=2, coil_pitch=11, layers=1)
-    
+
     layout_3ph = compute_winding_layout(phases=3, slots=6, pole_pairs=2, coil_pitch=1, layers=2)
     layout_5ph = compute_winding_layout(phases=5, slots=40, pole_pairs=2, coil_pitch=9, layers=1)
 

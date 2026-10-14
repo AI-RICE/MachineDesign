@@ -36,7 +36,7 @@ def find_matches(phases, slots, pole_pairs):
     return matches
 
 
-for phases in (3, 5, 7, 9, 11):
+for phases in (3, 4, 5, 6, 7, 8, 9, 10, 11):
     for pole_pairs in (1, 2, 3, 4):
         for q in (1, 2, 3):
             slots = q * 2 * pole_pairs * phases

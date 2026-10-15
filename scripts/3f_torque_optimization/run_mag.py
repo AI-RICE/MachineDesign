@@ -16,12 +16,12 @@ from machine_design.optimization import (
     plot_barriers,
     save_params,
 )
-from motors.synrm_3f_36s import Computation, Geometry
+from motors.synrm_3f_36s_mag import Computation, Geometry
 
 config = load_config()
 aedt_version = config["aedt_version"]
 num_cores = config["num_cores"]
-n_designs = 50
+n_designs = 1
 r_stator_end = 0.7
 offset = 0.7 / 2
 current_setpoint = (1.5, 1.5)
@@ -61,6 +61,8 @@ for i in range(0, n_designs):
             design.add_rotor_barrier(barrier)
             if generator.name == "MagnetGenerator":
                 design.add_rotor_magnet(magnets[j])
+
+        design.reassign_motion_setup()
 
         # Compute the torque
         Tor = design.compute(*current_setpoint, NUM_CORES=num_cores)

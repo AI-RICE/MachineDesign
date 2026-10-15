@@ -236,6 +236,9 @@ class GeometryBase(ABC):
         modeler.set_working_coordinate_system("Global")
 
     def _create_magnet_cs(self, m2d: Maxwell2d, name: str, angle_deg: float) -> None:
+        for cs in m2d.modeler.coordinate_systems:
+            if cs.name == name:
+                cs.delete()
         m2d.modeler.create_coordinate_system(
             origin=[0, 0, 0],
             name=name,
@@ -271,3 +274,8 @@ class GeometryBase(ABC):
             mat.set_magnetic_coercivity(value=coercivity, x=coercivity_dir[0], y=coercivity_dir[1], z=coercivity_dir[2])
 
         return mat
+
+    def delete_magnets(self, m2d: Maxwell2d) -> None:
+        magnets = m2d.modeler.get_objects_w_string("Magnet", case_sensitive=True)
+        if magnets:
+            m2d.modeler.delete(magnets)

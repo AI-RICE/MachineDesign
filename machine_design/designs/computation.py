@@ -92,13 +92,11 @@ class ComputationBase(ABC):
             m2d.add_winding_coils(assignment=f"Phase{phase_name}", coils=[f"CS_{coil_name}" for coil_name, _ in group])
 
     def assign_phase_windings_new(self, m2d: Maxwell2d, phase_currents: list, coil_pitch: int) -> None:
-        from machine_design.generic.winding import coil_name
-
         g = self.geometry
         Q = int(g.geom_params["SlotNumber"])
         n = Q // (2 * g.PolePairs)
         layout = compute_winding_layout(g.n_phases, Q, g.PolePairs, coil_pitch=coil_pitch, layers=1)
-        coil_objects = [coil_name(k) for k in range(n)]
+        coil_objects = ["Coil" if k == 0 else f"Coil_{k}" for k in range(n)]
         phase_currents_dict = dict(zip(self.phases, phase_currents))
         assign_slot_currents_to_aedt(m2d, coil_objects, layout, phase_currents_dict)
 

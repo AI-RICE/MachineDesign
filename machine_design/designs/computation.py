@@ -93,7 +93,7 @@ class ComputationBase(ABC):
 
     def assign_phase_windings_new(self, m2d: Maxwell2d, phase_currents: list, coil_pitch: int) -> None:
         from machine_design.generic.winding import coil_name
-        
+
         g = self.geometry
         Q = int(g.geom_params["SlotNumber"])
         n = Q // (2 * g.PolePairs)

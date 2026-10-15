@@ -2,7 +2,7 @@
 
 Run explicitly with:
 
-    pytest -m ansys tests/test_new_winding_regression_synrm_3f_36s.py
+    pytest -m ansys tests/test_ansys_new_winding_regression_synrm_3f_36s.py
 
 Requires a running Ansys Electronics Desktop session and a free license seat.
 """
@@ -15,6 +15,8 @@ from machine_design.designs.design import Design
 from machine_design.optimization.generators import HacklGenerator_OneLambda
 from motors.synrm_3f_36s import Computation, Geometry
 
+from ansys.aedt.core import Maxwell2d
+
 pytestmark = pytest.mark.ansys
 
 AEDT_VERSION = load_config()["aedt_version"]
@@ -23,13 +25,25 @@ OFFSET = 0.35
 SEEDS = (42, 43)
 NUM_CORES = 1
 current_setpoint = (1.5, 1.5)
+check_expressions = [
+    "Flux_d",
+    "Flux_q",
+    "Ui_d",
+    "Ui_q",
+    "I_d",
+    "I_q",
+    "L_d",
+    "L_q",
+    "Irms",
+]
+# we should verify all the above 9 vars + Moving1.Torque (a total of 10 vars with different seeds)
 
 
 class ComputationNewWinding(Computation):
-    def assign_stator_coils(self, m2d):
-        m=self.geometry.n_phases
-        phase_currents=[f"Im * cos(w*Time-{360 * k / m}deg+epsI)" for k in range(m)]
-        self.assign_phase_windings_new(m2d,phase_currents,coil_pitch=9)
+    def assign_stator_coils(self, m2d: Maxwell2d) -> None:
+        m = self.geometry.n_phases
+        phase_currents = [f"Im * cos(w*Time-{360 * k / m}deg+epsI)" for k in range(m)]
+        self.assign_phase_windings_new(m2d, phase_currents, coil_pitch=9)
 
 
 def _generate_one_lambda_barriers(seed):
@@ -75,44 +89,41 @@ def _compute_torque(design, barriers, add_rotor, setpoint=current_setpoint):
     return torque
 
 
-def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
+def test_new_winding_and_live_design_match_across_rotor_rebuilds(tmp_path):
     barrier_sets = [_generate_one_lambda_barriers(seed) for seed in SEEDS]
-    LegacyDesign = _load_legacy_design_class()
 
-    legacy_design, live_design = None, None
+    live_design, new_design = None, None
     try:
-        legacy_design = _create_design(LegacyDesign, "RegressionTest_legacy", str(tmp_path / "legacy.aedt"))
-        legacy_design.solution_expressions = ["Moving1.Torque", *check_expressions]
-
-        def _legacy_extract_results(solutions):
-            out = {}
-            for expr in legacy_design.solution_expressions:
-                out[expr] = np.array(solutions.data_real(expr, convert_to_SI=True))  # use SI units to compare
-            return out
-
-        legacy_design.extract_results = _legacy_extract_results
-
         live_geometry = Geometry()
         live_computation = Computation(live_geometry)
         live_design = _create_design(
-            LiveDesign,
+            Design,
             "RegressionTest_live",
             str(tmp_path / "live.aedt"),
             extra_args=(live_geometry, live_computation),
         )
 
-        for seed, barriers in zip(SEEDS, barrier_sets):
-            torque_legacy = _compute_torque(legacy_design, barriers, _add_rotor)
-            torque_live = _compute_torque(live_design, barriers, _add_rotor)
+        new_geometry = Geometry()
+        new_computation = ComputationNewWinding(new_geometry)
+        new_design = _create_design(
+            Design,
+            "RegressionTest_new",
+            str(tmp_path / "new.aedt"),
+            extra_args=(new_geometry, new_computation),
+        )
 
-            assert torque_legacy is not None, f"legacy torque is None for seed {seed}"
+        for seed, barriers in zip(SEEDS, barrier_sets):
+            torque_live = _compute_torque(live_design, barriers, _add_rotor)
+            torque_new = _compute_torque(new_design, barriers, _add_rotor)
+
+            assert torque_new is not None, f"new torque is None for seed {seed}"
             assert torque_live is not None, f"live torque is None for seed {seed}"
-            np.testing.assert_allclose(torque_live["Moving1.Torque"], torque_legacy["Moving1.Torque"], rtol=1e-3, err_msg=f"mismatch for Moving1.Torque, seed {seed}")
+            np.testing.assert_allclose(torque_live["Moving1.Torque"], torque_new["Moving1.Torque"], rtol=1e-3, err_msg=f"mismatch for Moving1.Torque, seed {seed}")
             for expr in check_expressions:
-                np.testing.assert_allclose(torque_live[expr], torque_legacy[expr], rtol=1e-3, err_msg=f"mismatch for {expr}, seed {seed}")
+                np.testing.assert_allclose(torque_new[expr], torque_live[expr], rtol=1e-3, err_msg=f"mismatch for {expr}, seed {seed}")
 
     finally:
         if live_design is not None:
             live_design.close_project()
-        elif legacy_design is not None:
-            legacy_design.close_project()
+        elif new_design is not None:
+            new_design.close_project()

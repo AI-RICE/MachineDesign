@@ -41,10 +41,16 @@ check_expressions = [
 
 
 class ComputationNewWinding(Computation):
+    coil_pitch=9
+
+    def set_oper_params(self):
+        super().set_oper_params()
+        self.set_initpos_new(self.coil_pitch)
+
     def assign_stator_coils(self, m2d):
         m = self.geometry.n_phases
         phase_currents = [f"Im * cos(w*Time-{360 * k / m}deg+epsI)" for k in range(m)]
-        self.assign_phase_windings_new(m2d, phase_currents, coil_pitch=9)
+        self.assign_phase_windings_new(m2d, phase_currents, coil_pitch=self.coil_pitch)
 
 
 def _load_legacy_design_class():

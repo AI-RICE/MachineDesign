@@ -31,10 +31,16 @@ current_setpoint = (7.0711, 7.0711, 0.0, 0.0)
 
 
 class ComputationNewWinding(Computation):
+    coil_pitch=9
+
+    def set_oper_params(self):
+        super().set_oper_params()
+        self.set_initpos_new(self.coil_pitch)
+
     def assign_stator_coils(self, m2d) -> None:
         m = self.geometry.n_phases
         phase_currents = [f"Im1 * cos(w*Time-{360 * k / m}deg+epsI1-pi)+Im3*cos(3*(w*Time-{360 * k / m}deg)+epsI3-pi)" for k in range(m)]
-        self.assign_phase_windings_new(m2d, phase_currents, coil_pitch=9)
+        self.assign_phase_windings_new(m2d, phase_currents, coil_pitch=self.coil_pitch)
 
 
 def _generate_one_lambda_barriers(seed):

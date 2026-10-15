@@ -9,6 +9,10 @@ __all__ = ["Geometry", "Computation"]
 
 
 class Geometry(Geometry3f36s):
+    def __init__(self) -> None:
+        self.set_magnets()
+        super().__init__()
+
     def build_stator(self, m2d: Maxwell2d) -> None:
         super().build_stator(m2d)
         self.set_magnets()

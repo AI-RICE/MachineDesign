@@ -43,9 +43,18 @@ class Design:
     def add_rotor_magnet(self, magnet_points, segment_type=None) -> None:
         self.geometry.add_rotor_magnet(self.m2d, magnet_points, segment_type=segment_type)
 
+    def reassign_motion_setup(self) -> None:
+        motions = [b.name for b in self.m2d.boundaries if b.type == "Band"]
+        if motions:
+            self.m2d.omodelsetup.DeleteMotionSetup(motions)
+        self.geometry._assign_rotor_motion(self.m2d)
+
     def delete_rotor(self) -> None:
         self.computation.delete_rotor_mesh()
         self.geometry.delete_rotor(self.m2d)
+
+    def delete_magnets(self) -> None:
+        self.geometry.delete_magnets(self.m2d)
 
     def compute(self, *args, NUM_CORES: int = 1):
         return self.computation.compute(self.m2d, self.geometry.rotor_id, *args, NUM_CORES=NUM_CORES)

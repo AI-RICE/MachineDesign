@@ -141,11 +141,13 @@ def test_legacy_live_and_new_winding_design_match_across_rotor_rebuilds(tmp_path
             assert torque_legacy is not None, f"legacy torque is None for seed {seed}"
             assert torque_live is not None, f"live torque is None for seed {seed}"
             assert torque_new is not None, f"new torque is None for seed {seed}"
-            np.testing.assert_allclose(torque_live["Moving1.Torque"], torque_legacy["Moving1.Torque"], rtol=1e-3, err_msg=f"mismatch for Moving1.Torque, seed {seed}")
-            np.testing.assert_allclose(torque_new["Moving1.Torque"], torque_legacy["Moving1.Torque"], rtol=1e-3, err_msg=f"mismatch for Moving1.Torque, seed {seed}")
+            np.testing.assert_allclose(torque_live["Moving1.Torque"], torque_legacy["Moving1.Torque"], rtol=1e-3, err_msg=f"live legacy mismatch for Moving1.Torque, seed {seed}")
+            np.testing.assert_allclose(torque_new["Moving1.Torque"], torque_legacy["Moving1.Torque"], rtol=1e-3, err_msg=f"new legacy mismatch for Moving1.Torque, seed {seed}")
+            np.testing.assert_allclose(torque_new["Moving1.Torque"], torque_live["Moving1.Torque"], rtol=1e-3, err_msg=f"new live mismatch for Moving1.Torque, seed {seed}")
             for expr in check_expressions:
-                np.testing.assert_allclose(torque_live[expr], torque_legacy[expr], rtol=1e-3, err_msg=f"mismatch for {expr}, seed {seed}")
-                np.testing.assert_allclose(torque_new[expr], torque_legacy[expr], rtol=1e-3, err_msg=f"mismatch for {expr}, seed {seed}")
+                np.testing.assert_allclose(torque_live[expr], torque_legacy[expr], rtol=1e-3, err_msg=f"live legacy mismatch for {expr}, seed {seed}")
+                np.testing.assert_allclose(torque_new[expr], torque_legacy[expr], rtol=1e-3, err_msg=f"new legacy mismatch for {expr}, seed {seed}")
+                np.testing.assert_allclose(torque_new[expr], torque_live[expr], rtol=1e-3, err_msg=f"new live mismatch for {expr}, seed {seed}")
 
     finally:
         if live_design is not None:

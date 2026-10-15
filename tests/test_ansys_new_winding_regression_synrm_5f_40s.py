@@ -115,8 +115,9 @@ def test_legacy_live_and_new_winding_design_match_across_rotor_rebuilds(tmp_path
             assert torque_new is not None, f"new torque is None for seed {seed}"
 
             for expr in legacy_design.solution_expressions:
-                np.testing.assert_allclose(torque_live[expr], torque_legacy[expr], rtol=1e-3, atol=2e-4, err_msg=f"mismatch for {expr}, seed {seed}")
-                np.testing.assert_allclose(torque_new[expr], torque_legacy[expr], rtol=1e-3, atol=2e-4, err_msg=f"mismatch for {expr}, seed {seed}")
+                np.testing.assert_allclose(torque_live[expr], torque_legacy[expr], rtol=1e-3, atol=2e-4, err_msg=f"live legacy mismatch for {expr}, seed {seed}")
+                np.testing.assert_allclose(torque_new[expr], torque_legacy[expr], rtol=1e-3, atol=2e-4, err_msg=f"new legacy mismatch for {expr}, seed {seed}")
+                np.testing.assert_allclose(torque_new[expr], torque_live[expr], rtol=1e-3, atol=2e-4, err_msg=f"new live mismatch for {expr}, seed {seed}")
                 # rtol is a relative tolerance, but when current_setpoint = (7.0711, 7.0711, 0.0, 0.0) is used,
                 # I_d3 is 1e-15 and 2.2e-16 for legacy and live, respectively, rtol is not meaningful when comparing such small numbers,
                 # so atol (absolute tolerance) is used to avoid false failures.

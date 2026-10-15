@@ -48,6 +48,13 @@ class ComputationBase(ABC):
         self.InitPos = compute_initpos(Q, g.PolePairs, g.n_phases, belt_offset=g.belt_offset)
         self.oper_params["InitPos"] = f"{self.InitPos}deg"
 
+    def set_initpos_new(self, coil_pitch: int) -> None:
+        g = self.geometry
+        Q = int(g.geom_params["SlotNumber"])
+        layout = compute_winding_layout(g.n_phases, Q, g.PolePairs, coil_pitch=coil_pitch, layers=1)
+        self.InitPos = (layout.phase_a_axis - 180) / g.PolePairs
+        self.oper_params["InitPos"] = f"{self.InitPos}deg"
+
     def compute_phase_groups(self):
         g = self.geometry
         Q = int(g.geom_params["SlotNumber"])

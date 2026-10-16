@@ -31,7 +31,6 @@ class Geometry(BaseGeometry):
     def set_mod_params(self):
         super().set_mod_params()
         self.n_phases = 5
-        self.belt_offset = 1
 
 
 class Computation(ComputationBase):

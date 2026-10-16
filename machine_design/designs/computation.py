@@ -43,8 +43,7 @@ class ComputationBase(ABC):
     def set_initpos(self) -> None:
         g = self.geometry
         Q = int(g.geom_params["SlotNumber"])
-        coil_pitch=int(g.wind_params["CoilPitch"])
-        layout = compute_winding_layout(g.n_phases, Q, g.PolePairs, coil_pitch=coil_pitch, layers=1)
+        layout = compute_winding_layout(g.n_phases, Q, g.PolePairs, coil_pitch=int(g.wind_params["CoilPitch"]), layers=int(g.wind_params["Layers"]))
         self.InitPos = (layout.phase_a_axis - 180) / g.PolePairs
         self.oper_params["InitPos"] = f"{self.InitPos}deg"
 
@@ -73,8 +72,7 @@ class ComputationBase(ABC):
         g = self.geometry
         Q = int(g.geom_params["SlotNumber"])
         n = Q // (2 * g.PolePairs)
-        coil_pitch=int(g.wind_params["CoilPitch"])
-        layout = compute_winding_layout(g.n_phases, Q, g.PolePairs, coil_pitch=coil_pitch, layers=1)
+        layout = compute_winding_layout(g.n_phases, Q, g.PolePairs, coil_pitch=int(g.wind_params["CoilPitch"]), layers=int(g.wind_params["Layers"]))
         coil_objects = ["Coil" if k == 0 else f"Coil_{k}" for k in range(n)]
         phase_currents_dict = dict(zip(self.phases, phase_currents))
         assign_slot_currents_to_aedt(m2d, coil_objects, layout, phase_currents_dict)

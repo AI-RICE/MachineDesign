@@ -68,7 +68,7 @@ class ComputationBase(ABC):
             tuple(f"FluxLinkage(Phase{p})" for p in self.phases): "FluxLinkage",
         }
 
-    def assign_phase_windings(self, m2d: Maxwell2d, phase_currents: list, coil_pitch: int) -> None:
+    def assign_phase_windings(self, m2d: Maxwell2d, phase_currents: list) -> None:
         g = self.geometry
         Q = int(g.geom_params["SlotNumber"])
         n = Q // (2 * g.PolePairs)

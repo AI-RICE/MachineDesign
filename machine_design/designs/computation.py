@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 from ansys.aedt.core import Maxwell2d
 
-from machine_design.generic.winding_layout_JL import assign_slot_currents_to_aedt, compute_winding_layout
+from machine_design.generic.winding import assign_slot_currents_to_aedt, compute_winding_layout
 
 from .geometry import GeometryBase
 from .reserved_variables import check_no_reserved_variable_names

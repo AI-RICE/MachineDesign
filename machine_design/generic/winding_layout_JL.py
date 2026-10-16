@@ -21,23 +21,22 @@ from a layout.
 
 import warnings
 from dataclasses import dataclass
-from math import ceil, gcd, pi, sin
 from fractions import Fraction
-from typing import Dict, List, Optional
+from math import ceil, gcd, pi, sin
 
 
 @dataclass(frozen=True)
 class WindingLayout:
     coil_pitch: int
-    phase: List[str]
-    polarity: List[int]
-    phase_order: List[str]
+    phase: list[str]
+    polarity: list[int]
+    phase_order: list[str]
     winding_factor: float
-    phase_angles: Dict[str, float]  # electrical angle [deg] of each phase, e.g. {"A": 0.0, "B": -30.0, ...}
+    phase_angles: dict[str, float]  # electrical angle [deg] of each phase, e.g. {"A": 0.0, "B": -30.0, ...}
     p2_min_fem: int  # minimum pole count of the FEM sector (odd allowed - antiperiodic boundary)
     phase_a_axis: float  # electrical axis [deg, 0..180) of phase A in the model
-    phase_back: Optional[List[str]] = None
-    polarity_back: Optional[List[int]] = None
+    phase_back: list[str] | None = None
+    polarity_back: list[int] | None = None
 
 
 def _phase_axis_tables(phases: int):
@@ -100,7 +99,7 @@ def compute_winding_layout(
     phases: int,
     slots: int,
     pole_pairs: int,
-    coil_pitch: Optional[int] = None,
+    coil_pitch: int | None = None,
     layers: int = 1,
 ) -> WindingLayout:
     """Compute per-slot phase letter and polarity for an m-phase AC winding.
@@ -157,9 +156,9 @@ def compute_winding_layout(
     single_layer_flag = layers % 2  # 1 = single layer (needs gap-fill), 0 = double layer
     slot_step = 1 + single_layer_flag
 
-    phase: List[Optional[str]] = [None] * slots
-    polarity: List[Optional[int]] = [None] * slots
-    front_slot_indices: List[int] = []
+    phase: list[str | None] = [None] * slots
+    polarity: list[int | None] = [None] * slots
+    front_slot_indices: list[int] = []
 
     # cell_index walks the technological-scheme grid (step slot_step*c);
     # slot_index walks the physical slots (step slot_step) - the two only
@@ -180,8 +179,8 @@ def compute_winding_layout(
         slot_index += slot_step
         cell_index += cell_step
 
-    phase_back: Optional[List[str]] = None
-    polarity_back: Optional[List[int]] = None
+    phase_back: list[str] | None = None
+    polarity_back: list[int] | None = None
 
     if layers == 1:
         # For a single layer the loop above fills every other slot only;
@@ -237,12 +236,12 @@ def compute_winding_layout(
 
 def assign_slot_currents_to_aedt(
     m2d,
-    coil_objects: List[str],
+    coil_objects: list[str],
     layout: WindingLayout,
-    phase_currents: Dict[str, str],
+    phase_currents: dict[str, str],
     turns_var: str = "Nc",
     parallel_paths_var: str = "ParallelPaths",
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Assign AEDT coils and windings from a WindingLayout.
 
     Replaces the hand-written assign_coil/assign_winding/add_winding_coils
@@ -251,7 +250,7 @@ def assign_slot_currents_to_aedt(
     right after duplicate_around_axis). Returns {phase_letter: winding_name}
     for the windings that were created.
     """
-    coil_names_by_phase: Dict[str, List[str]] = {p: [] for p in layout.phase_order}
+    coil_names_by_phase: dict[str, list[str]] = {p: [] for p in layout.phase_order}
 
     for i, obj in enumerate(coil_objects):
         letter = layout.phase[i]
@@ -260,7 +259,7 @@ def assign_slot_currents_to_aedt(
         m2d.assign_coil(assignment=[obj], conductors_number=turns_var, polarity=polarity, name=cs_name)
         coil_names_by_phase[letter].append(cs_name)
 
-    winding_names: Dict[str, str] = {}
+    winding_names: dict[str, str] = {}
     for letter, cs_list in coil_names_by_phase.items():
         if not cs_list or letter not in phase_currents:
             continue

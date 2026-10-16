@@ -3,8 +3,6 @@ from abc import ABC, abstractmethod
 import numpy as np
 from ansys.aedt.core import Maxwell2d
 
-from machine_design.generic.compute_initpos import compute_initpos
-from machine_design.generic.winding import phase_groups
 from machine_design.generic.winding_layout_JL import assign_slot_currents_to_aedt, compute_winding_layout
 
 from .geometry import GeometryBase
@@ -45,20 +43,10 @@ class ComputationBase(ABC):
     def set_initpos(self) -> None:
         g = self.geometry
         Q = int(g.geom_params["SlotNumber"])
-        self.InitPos = compute_initpos(Q, g.PolePairs, g.n_phases, belt_offset=g.belt_offset)
-        self.oper_params["InitPos"] = f"{self.InitPos}deg"
-
-    def set_initpos_new(self, coil_pitch: int) -> None:
-        g = self.geometry
-        Q = int(g.geom_params["SlotNumber"])
+        coil_pitch=int(g.wind_params["CoilPitch"])
         layout = compute_winding_layout(g.n_phases, Q, g.PolePairs, coil_pitch=coil_pitch, layers=1)
         self.InitPos = (layout.phase_a_axis - 180) / g.PolePairs
         self.oper_params["InitPos"] = f"{self.InitPos}deg"
-
-    def compute_phase_groups(self):
-        g = self.geometry
-        Q = int(g.geom_params["SlotNumber"])
-        return phase_groups(Q, g.PolePairs, g.n_phases, belt_offset=g.belt_offset)
 
     def set_solution_expressions(self):
         self.solution_expressions = [
@@ -81,27 +69,11 @@ class ComputationBase(ABC):
             tuple(f"FluxLinkage(Phase{p})" for p in self.phases): "FluxLinkage",
         }
 
-    def assign_phase_windings(self, m2d: Maxwell2d, phase_currents: list) -> None:
-        groups = self.compute_phase_groups()
-        for group in groups:
-            for coil_name, polarity in group:
-                m2d.assign_coil(assignment=[coil_name], conductors_number="Nc", polarity=polarity, name=f"CS_{coil_name}")
-
-        for phase_name, current, group in zip(self.phases, phase_currents, groups):
-            m2d.assign_winding(
-                assignment=None,
-                winding_type="Current",
-                is_solid=False,
-                current=current,
-                parallel_branches="ParallelPaths",
-                name=f"Phase{phase_name}",
-            )
-            m2d.add_winding_coils(assignment=f"Phase{phase_name}", coils=[f"CS_{coil_name}" for coil_name, _ in group])
-
-    def assign_phase_windings_new(self, m2d: Maxwell2d, phase_currents: list, coil_pitch: int) -> None:
+    def assign_phase_windings(self, m2d: Maxwell2d, phase_currents: list, coil_pitch: int) -> None:
         g = self.geometry
         Q = int(g.geom_params["SlotNumber"])
         n = Q // (2 * g.PolePairs)
+        coil_pitch=int(g.wind_params["CoilPitch"])
         layout = compute_winding_layout(g.n_phases, Q, g.PolePairs, coil_pitch=coil_pitch, layers=1)
         coil_objects = ["Coil" if k == 0 else f"Coil_{k}" for k in range(n)]
         phase_currents_dict = dict(zip(self.phases, phase_currents))

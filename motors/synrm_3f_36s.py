@@ -144,7 +144,6 @@ class Geometry(GeometryBase):
 
         id_coils = []
         for i_layer in range(int(self.wind_params["Layers"])):
-
             coil_id = modeler.create_rectangle(
                 origin=[f"DiaStatorGap/2+Hs0+Hs1+SlotLiner+{i_layer}*(Hs2+Rs/2-2*SlotLiner)/Layers-(Layers-1)*SpaceLayers/2", "-(Bs1/2-SlotLiner)", 0],
                 sizes=["(Hs2+Rs/2-2*SlotLiner)/Layers-(Layers-1)*SpaceLayers/2", "Bs1-2*SlotLiner", 0],

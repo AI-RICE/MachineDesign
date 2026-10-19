@@ -8,25 +8,26 @@ It covers `compute_winding_layout` and `assign_slot_currents_to_aedt`.
 
 ```python
 compute_winding_layout(phases, slots, pole_pairs, coil_pitch=None, layers=1)
+```
 
 - phases, slots, pole_pairs: the machine's basic parameters.
 - coil_pitch: coil span in slots.
 - layers: 1 for a single layer winding (default), 2 for double layer.
 
-Example, uesing the synrm_3f_36s motor (3 phases, 36 slots, 2 pole pairs, coil_pitch=9):
+Example, using the synrm_3f_36s motor (3 phases, 36 slots, 2 pole pairs, coil_pitch=9):
 
 from machine_design.generic.winding import compute_winding_layout
 layout = compute_winding_layout(phases=3, slots=36, pole_pairs=2, coil_pitch=9, layers=1)
 
 The first 9 slots of layout.phase and layout.polarity give:
-phase[:12]    = ['A','A','A','C','C','C','B','B','B']
-polarity[:12] = [1,  1,  1,  -1,  -1,  -1,  1,  1,  1]
+phase[:9]    = ['A','A','A','C','C','C','B','B','B']
+polarity[:9] = [1,  1,  1,  -1,  -1,  -1,  1,  1,  1]
 
 Summary:
 Slots 0-2 carry phase A (positive), slots 3-5 carry phase C (negative),
 and slots 6-8 carry phase B (positive).
 
-Meaning of the outputs
+## Meaning of the outputs
 compute_winding_layout returns a WindingLayout. For the example above:
 
 | Field | Value | Meaning |
@@ -42,7 +43,7 @@ compute_winding_layout returns a WindingLayout. For the example above:
 | `phase_back` / `polarity_back` | `None` | Second (back/inner) coil side per slot; only set for `layers=2`, `None` for a single layer. |
 
 
-Double layer windings (layers=2)
+## Double layer windings (layers=2)
 With layers=2, each slot holds two radially stacked coil slides: a front
 (outer) side, described by phase/polarity as before, and a back (inner)
 side, described by phase_back/polarity_back (same format, same slot order).
@@ -51,6 +52,7 @@ polarity.
 
 ```python
 layout = compute_winding_layout(phases=3, slots=36, pole_pairs=2, coil_pitch=9, layers=2)
+```
 
 The first 9 slots of layout.phase/layout.polarity (front) and
 layout.phase_back/layout.polarity_back (back):
@@ -68,7 +70,7 @@ as `coil_objects_back` to `assign_slot_currents_to_aedt`:
 
 assign_slot_currents_to_aedt(m2d, coil_objects, layout, phase_currents, coil_objects_back=coil_objects_back)
 
-Relation to coil_pitch/belt_offset
+## Relation to coil_pitch/belt_offset
 
 The project's old winding code used belt_offset instead of coil_pitch.
 Let pole_pitch_slots = slots/(2*pole_pairs) (the pole pitch in slots):

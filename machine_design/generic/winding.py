@@ -234,11 +234,12 @@ def compute_winding_layout(
     )
 
 
-def assign_slot_currents_to_aedt(
+def assign_slot_currents_to_aedt(  # for second layer, use layout.phase_back, andlayout.polarity_back
     m2d,
     coil_objects: list[str],
     layout: WindingLayout,
     phase_currents: dict[str, str],
+    coil_objects_back=None,
     turns_var: str = "Nc",
     parallel_paths_var: str = "ParallelPaths",
 ) -> dict[str, str]:
@@ -258,6 +259,14 @@ def assign_slot_currents_to_aedt(
         cs_name = f"CS{i + 1}"
         m2d.assign_coil(assignment=[obj], conductors_number=turns_var, polarity=polarity, name=cs_name)
         coil_names_by_phase[letter].append(cs_name)
+
+    if coil_objects_back is not None:
+        for i, obj in enumerate(coil_objects_back):
+            letter = layout.phase_back[i]
+            polarity = "Positive" if layout.polarity_back[i] > 0 else "Negative"
+            cs_name = f"CSB{i + 1}"  # CSB means CS Back
+            m2d.assign_coil(assignment=[obj], conductors_number=turns_var, polarity=polarity, name=cs_name)
+            coil_names_by_phase[letter].append(cs_name)
 
     winding_names: dict[str, str] = {}
     for letter, cs_list in coil_names_by_phase.items():

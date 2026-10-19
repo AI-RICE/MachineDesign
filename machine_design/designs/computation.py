@@ -72,10 +72,13 @@ class ComputationBase(ABC):
         g = self.geometry
         Q = int(g.geom_params["SlotNumber"])
         n = Q // (2 * g.PolePairs)
-        layout = compute_winding_layout(g.n_phases, Q, g.PolePairs, coil_pitch=int(g.wind_params["CoilPitch"]), layers=int(g.wind_params["Layers"]))
-        coil_objects = ["Coil" if k == 0 else f"Coil_{k}" for k in range(n)]
+        layers=int(g.wind_params["Layers"])
+        layout = compute_winding_layout(g.n_phases, Q, g.PolePairs, coil_pitch=int(g.wind_params["CoilPitch"]), layers=layers)
+        layer_coils=[[f"Coil{i_layer}" if k==0 else f"Coil{i_layer}_{k}" for k in range(n)] for i_layer in range(layers)]
+        coil_objects = layer_coils[0]
+        coil_objects_back=layer_coils[1] if layers==2 else None
         phase_currents_dict = dict(zip(self.phases, phase_currents))
-        assign_slot_currents_to_aedt(m2d, coil_objects, layout, phase_currents_dict)
+        assign_slot_currents_to_aedt(m2d, coil_objects, layout, phase_currents_dict, coil_objects_back=coil_objects_back)
 
     def extract_phase_results(self, solutions):
         # SI units

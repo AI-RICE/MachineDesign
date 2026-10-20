@@ -26,7 +26,7 @@ class Geometry(BaseGeometry):
 
     def set_winds_params(self):
         super().set_winds_params()
-        self.wind_params["Nc"] = "113"
+        self.wind_params["Nc"] = "113/Layers"
 
     def set_mod_params(self):
         super().set_mod_params()

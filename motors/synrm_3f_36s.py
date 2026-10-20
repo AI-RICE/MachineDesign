@@ -43,7 +43,7 @@ class Geometry(GeometryBase):
             "CoilPitch": "9",  # coil pitch in slots
             "SlotLiner": "0.3mm",
             "SpaceLayers": "0.2mm",
-            "Nc": "68",  # turns per coil
+            "Nc": "68/Layers",  # turns per coil
         }
 
     def set_mod_params(self):
@@ -145,8 +145,8 @@ class Geometry(GeometryBase):
         id_coils = []
         for i_layer in range(int(self.wind_params["Layers"])):
             coil_id = modeler.create_rectangle(
-                origin=[f"DiaStatorGap/2+Hs0+Hs1+SlotLiner+{i_layer}*(Hs2+Rs/2-2*SlotLiner)/Layers-(Layers-1)*SpaceLayers/2", "-(Bs1/2-SlotLiner)", 0],
-                sizes=["(Hs2+Rs/2-2*SlotLiner)/Layers-(Layers-1)*SpaceLayers/2", "Bs1-2*SlotLiner", 0],
+                origin=[f"DiaStatorGap/2+Hs0+Hs1+SlotLiner+{i_layer}*((Hs2+Rs/2-2*SlotLiner-(Layers-1)*SpaceLayers)/Layers+SpaceLayers)", "-(Bs1/2-SlotLiner)", 0],
+                sizes=["(Hs2+Rs/2-2*SlotLiner-(Layers-1)*SpaceLayers)/Layers", "Bs1-2*SlotLiner", 0],
                 name=f"Coil{i_layer}",
                 material="copper",
             )

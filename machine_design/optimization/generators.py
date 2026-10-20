@@ -586,7 +586,7 @@ class MagnetGenerator(BarrierGenerator):
 
     def generate_magnets(self, barriers: list[np.ndarray]) -> list[np.ndarray]:
         magnets = []
-        margin = 0.0
+        margin = 0.3
 
         for barrier in barriers:
             x, y = barrier[:, 0], barrier[:, 1]

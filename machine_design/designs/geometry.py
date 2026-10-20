@@ -95,6 +95,10 @@ class GeometryBase(ABC):
         assert isinstance(m2d.modeler, Modeler2D)
         m2d.modeler.delete(self.rotor_id)
 
+        magnets = m2d.modeler.get_objects_w_string("Magnet", case_sensitive=True)
+        if magnets:
+            m2d.modeler.delete(magnets)
+
     def _push_stator_variables(self, m2d: Maxwell2d) -> None:
         modeler = m2d.modeler
         assert isinstance(modeler, Modeler2D)
@@ -274,8 +278,3 @@ class GeometryBase(ABC):
             mat.set_magnetic_coercivity(value=coercivity, x=coercivity_dir[0], y=coercivity_dir[1], z=coercivity_dir[2])
 
         return mat
-
-    def delete_magnets(self, m2d: Maxwell2d) -> None:
-        magnets = m2d.modeler.get_objects_w_string("Magnet", case_sensitive=True)
-        if magnets:
-            m2d.modeler.delete(magnets)

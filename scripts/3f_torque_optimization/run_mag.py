@@ -76,7 +76,7 @@ for i in range(0, n_designs):
         if plot_design:
             title = f"Torque mean value: {np.round(TorAvg, 2)} Nm, ripple relative value: {np.round(TorRippleRms, 2)} %"
             file_name = f"{path_results}/design_{generator.name}_{i}"
-            plot_barriers(barriers, design, title=title, file_name=f"{file_name}.png")
+            plot_barriers(barriers, design, title=title, file_name=f"{file_name}.png", magnets=magnets)
             save_params(params, f"{file_name}.pkl")
 
         metadata_new = {

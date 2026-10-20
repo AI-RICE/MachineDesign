@@ -53,9 +53,6 @@ class Design:
         self.computation.delete_rotor_mesh()
         self.geometry.delete_rotor(self.m2d)
 
-    def delete_magnets(self) -> None:
-        self.geometry.delete_magnets(self.m2d)
-
     def compute(self, *args, NUM_CORES: int = 1):
         return self.computation.compute(self.m2d, self.geometry.rotor_id, *args, NUM_CORES=NUM_CORES)
 

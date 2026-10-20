@@ -46,6 +46,7 @@ configs = [
 timeout_s = 2 * 3600
 results_path = "results/dq_identity_sweep.csv"
 os.makedirs("results", exist_ok=True)
+results_dir = os.path.abspath("results")
 header = "geometry,pointper,time,torque,h1_q,h1_d,h3_q,h3_d"
 
 
@@ -87,7 +88,7 @@ def measure_one(geometry_name, pointper):
         design = Design.create(
             f"DqIdentitySweep_{geometry_name}_{pointper}",
             "Design01",
-            f"dq_identity_{geometry_name}_{pointper}.aedt",
+            os.path.join(results_dir, f"dq_identity_{geometry_name}_{pointper}.aedt"),
             geometry,
             computation,
             version=AEDT_VERSION,

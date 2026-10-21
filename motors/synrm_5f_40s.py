@@ -26,13 +26,11 @@ class Geometry(BaseGeometry):
 
     def set_winds_params(self):
         super().set_winds_params()
-        self.wind_params["Nc"] = "113"
+        self.wind_params["Nc"] = "113/Layers"
 
     def set_mod_params(self):
         super().set_mod_params()
         self.n_phases = 5
-        self.belt_offset = 1
-        self.current_bounds = np.array([[0.0, 0.0, 0.0, 0.0], [1.5, 1.5, 1.5, 1.5]])
 
 
 class Computation(ComputationBase):
@@ -130,7 +128,7 @@ class Computation(ComputationBase):
         Flux_e_d3 = Flux_d3 - (Ld3d1 * I_d1 + Ld3q1 * I_q1 + Ld3 * I_d3 + Ld3q3 * I_q3)
         Flux_e_q3 = Flux_q3 - (Lq3d1 * I_d1 + Lq3q1 * I_q1 + Lq3d3 * I_d3 + Lq3 * I_q3)
 
-        Torque_dq = self.geometry.n_phases / 2 * self.geometry.PolePairs * ((Flux_d1 * I_q1 - Flux_q1 * I_d1) + 3 * (Flux_d3 * I_q3 - Flux_q3 * I_d3))
+        # Torque_dq = self.geometry.n_phases / 2 * self.geometry.PolePairs * ((Flux_d1 * I_q1 - Flux_q1 * I_d1) + 3 * (Flux_d3 * I_q3 - Flux_q3 * I_d3))
 
         out = {
             "V_d1": V_d1,
@@ -164,7 +162,6 @@ class Computation(ComputationBase):
             "Flux_e_d3": Flux_e_d3,
             "Flux_e_q3": Flux_e_q3,
             "Moving1.Torque": torque,
-            "Torque_dq": Torque_dq,
         }
 
         return out

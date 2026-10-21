@@ -14,7 +14,7 @@ compute_winding_layout(phases, slots, pole_pairs, coil_pitch=None, layers=1)
 - coil_pitch: coil span in slots.
 - layers: 1 for a single layer winding (default), 2 for double layer.
 
-Example, using the synrm_3f_36s motor (3 phases, 36 slots, 2 pole pairs, coil_pitch=9):
+Example 1, using the synrm_3f_36s motor (3 phases, 36 slots, 2 pole pairs, coil_pitch=9):
 
 ```python
 from machine_design.generic.winding import compute_winding_layout
@@ -31,8 +31,26 @@ Summary:
 Slots 0-2 carry phase A (positive), slots 3-5 carry phase C (negative),
 and slots 6-8 carry phase B (positive).
 
+Example 2, using the synrm_5f_40s motor (5 phases, 40 slots, 2 pole pairs, coil_pitch=9):
+
+```python
+from machine_design.generic.winding import compute_winding_layout
+layout = compute_winding_layout(phases=5, slots=40, pole_pairs=2, coil_pitch=9, layers=1)
+```
+
+The first 10 slots of layout.phase and layout.polarity give:
+```
+phase[:10]    = ['A','D','D','B','B','E','E','C','C','A']
+polarity[:10] = [1,  -1,  -1,  1,  1,  -1,  -1,  1,  1,  -1]
+```
+
+Summary:
+Slot 0 carries phase A (positive), slots 1-2 carry phase D (negative),
+slots 3-4 carry phase B (positive), slots 5-6 carry phase E (negative),
+slots 7-8 carry phase C (positive), and slot 9 carries phase A (negative).
+
 ## Meaning of the outputs
-compute_winding_layout returns a WindingLayout. For the example above:
+compute_winding_layout returns a WindingLayout. For Example 1 above:
 
 | Field | Value | Meaning |
 |---|---|---|

@@ -16,12 +16,16 @@ compute_winding_layout(phases, slots, pole_pairs, coil_pitch=None, layers=1)
 
 Example, using the synrm_3f_36s motor (3 phases, 36 slots, 2 pole pairs, coil_pitch=9):
 
+```python
 from machine_design.generic.winding import compute_winding_layout
 layout = compute_winding_layout(phases=3, slots=36, pole_pairs=2, coil_pitch=9, layers=1)
+```
 
 The first 9 slots of layout.phase and layout.polarity give:
+```
 phase[:9]    = ['A','A','A','C','C','C','B','B','B']
 polarity[:9] = [1,  1,  1,  -1,  -1,  -1,  1,  1,  1]
+```
 
 Summary:
 Slots 0-2 carry phase A (positive), slots 3-5 carry phase C (negative),

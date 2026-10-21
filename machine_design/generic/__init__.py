@@ -1,3 +1,2 @@
-from .compute_initpos import compute_initpos
 from .transforms import electrical_angle, to_dq, to_phases
-from .winding import coil_name, phase_groups, sector_winding
+from .winding import assign_slot_currents_to_aedt, compute_winding_layout

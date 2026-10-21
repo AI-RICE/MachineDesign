@@ -39,20 +39,19 @@ compute_winding_layout returns a WindingLayout. For the example above:
 | `coil_pitch` | `9` | Coil span in slots, including the automatically selected value if applicable. |
 | `phase` | `['A','A','A','C',...]` | Phase letter of each slot's front coil side. |
 | `polarity` | `[1,1,1,-1,...]` | Current direction of each slot's front coil side. |
-| `phase_order` | `['A','B','C']` | The phases present, in order. |
-| `winding_factor` | `0.9598` | Pitch x distribution factor (0-1) (a warning is raised below 0.9). |
+| `phase_order` | `['A','B','C']` | The phase letters used in this winding. |
+| `winding_factor` | `0.9598` | Pitch times distribution factor (0-1) (a warning is raised below 0.9). |
 | `phase_angles` | `{'A':0.0,'B':-120.0,'C':-240.0}` | Electrical angle of each phase. |
 | `p2_min_fem` | `1` | Minimum pole count for an FEM sector to close periodically (odd means the sector needs an antiperiodic boundary). |
 | `phase_a_axis` | `120.0` | Electrical axis of phase A in the model (0-180 deg) (used to compute `InitPos`). |
-| `phase_back` / `polarity_back` | `None` | Second (back/inner) coil side per slot (only set for `layers=2`, `None` for a single layer). |
+| `phase_back` / `polarity_back` | `None` | Second (back) coil side per slot (only set for `layers=2`, `None` for a single layer). |
 
 
 ## Double layer windings (layers=2)
 With layers=2, each slot holds two radially stacked coil slides: a front
-(outer) side, described by phase/polarity as before, and a back (inner)
-side, described by phase_back/polarity_back (same format, same slot order).
-The back side is the front side shifted by coil_pitch slots, with reversed
-polarity.
+side, described by phase/polarity as before, and a back side, described
+by phase_back/polarity_back (same format, same slot order). The back side
+is the front side shifted by coil_pitch slots, with reversed polarity.
 
 ```python
 layout = compute_winding_layout(phases=3, slots=36, pole_pairs=2, coil_pitch=9, layers=2)

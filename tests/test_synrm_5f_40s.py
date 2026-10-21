@@ -39,7 +39,7 @@ def test_slot_params_overrides_bs1_bs2_setangle_only(base_geometry, geometry2):
 
 def test_wind_params_overrides_nc_only(base_geometry, geometry2):
     expected = dict(base_geometry.wind_params)
-    expected["Nc"] = "113"
+    expected["Nc"] = "113/Layers"
     assert geometry2.wind_params == expected
 
 

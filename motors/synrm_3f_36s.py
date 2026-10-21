@@ -43,13 +43,12 @@ class Geometry(GeometryBase):
             "CoilPitch": "9",  # coil pitch in slots
             "SlotLiner": "0.3mm",
             "SpaceLayers": "0.2mm",
-            "Nc": "68",  # turns per coil
+            "Nc": "68/Layers",  # turns per coil
         }
 
     def set_mod_params(self):
         self.PolePairs = 2
         self.n_phases = 3
-        self.belt_offset = 0
         self.mod_params = {
             "Poles": f"2*{self.PolePairs}",
             "ModelLength": "85mm",
@@ -143,15 +142,18 @@ class Geometry(GeometryBase):
         modeler = m2d.modeler
         assert isinstance(modeler, Modeler2D)
 
-        coil_id = modeler.create_rectangle(
-            origin=["DiaStatorGap/2+Hs0+Hs1+SlotLiner", "-(Bs1/2-SlotLiner)", 0],
-            sizes=["(Hs2+Rs/2-2*SlotLiner)/Layers-(Layers-1)*SpaceLayers/2", "Bs1-2*SlotLiner", 0],
-            name="Coil",
-            material="copper",
-        )
-        modeler.rotate(assignment=coil_id, axis="Z", angle="360deg/SlotNumber/2")
-        coil_id.duplicate_around_axis(axis="Z", angle="360deg/SlotNumber", clones="SlotNumber/Poles", create_new_objects=True)
-        id_coils = modeler.get_objects_w_string(string_name="Coil", case_sensitive=True)
+        id_coils = []
+        for i_layer in range(int(self.wind_params["Layers"])):
+            coil_id = modeler.create_rectangle(
+                origin=[f"DiaStatorGap/2+Hs0+Hs1+SlotLiner+{i_layer}*((Hs2+Rs/2-2*SlotLiner-(Layers-1)*SpaceLayers)/Layers+SpaceLayers)", "-(Bs1/2-SlotLiner)", 0],
+                sizes=["(Hs2+Rs/2-2*SlotLiner-(Layers-1)*SpaceLayers)/Layers", "Bs1-2*SlotLiner", 0],
+                name=f"Coil{i_layer}",
+                material="copper",
+            )
+
+            modeler.rotate(assignment=coil_id, axis="Z", angle="360deg/SlotNumber/2")
+            coil_id.duplicate_around_axis(axis="Z", angle="360deg/SlotNumber", clones="SlotNumber/Poles", create_new_objects=True)
+            id_coils += modeler.get_objects_w_string(string_name=f"Coil{i_layer}", case_sensitive=True)
 
         return id_coils
 

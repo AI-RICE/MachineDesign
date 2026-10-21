@@ -57,7 +57,7 @@ def test_wind_params(geometry):
         "CoilPitch": "9",
         "SlotLiner": "0.3mm",
         "SpaceLayers": "0.2mm",
-        "Nc": "68",
+        "Nc": "68/Layers",
     }
 
 

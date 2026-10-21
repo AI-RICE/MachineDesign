@@ -26,12 +26,11 @@ class Geometry(BaseGeometry):
 
     def set_winds_params(self):
         super().set_winds_params()
-        self.wind_params["Nc"] = "113"
+        self.wind_params["Nc"] = "113/Layers"
 
     def set_mod_params(self):
         super().set_mod_params()
         self.n_phases = 5
-        self.belt_offset = 1
 
 
 class Computation(ComputationBase):

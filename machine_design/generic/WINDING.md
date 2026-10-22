@@ -93,22 +93,6 @@ as `coil_objects_back` to `assign_slot_currents_to_aedt`:
 
 assign_slot_currents_to_aedt(m2d, coil_objects, layout, phase_currents, coil_objects_back=coil_objects_back)
 
-## Automatically selecting coil_pitch
-
-When `coil_pitch` is `None`, it is chosen automatically as:
-coil_pitch = round((2m-1)/(2m)*Q/(2p))
-
-where `Q/(2p)` is the full pitch (phases=m, slots=Q, pole_pairs=p), and the ratio `(2m-1)/(2m)` is based on the suppression of higher harmonics.
-
-Since coil_pitch must be an integer, the program selects a value based on the number of layers:
-- For layers = 1, the closest larger odd integer is chosen.
-- For layers = 2, the value is rounded to the nearst integer. Both odd and even values are allowed.
-
-For example, with phases=3, slots=36, and pole_pairs=2, the calculated value is 7.5.
-The program selects:
-- layers = 1: coil_pitch=7
-- layers = 2: coil_pitch=8
-
 ## Relation to coil_pitch/belt_offset
 
 The project's old winding code used belt_offset instead of coil_pitch.

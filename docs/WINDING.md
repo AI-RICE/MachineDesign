@@ -93,7 +93,9 @@ To assign a double layer layout to AEDT, build both coil sides as separate
 named objects (one set per layer) and pass the second layer's object names
 as `coil_objects_back` to `assign_slot_currents_to_aedt`:
 
+```python
 assign_slot_currents_to_aedt(m2d, coil_objects, layout, phase_currents, coil_objects_back=coil_objects_back)
+```
 
 ## Relation to coil_pitch/belt_offset
 

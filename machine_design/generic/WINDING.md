@@ -18,6 +18,7 @@ compute_winding_layout(phases, slots, pole_pairs, coil_pitch=None, layers=1)
 
 ```python
 from machine_design.generic.winding import compute_winding_layout
+
 layout = compute_winding_layout(phases=3, slots=36, pole_pairs=2, coil_pitch=9, layers=1)
 ```
 
@@ -35,6 +36,7 @@ and slots 6-8 carry phase B (positive).
 
 ```python
 from machine_design.generic.winding import compute_winding_layout
+
 layout = compute_winding_layout(phases=5, slots=40, pole_pairs=2, coil_pitch=9, layers=1)
 ```
 

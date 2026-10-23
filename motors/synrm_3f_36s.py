@@ -179,6 +179,9 @@ class Computation(ComputationBase):
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
+        self.Rstat = 19.0  # need be to checked
+        self.Lew = 0.0
+        self.w = w
         self.oper_params = {
             "Id": "0.0A",
             "Iq": "0.0A",
@@ -218,6 +221,18 @@ class Computation(ComputationBase):
         Ui_d, Ui_q = to_dq(vind_phases, theta_el, harmonic=1)
         I_d, I_q = to_dq(current_phases, theta_el, harmonic=1)
 
+        Im = np.sqrt(self.Id**2 + self.Iq**2)
+        epsI = np.atan2(self.Iq, self.Id)
+
+        time = np.array(solutions.primary_sweep_values)
+        dI_dt_phases = np.zeros((len(time), self.geometry.n_phases))
+        for k in range(self.geometry.n_phases):
+            phase_offset = -2 * np.pi * k / self.geometry.n_phases
+            dI_dt_phases[:, k] = -Im * self.w * np.sin(self.w * time + phase_offset + epsI)
+
+        V_phases = vind_phases + self.Rstat * current_phases + self.Lew * dI_dt_phases
+        V_d, V_q = to_dq(V_phases, theta_el, harmonic=1)
+
         L_d_row = np.zeros((len(position), self.geometry.n_phases))
         L_q_row = np.zeros((len(position), self.geometry.n_phases))
         for i, L_row in enumerate(L_raw):
@@ -230,6 +245,8 @@ class Computation(ComputationBase):
         Irms = np.sqrt(I_d**2 + I_q**2) / np.sqrt(2)
 
         out = {
+            "V_d": V_d,
+            "V_q": V_q,
             "Flux_d": Flux_d,
             "Flux_q": Flux_q,
             "Ui_d": Ui_d,

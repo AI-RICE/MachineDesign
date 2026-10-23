@@ -27,8 +27,9 @@ class Geometry(BaseGeometry):
 
 
 class Computation(BaseComputation):
-    def set_solution_expressions(self):
-        self.solution_expressions = ["Moving1.Torque"]
+    # def set_solution_expressions(self):
+    #     self.solution_expressions = ["Moving1.Torque"]
 
-    def extract_results(self, solutions):
-        return {"Moving1.Torque": self.extract_expression(solutions, "Moving1.Torque")}
+    # def extract_results(self, solutions):
+    #     return {"Moving1.Torque": self.extract_expression(solutions, "Moving1.Torque")}
+    pass

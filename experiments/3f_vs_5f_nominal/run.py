@@ -24,16 +24,6 @@ r_stator_end = 0.7
 offset = 0.7 / 2
 plot_design = True
 
-# for n_phases in [3, 5]:
-#     if n_phases == 3:
-#         from motors.synrm_3f_60s import Computation, Geometry
-
-#         current_bounds = np.array([[0.0, 0.0], [2.5, 2.5]])  # Id, Iq bounds for 3f
-#     else:
-#         from motors.synrm_5f_60s import Computation, Geometry
-
-#         current_bounds = np.array([[0.0, 0.0, 0.0, 0.0], [1.5, 1.5, 1.5, 1.5]])  # Id1, Iq1, Id3, Iq3 bounds for 5f
-
 for module_name, n_phases, current_bounds in [
     ("motors.synrm_3f_60s", 3, np.array([[0.0, 0.0], [2.5, 2.5]])),
     ("motors.synrm_5f_60s", 5, np.array([[0.0, 0.0, -1.5, -1.5], [1.5, 1.5, 1.5, 1.5]])),

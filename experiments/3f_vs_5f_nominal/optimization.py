@@ -10,6 +10,15 @@ from torch import Tensor
 from machine_design.optimization.geometry import analyze_results
 
 
+def current_peak(current, harmonics, n_points=720):  # h(theta)*i_s
+    theta=np.linspace(0, 2*np.pi, n_points, endpoint=False)
+    waveform=np.zeros_like(theta)
+    for k,h in enumerate(harmonics):
+        d,q=current[2*k], current[2*k+1]
+        waveform += d*np.cos(h*theta)-q*np.sin(h*theta)
+    return np.max(np.abs(waveform))
+
+
 def objective_transform(loss, TorAvg, TorRippleRms, objective_fallback=None):
     if pd.isnull(TorAvg):
         if objective_fallback is None:

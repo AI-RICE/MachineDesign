@@ -18,6 +18,7 @@ from machine_design.config import load_config
 from machine_design.designs import load_design
 from machine_design.optimization import HacklGenerator_SixLambdas
 from optimization import (
+    current_peak,
     init_points,
     objective,
     objective_transform,
@@ -35,28 +36,15 @@ batch_size = 4
 max_candidate_tries = 10
 t_target = 6.0
 
-# for n_phases in [3, 5]:
-#     if n_phases == 3:
-#         from motors.synrm_3f_60s import Computation, Geometry
-
-#         current_n = 2
-#         current_bounds = np.array([[0.0, 0.0], [2.5, 2.5]])  # Id, Iq bounds for 3f
-#         ref_loss = 20
-#     else:
-#         from motors.synrm_5f_60s import Computation, Geometry
-
-#         current_n = 4
-#         current_bounds = np.array([[0.0, 0.0, 0.0, 0.0], [1.5, 1.5, 1.5, 1.5]])  # Id1, Iq1, Id3, Iq3 bounds for 5f
-#         ref_loss = 40
-
-for module_name, n_phases, current_bounds in [
-    ("motors.synrm_3f_60s", 3, np.array([[0.0, 0.0], [2.5, 2.5]])),
-    ("motors.synrm_5f_60s", 5, np.array([[0.0, 0.0, -1.5, -1.5], [1.5, 1.5, 1.5, 1.5]])),
+for module_name, n_phases, current_bounds, i_max in [
+    ("motors.synrm_3f_60s", 3, np.array([[0.0, 0.0], [2.5, 2.5]]), None),
+    ("motors.synrm_5f_60s", 5, np.array([[0.0, 0.0, -1.5, -1.5], [1.5, 1.5, 1.5, 1.5]]), None),
 ]:
     module = importlib.import_module(module_name)
     Computation, Geometry = module.Computation, module.Geometry
     geometry = Geometry()
     current_n = current_bounds.shape[1]
+    harmonics=[1] if current_n==2 else [1,3]
 
     objective_fallback = {"loss": 40, "torque": 1.0, "ripple": 40.0}
     ref_cons = {"ripple": 10.0}
@@ -138,12 +126,17 @@ for module_name, n_phases, current_bounds in [
             for candidate in candidates:
                 candidate_unnormalized = unnormalize(candidate, bounds)
                 barrier_X = candidate_unnormalized[:-current_n]
+                current_X=candidate_unnormalized[-current_n:]
                 params = generator.X_to_params(barrier_X.numpy())
 
                 generator.set_parameters(params)
                 barriers = generator.generate_barriers()
                 barriers = generator.split_barriers(barriers)
-                feasible = generator.feasible_barriers(barriers)
+                feasible_geom = generator.feasible_barriers(barriers)
+
+                peak_current=current_peak(current_X.numpy(),harmonics)
+                feasible_current=i_max is None or peak_current<= i_max
+                feasible=feasible_geom and feasible_current
                 if feasible:
                     candidates_feasible.append(candidate)
                 else:

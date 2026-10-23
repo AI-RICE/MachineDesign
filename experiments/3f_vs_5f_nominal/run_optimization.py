@@ -49,12 +49,13 @@ t_target = 6.0
 #         current_bounds = np.array([[0.0, 0.0, 0.0, 0.0], [1.5, 1.5, 1.5, 1.5]])  # Id1, Iq1, Id3, Iq3 bounds for 5f
 #         ref_loss = 40
 
-for motor in [("motors.synrm_3f_60s", 3), ("motors.synrm_5f_60s", 5)]:
-    module_name, n_phases = motor
+for module_name, n_phases, current_bounds in [
+    ("motors.synrm_3f_60s", 3, np.array([[0.0, 0.0], [2.5, 2.5]])),
+    ("motors.synrm_5f_60s", 5, np.array([[0.0, 0.0, -1.5, -1.5], [1.5, 1.5, 1.5, 1.5]])),
+]:
     module = importlib.import_module(module_name)
     Computation, Geometry = module.Computation, module.Geometry
     geometry = Geometry()
-    current_bounds = geometry.current_bounds
     current_n = current_bounds.shape[1]
 
     objective_fallback = {"loss": 40, "torque": 1.0, "ripple": 40.0}

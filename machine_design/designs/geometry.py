@@ -95,6 +95,10 @@ class GeometryBase(ABC):
         assert isinstance(m2d.modeler, Modeler2D)
         m2d.modeler.delete(self.rotor_id)
 
+        magnets = m2d.modeler.get_objects_w_string("Magnet", case_sensitive=True)
+        if magnets:
+            m2d.modeler.delete(magnets)
+
     def _push_stator_variables(self, m2d: Maxwell2d) -> None:
         modeler = m2d.modeler
         assert isinstance(modeler, Modeler2D)
@@ -236,6 +240,9 @@ class GeometryBase(ABC):
         modeler.set_working_coordinate_system("Global")
 
     def _create_magnet_cs(self, m2d: Maxwell2d, name: str, angle_deg: float) -> None:
+        for cs in m2d.modeler.coordinate_systems:
+            if cs.name == name:
+                cs.delete()
         m2d.modeler.create_coordinate_system(
             origin=[0, 0, 0],
             name=name,

@@ -1,0 +1,26 @@
+site_name: MachineDesign
+repo_url: https://github.com/AI-RICE/MachineDesign
+repo_name: MachineDesign
+
+theme:
+  name: "material"
+  features:
+    - navigation.sections
+    - content.code.copy    
+
+markdown_extensions:
+  - attr_list
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+
+plugins:
+  - markdown-exec
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [machine_design]
+    
+nav:
+  - Introduction: index.md  
+  - Winding layout: WINDING.md

@@ -1,8 +1,6 @@
 # Winding layout
 
-`machine_design/generic/winding.py` computes the phase and polarity
-layout of each slot, and assigns it to an AEDT model.
-It covers `compute_winding_layout` and `assign_slot_currents_to_aedt`.
+`machine_design/generic/winding.py` computes the phase and polarity layout of each slot, and assigns it to an AEDT model. It covers `compute_winding_layout` and `assign_slot_currents_to_aedt`.
 
 ## Basic usage
 
@@ -28,9 +26,7 @@ phase[:9]    = ['A','A','A','C','C','C','B','B','B']
 polarity[:9] = [1,  1,  1,  -1,  -1,  -1,  1,  1,  1]
 ```
 
-**Summary:**
-Slots 0-2 carry phase A (positive), slots 3-5 carry phase C (negative),
-and slots 6-8 carry phase B (positive).
+**Summary:** Slots 0-2 carry phase A (positive), slots 3-5 carry phase C (negative), and slots 6-8 carry phase B (positive).
 
 **Example 2**, using the synrm_5f_40s motor (5 phases, 40 slots, 2 pole pairs, coil_pitch=9):
 
@@ -46,10 +42,7 @@ phase[:10]    = ['A','D','D','B','B','E','E','C','C','A']
 polarity[:10] = [1,  -1,  -1,  1,  1,  -1,  -1,  1,  1,  -1]
 ```
 
-**Summary:**
-Slot 0 carries phase A (positive), slots 1-2 carry phase D (negative),
-slots 3-4 carry phase B (positive), slots 5-6 carry phase E (negative),
-slots 7-8 carry phase C (positive), and slot 9 carries phase A (negative).
+**Summary:** Slot 0 carries phase A (positive), slots 1-2 carry phase D (negative), slots 3-4 carry phase B (positive), slots 5-6 carry phase E (negative), slots 7-8 carry phase C (positive), and slot 9 carries phase A (negative).
 
 ## Meaning of the outputs
 compute_winding_layout returns a WindingLayout. For Example 1 above:
@@ -68,17 +61,13 @@ compute_winding_layout returns a WindingLayout. For Example 1 above:
 
 
 ## Double layer windings (layers=2)
-With layers=2, each slot holds two radially stacked coil slides: a front
-side, described by phase/polarity as before, and a back side, described
-by phase_back/polarity_back (same format, same slot order). The back side
-is the front side shifted by coil_pitch slots, with reversed polarity.
+With layers=2, each slot holds two radially stacked coil slides: a front side, described by phase/polarity as before, and a back side, described by phase_back/polarity_back (same format, same slot order). The back side is the front side shifted by coil_pitch slots, with reversed polarity.
 
 ```python
 layout = compute_winding_layout(phases=3, slots=36, pole_pairs=2, coil_pitch=9, layers=2)
 ```
 
-The first 9 slots of layout.phase/layout.polarity (front) and
-layout.phase_back/layout.polarity_back (back):
+The first 9 slots of layout.phase/layout.polarity (front) and layout.phase_back/layout.polarity_back (back):
 ```
 phase[:9] = ['A','A','A','C','C','C','B','B','B']
 phase_back[:9] = ['A','A','A','C','C','C','B','B','B']
@@ -86,21 +75,10 @@ polarity[:9] = [1,  1,  1,  -1,  -1,  -1,  1,  1,  1]
 polarity_back[:9] = [1,  1,  1,  -1,  -1,  -1,  1,  1,  1]
 ```
 
-Front and back happen to be identical here only because `coil_pitch=9`
-is a full pole pitch. A shorter pitch would make them differ.
+Front and back happen to be identical here only because `coil_pitch=9` is a full pole pitch. A shorter pitch would make them differ.
 
-To assign a double layer layout to AEDT, build both coil sides as separate
-named objects (one set per layer) and pass the second layer's object names
-as `coil_objects_back` to `assign_slot_currents_to_aedt`:
+To assign a double layer layout to AEDT, build both coil sides as separate named objects (one set per layer) and pass the second layer's object names as `coil_objects_back` to `assign_slot_currents_to_aedt`:
 
 ```python
 assign_slot_currents_to_aedt(m2d, coil_objects, layout, phase_currents, coil_objects_back=coil_objects_back)
 ```
-
-## Relation to coil_pitch/belt_offset
-
-The project's old winding code used belt_offset instead of coil_pitch.
-Let pole_pitch_slots = slots/(2*pole_pairs) (the pole pitch in slots):
-- If pole_pitch_slots is odd: coil_pitch = pole_pitch_slots, belt_offset = 0.
-- If pole_pitch_slots is even: coil_pitch = pole_pitch_slots-1 with belt_offset=1, or 
-coil_pitch = pole_pitch_slots+1 with belt_offset=0.

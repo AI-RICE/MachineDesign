@@ -36,15 +36,15 @@ batch_size = 4
 max_candidate_tries = 10
 t_target = 6.0
 
-for module_name, n_phases, current_bounds, i_max, v_max in [
-    ("motors.synrm_3f_60s", 3, np.array([[0.0, 0.0], [2.5, 2.5]]), None, None),
-    ("motors.synrm_5f_60s", 5, np.array([[0.0, 0.0, -1.5, -1.5], [1.5, 1.5, 1.5, 1.5]]), None, None),
+for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max are set temperally to check the code can work.
+    ("motors.synrm_3f_60s", 3, np.array([[0.0, 0.0], [2.5, 2.5]]), 3.0, 311.13),
+    ("motors.synrm_5f_60s", 5, np.array([[0.0, 0.0, -1.5, -1.5], [1.5, 1.5, 1.5, 1.5]]), 3.0, 311.13),
 ]:
     module = importlib.import_module(module_name)
     Computation, Geometry = module.Computation, module.Geometry
     geometry = Geometry()
     current_n = current_bounds.shape[1]
-    harmonics=[1] if current_n==2 else [1,3]
+    harmonics = [1] if current_n == 2 else [1, 3]
 
     objective_fallback = {"loss": 40, "torque": 1.0, "ripple": 40.0, "voltage": 1000.0}
     ref_cons = {"ripple": 10.0}
@@ -94,7 +94,7 @@ for module_name, n_phases, current_bounds, i_max, v_max in [
         return ripple - ripple_max
 
     def voltage_constraint(Y):
-        return Y[..., 3]-v_max
+        return Y[..., 3] - v_max
 
     constraints = [torque_constraint, ripple_constraint, voltage_constraint]  # computed by Ansys results.
     loss_objective = GenericMCObjective(lambda Y, X=None: Y[..., 0])
@@ -129,7 +129,7 @@ for module_name, n_phases, current_bounds, i_max, v_max in [
             for candidate in candidates:
                 candidate_unnormalized = unnormalize(candidate, bounds)
                 barrier_X = candidate_unnormalized[:-current_n]
-                current_X=candidate_unnormalized[-current_n:]
+                current_X = candidate_unnormalized[-current_n:]
                 params = generator.X_to_params(barrier_X.numpy())
 
                 generator.set_parameters(params)
@@ -137,9 +137,9 @@ for module_name, n_phases, current_bounds, i_max, v_max in [
                 barriers = generator.split_barriers(barriers)
                 feasible_geom = generator.feasible_barriers(barriers)
 
-                peak_current=current_peak(current_X.numpy(),harmonics)
-                feasible_current=i_max is None or peak_current<= i_max
-                feasible=feasible_geom and feasible_current
+                peak_current = current_peak(current_X.numpy(), harmonics)
+                feasible_current = i_max is None or peak_current <= i_max
+                feasible = feasible_geom and feasible_current
                 if feasible:
                     candidates_feasible.append(candidate)
                 else:

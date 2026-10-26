@@ -16,6 +16,8 @@ from machine_design.optimization import (
     save_params,
 )
 
+from optimization import current_peak
+
 config = load_config()
 aedt_version = config["aedt_version"]
 num_cores = config["num_cores"]
@@ -24,13 +26,15 @@ r_stator_end = 0.7
 offset = 0.7 / 2
 plot_design = True
 
-for module_name, n_phases, current_bounds in [
-    ("motors.synrm_3f_60s", 3, np.array([[0.0, 0.0], [2.5, 2.5]])),
-    ("motors.synrm_5f_60s", 5, np.array([[0.0, 0.0, -1.5, -1.5], [1.5, 1.5, 1.5, 1.5]])),
+for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max are set temperally to check the code can work.
+    ("motors.synrm_3f_60s", 3, np.array([[0.0, 0.0], [2.5, 2.5]]), 3.0, 311.13),
+    ("motors.synrm_5f_60s", 5, np.array([[0.0, 0.0, -1.5, -1.5], [1.5, 1.5, 1.5, 1.5]]), 3.0, 311.13),
 ]:
     module = importlib.import_module(module_name)
     Computation, Geometry = module.Computation, module.Geometry
     geometry = Geometry()
+    current_n = current_bounds.shape[1]
+    harmonics = [1] if current_n == 2 else [1, 3]
 
     project_name = f"SynRM_{n_phases}f_nominal"
     design_name = "Design01"
@@ -56,7 +60,11 @@ for module_name, n_phases, current_bounds in [
             if feasible:
                 break
 
-        current_setpoint = np.random.uniform(current_bounds[0], current_bounds[1])
+        while True:
+            current_setpoint = np.random.uniform(current_bounds[0], current_bounds[1])
+            peak_current = current_peak(current_setpoint, harmonics)
+            if i_max is None or peak_current <= i_max:
+                break
 
         # Generate the geometry
         design.add_rotor()
@@ -67,9 +75,14 @@ for module_name, n_phases, current_bounds in [
         out = design.compute(*current_setpoint, NUM_CORES=num_cores)
         # Tor = design.compute(num_cores)
         if out is None:
-            TorAvg, TorRippleRms = np.nan, np.nan
+            TorAvg, TorRippleRms, V_peak = np.nan, np.nan, np.nan
         else:
             TorAvg, _, TorRippleRms = analyze_results(out["Moving1.Torque"])
+            if len(harmonics) == 1:
+                V_components = np.array([np.mean(out["V_d"]), np.mean(out["V_q"])])
+            else:
+                V_components = np.array([np.mean(out["V_d1"]), np.mean(out["V_q1"]), np.mean(out["V_d3"]), np.mean(out["V_q3"])])
+            V_peak = current_peak(V_components, harmonics)
 
         # Delete the rotor
         design.delete_rotor()
@@ -89,6 +102,7 @@ for module_name, n_phases, current_bounds in [
             "T": TorAvg,
             "ripple": TorRippleRms,
             "loss": loss,
+            "voltage": V_peak,
         }
         metadata = pd.concat((metadata, pd.DataFrame([metadata_new])), ignore_index=True)
         metadata.to_csv(f"{path_results}/metadata.csv", index=False)

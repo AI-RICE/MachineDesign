@@ -36,9 +36,9 @@ batch_size = 4
 max_candidate_tries = 10
 t_target = 6.0
 
-for module_name, n_phases, current_bounds, i_max in [
-    ("motors.synrm_3f_60s", 3, np.array([[0.0, 0.0], [2.5, 2.5]]), None),
-    ("motors.synrm_5f_60s", 5, np.array([[0.0, 0.0, -1.5, -1.5], [1.5, 1.5, 1.5, 1.5]]), None),
+for module_name, n_phases, current_bounds, i_max, v_max in [
+    ("motors.synrm_3f_60s", 3, np.array([[0.0, 0.0], [2.5, 2.5]]), None, None),
+    ("motors.synrm_5f_60s", 5, np.array([[0.0, 0.0, -1.5, -1.5], [1.5, 1.5, 1.5, 1.5]]), None, None),
 ]:
     module = importlib.import_module(module_name)
     Computation, Geometry = module.Computation, module.Geometry
@@ -46,7 +46,7 @@ for module_name, n_phases, current_bounds, i_max in [
     current_n = current_bounds.shape[1]
     harmonics=[1] if current_n==2 else [1,3]
 
-    objective_fallback = {"loss": 40, "torque": 1.0, "ripple": 40.0}
+    objective_fallback = {"loss": 40, "torque": 1.0, "ripple": 40.0, "voltage": 1000.0}
     ref_cons = {"ripple": 10.0}
     _, _, ref_cons_ripple = objective_transform(0, 0, ref_cons["ripple"])
 
@@ -61,7 +61,7 @@ for module_name, n_phases, current_bounds, i_max in [
     design = load_design(file_name_aedt, project_name, design_name, aedt_version, geometry, computation)
     generator = HacklGenerator_SixLambdas(design, r_stator_end, offset=offset)
 
-    objective_fallback_tuple = (objective_fallback["loss"], objective_fallback["torque"], objective_fallback["ripple"])
+    objective_fallback_tuple = (objective_fallback["loss"], objective_fallback["torque"], objective_fallback["ripple"], objective_fallback["voltage"])
 
     method = generator.__class__.__name__
     output_name = f"results/results_{method}_{n_phases}f.npz"
@@ -78,10 +78,10 @@ for module_name, n_phases, current_bounds, i_max in [
     train_X = normalize(train_X, bounds)
 
     def objective_lambda(Xs):
-        return objective(Xs, design, generator, current_n, bounds, num_cores, objective_fallback=objective_fallback_tuple)
+        return objective(Xs, design, generator, current_n, bounds, num_cores, harmonics, objective_fallback=objective_fallback_tuple)
 
     def penalty_objective(n_penalty):
-        obj = objective_transform(None, None, None, objective_fallback=objective_fallback_tuple)
+        obj = objective_transform(None, None, None, None, objective_fallback=objective_fallback_tuple)
         y = torch.tensor(obj, dtype=torch.float64)
         return y.repeat(n_penalty, 1)
 
@@ -93,7 +93,10 @@ for module_name, n_phases, current_bounds, i_max in [
         ripple_max = -ref_cons_ripple
         return ripple - ripple_max
 
-    constraints = [torque_constraint, ripple_constraint]
+    def voltage_constraint(Y):
+        return Y[..., 3]-v_max
+
+    constraints = [torque_constraint, ripple_constraint, voltage_constraint]  # computed by Ansys results.
     loss_objective = GenericMCObjective(lambda Y, X=None: Y[..., 0])
 
     while len(train_X) < n_evals:
@@ -155,7 +158,7 @@ for module_name, n_phases, current_bounds, i_max in [
             new_Y_all = objective_lambda(candidates_all)
         else:
             candidates_all = torch.empty((0, bounds.shape[1]), dtype=torch.float64)
-            new_Y_all = torch.empty((0, 3), dtype=torch.float64)
+            new_Y_all = torch.empty((0, 4), dtype=torch.float64)
         if n_missing > 0:
             candidates_all = torch.cat([candidates_all, torch.stack(candidates_infeasible[:n_missing])], dim=0)
             new_Y_all = torch.cat([new_Y_all, penalty_objective(n_missing)], dim=0)

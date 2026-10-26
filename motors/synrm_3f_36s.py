@@ -179,7 +179,7 @@ class Computation(ComputationBase):
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
-        self.Rstat = 19.0  # need be to checked
+        self.Rstat = 1.0  # this value doesn't affect the final results?
         self.Lew = 0.0
         self.w = w
         self.oper_params = {

@@ -11,11 +11,11 @@ from machine_design.optimization.geometry import analyze_results
 
 
 def current_peak(current, harmonics, n_points=720):  # h(theta)*i_s
-    theta=np.linspace(0, 2*np.pi, n_points, endpoint=False)
-    waveform=np.zeros_like(theta)
-    for k,h in enumerate(harmonics):
-        d,q=current[2*k], current[2*k+1]
-        waveform += d*np.cos(h*theta)-q*np.sin(h*theta)
+    theta = np.linspace(0, 2 * np.pi, n_points, endpoint=False)
+    waveform = np.zeros_like(theta)
+    for k, h in enumerate(harmonics):
+        d, q = current[2 * k], current[2 * k + 1]
+        waveform += d * np.cos(h * theta) - q * np.sin(h * theta)
     return np.max(np.abs(waveform))
 
 
@@ -55,11 +55,11 @@ def objective_single(X: Tensor, design, generator, current_n, bounds, NUM_CORES,
     try:
         out = design.compute(*current, NUM_CORES=NUM_CORES)
         TorAvg, _, TorRippleRms = analyze_results(out["Moving1.Torque"])
-        if len(harmonics)==1:
-            V_components=np.array([np.mean(out["V_d"]), np.mean(out["V_q"])])
+        if len(harmonics) == 1:
+            V_components = np.array([np.mean(out["V_d"]), np.mean(out["V_q"])])
         else:
-            V_components=np.array([np.mean(out["V_d1"]), np.mean(out["V_q1"]), np.mean(out["V_d3"]), np.mean(out["V_q3"])])
-        V_peak=current_peak(V_components, harmonics)
+            V_components = np.array([np.mean(out["V_d1"]), np.mean(out["V_q1"]), np.mean(out["V_d3"]), np.mean(out["V_q3"])])
+        V_peak = current_peak(V_components, harmonics)
     except Exception:
         TorAvg, TorRippleRms, V_peak = np.nan, np.nan, np.nan
 
@@ -89,7 +89,7 @@ def init_points(root, method):
                     X.append(y)
             else:
                 X.append(x)
-        Y = objective_transform(r["loss"], r["T"], r["ripple"])
+        Y = objective_transform(r["loss"], r["T"], r["ripple"], r["voltage"])
 
         Xs.append(torch.Tensor(X))
         Ys.append(torch.Tensor(Y))

@@ -1,13 +1,10 @@
 name: Tests
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
+  workflow_call:
 
 jobs:
-  pytest:
+  test:
     runs-on: ubuntu-latest
 
     strategy:

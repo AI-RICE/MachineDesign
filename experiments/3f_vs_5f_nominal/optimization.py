@@ -19,14 +19,14 @@ def current_peak(current, harmonics, n_points=720):  # h(theta)*i_s
     return np.max(np.abs(waveform))
 
 
-def objective_transform(loss, TorAvg, TorRippleRms, objective_fallback=None):
+def objective_transform(loss, TorAvg, TorRippleRms, V_peak=np.nan, objective_fallback=None):
     if pd.isnull(TorAvg):
         if objective_fallback is None:
             raise ValueError("At least one of TorAvg and objective_fallback must be non-null.")
-        loss_fallback, torque_fallback, ripple_fallback = objective_fallback
-        return objective_transform(loss_fallback, torque_fallback, ripple_fallback)
+        loss_fallback, torque_fallback, ripple_fallback, voltage_fallback = objective_fallback
+        return objective_transform(loss_fallback, torque_fallback, ripple_fallback, voltage_fallback)
     else:
-        return -loss, TorAvg, -TorRippleRms / 100
+        return -loss, TorAvg, -TorRippleRms / 100, V_peak
 
 
 def objective(Xs: Tensor, *args, **kwargs) -> Tensor:
@@ -34,7 +34,7 @@ def objective(Xs: Tensor, *args, **kwargs) -> Tensor:
     return torch.stack(vals, dim=0)
 
 
-def objective_single(X: Tensor, design, generator, current_n, bounds, NUM_CORES, **kwargs) -> Tensor:
+def objective_single(X: Tensor, design, generator, current_n, bounds, NUM_CORES, harmonics, **kwargs) -> Tensor:
     # current_n means number of current, 3f is 2, 5f is 4
     X = unnormalize(X, bounds)
     barrier_X, current_X = X[:-current_n], X[-current_n:]
@@ -51,19 +51,24 @@ def objective_single(X: Tensor, design, generator, current_n, bounds, NUM_CORES,
     for barrier in barriers:
         design.add_rotor_barrier(barrier)
 
-    # Compute the torque
+    # Compute the torque and peak voltage
     try:
         out = design.compute(*current, NUM_CORES=NUM_CORES)
         TorAvg, _, TorRippleRms = analyze_results(out["Moving1.Torque"])
+        if len(harmonics)==1:
+            V_components=np.array([np.mean(out["V_d"]), np.mean(out["V_q"])])
+        else:
+            V_components=np.array([np.mean(out["V_d1"]), np.mean(out["V_q1"]), np.mean(out["V_d3"]), np.mean(out["V_q3"])])
+        V_peak=current_peak(V_components, harmonics)
     except Exception:
-        TorAvg, TorRippleRms = np.nan, np.nan
+        TorAvg, TorRippleRms, V_peak = np.nan, np.nan, np.nan
 
     # Delete the rotor
     design.delete_rotor()
 
     loss = float(np.sum(current**2))
-    f1, f2, f3 = objective_transform(loss, TorAvg, TorRippleRms, **kwargs)
-    return torch.tensor([f1, f2, f3])
+    f1, f2, f3, f4 = objective_transform(loss, TorAvg, TorRippleRms, V_peak, **kwargs)
+    return torch.tensor([f1, f2, f3, f4])
 
 
 def init_points(root, method):

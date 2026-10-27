@@ -48,7 +48,7 @@ for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max 
 
     objective_fallback = {"loss": 40, "torque": 1.0, "ripple": 40.0, "voltage": 1000.0}
     ref_cons = {"ripple": 10.0}
-    _, _, ref_cons_ripple = objective_transform(0, 0, ref_cons["ripple"])
+    _, _, ref_cons_ripple, _ = objective_transform(0, 0, ref_cons["ripple"])
 
     project_name = f"SynRM_{n_phases}f_nominal"
     design_name = "Design01"

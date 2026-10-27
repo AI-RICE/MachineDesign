@@ -222,7 +222,7 @@ class Computation(ComputationBase):
         I_d, I_q = to_dq(current_phases, theta_el, harmonic=1)
 
         Im = np.sqrt(self.Id**2 + self.Iq**2)
-        epsI = np.atan2(self.Iq, self.Id)
+        epsI = np.arctan2(self.Iq, self.Id)
 
         time = np.array(solutions.primary_sweep_values)
         dI_dt_phases = np.zeros((len(time), self.geometry.n_phases))

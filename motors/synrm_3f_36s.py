@@ -161,14 +161,14 @@ class Geometry(GeometryBase):
         m2d.mesh.assign_length_mesh(
             assignment=id_coils,
             inside_selection=True,
-            maximum_length=3,
+            maximum_length=0.5,
             maximum_elements=None,
             name="coils",
         )
         m2d.mesh.assign_length_mesh(
             assignment=stator_id,
             inside_selection=True,
-            maximum_length=3,
+            maximum_length=0.5,
             maximum_elements=None,
             name="stator",
         )

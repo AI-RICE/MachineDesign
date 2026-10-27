@@ -48,7 +48,7 @@ timeout_s = 2 * 3600
 results_path = "results/dq_identity_sweep.csv"
 os.makedirs("results", exist_ok=True)
 results_dir = os.path.abspath("results")
-header = "geometry,pointper,mesh_length,time,torque,h1_q,h1_d,h3_q,h3_d"
+header = "geometry,pointper,time,torque,h1_q,h1_d,h3_q,h3_d"
 
 
 def _feasible_barriers(geometry):
@@ -72,19 +72,14 @@ def append_row(*fields):
         f.write(",".join(str(v) for v in fields) + "\n")
 
 
-def measure_one(geometry_name, pointper, mesh_length=3):
+def measure_one(geometry_name, pointper):
     class ComputationMultiPeriod(Computation):
         def set_oper_params(self):
             super().set_oper_params()
             self.oper_params["Nper"] = "1"
             self.oper_params["PointPer"] = str(pointper)
 
-    class GeometryReMesh(geometries[geometry_name]):
-        def _assign_stator_mesh(self, m2d, stator_id, id_coils) -> None:
-            m2d.mesh.assign_length_mesh(assignment=id_coils, inside_selection=True, maximum_length=mesh_length, maximum_elements=None, name="coils")
-            m2d.mesh.assign_length_mesh(assignment=stator_id, inside_selection=True, maximum_length=mesh_length, maximum_elements=None, name="stator")
-
-    geometry = GeometryReMesh()
+    geometry = geometries[geometry_name]()
     computation = ComputationMultiPeriod(geometry)
     barriers = _feasible_barriers(geometry)
 
@@ -103,6 +98,7 @@ def measure_one(geometry_name, pointper, mesh_length=3):
             close_on_exit=False,
         )
         design.add_rotor()
+        design.m2d.mesh.assign_length_mesh(assignment="Band", inside_selection=True, maximum_length=0.5, maximum_elements=None, name="band")
         for barrier in barriers:
             design.add_rotor_barrier(barrier)
         out = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
@@ -122,7 +118,7 @@ def measure_one(geometry_name, pointper, mesh_length=3):
             design.close_project()
 
     elapsed = time.time() - start
-    append_row(geometry_name, pointper, mesh_length, f"{elapsed:.0f}", errs["torque"], errs["h1_q"], errs["h1_d"], errs["h3_q"], errs["h3_d"])
+    append_row(geometry_name, pointper, f"{elapsed:.0f}", errs["torque"], errs["h1_q"], errs["h1_d"], errs["h3_q"], errs["h3_d"])
 
 
 def sweep():
@@ -137,7 +133,7 @@ def sweep():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 4:
-        measure_one(sys.argv[1], int(sys.argv[2]), float(sys.argv[3]))
+    if len(sys.argv) == 3:
+        measure_one(sys.argv[1], int(sys.argv[2]))
     else:
         sweep()

@@ -139,7 +139,7 @@ class ComputationBase(ABC):
         self.rotor_mesh = m2d.mesh.assign_length_mesh(
             assignment=rotor_id,
             inside_selection=True,
-            maximum_length=3,
+            maximum_length=0.5,
             maximum_elements=None,
             name="rotor",
         )

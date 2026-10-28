@@ -92,8 +92,8 @@ class Computation(ComputationBase):
 
         Im1 = np.sqrt(self.Id1**2 + self.Iq1**2)
         Im3 = np.sqrt(self.Id3**2 + self.Iq3**2)
-        epsI1 = np.atan2(self.Iq1, self.Id1)
-        epsI3 = np.atan2(self.Iq3, self.Id3)
+        epsI1 = np.arctan2(self.Iq1, self.Id1)
+        epsI3 = np.arctan2(self.Iq3, self.Id3)
 
         time = np.array(solutions.primary_sweep_values)
         dI_dt_phases = np.zeros((len(time), self.geometry.n_phases))

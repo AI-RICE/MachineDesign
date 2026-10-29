@@ -205,39 +205,26 @@ class GeometryBase(ABC):
         )
         m2d.assign_vector_potential(assignment=id_bc_az, vector_value=0, boundary="A0")
 
-    def add_rotor_magnet(self, m2d: Maxwell2d, mag: np.ndarray, fill_height=0.9, fill_width=0.9, segment_type=None):
+    def add_rotor_magnet(self, m2d: Maxwell2d, magnet_points, segment_type=None) -> None:
         modeler = m2d.modeler
+        assert isinstance(modeler, Modeler2D)
 
-        if isinstance(mag, (list, tuple)):
-            mag = np.concatenate([np.asarray(m) for m in mag], axis=0)
+        if isinstance(magnet_points, (list, tuple)):
+            magnet_points = np.concatenate([np.asarray(m) for m in magnet_points], axis=0)
 
-        pts = np.asarray(mag)
-        center = pts.mean(axis=0)
+        magnet_points = np.round(np.asarray(magnet_points), 6)
 
-        r = np.linalg.norm(center)
-        if r < 1e-10:
+        center = magnet_points[:, :2].mean(axis=0)
+        if np.linalg.norm(center) < 1e-10:
             return
+        cs_angle_deg = np.degrees(np.arctan2(center[1], center[0]))
 
-        radial = center / r
-        long_axis = np.array([-radial[1], radial[0]])
+        if magnet_points.shape[1] == 2:
+            magnet_points = np.hstack((magnet_points, np.zeros((len(magnet_points), 1))))
 
-        pts_centered = pts - center
-
-        proj_long = pts_centered @ long_axis
-        proj_short = pts_centered @ radial
-
-        pts_scaled = center + (np.outer(proj_long * fill_height, long_axis) + np.outer(proj_short * fill_width, radial))
-
-        points = [[f"{x}mm", f"{y}mm", "0mm"] for x, y in pts_scaled]
-
-        mag_id = modeler.create_polyline(
-            points=points,
-            close_surface=True,
-            cover_surface=True,
-            name="Magnet",
-        )
+        points_str = [[str(y) for y in x] for x in magnet_points]
+        mag_id = modeler.create_polyline(points=points_str, segment_type=segment_type, close_surface=True, cover_surface=True, name="Magnet")
         self.magnet_ids.append(mag_id)
-        cs_angle_deg = np.degrees(np.arctan2(radial[1], radial[0]))
 
         self.assign_magnet_cs(m2d, mag_id, cs_angle_deg)
         mag_id.material_name = self.magnet

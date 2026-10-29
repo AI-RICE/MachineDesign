@@ -71,6 +71,8 @@ class GeometryBase(ABC):
         rotor_id = modeler.create_polyline(points=self.rot_points, segment_type=["Arc", "Line", "Arc"], cover_surface=True, name="Rotor")
         self.rotor_id = rotor_id
         rotor_id.material_name = self.Fe
+        self.magnet_ids = []
+        self.magnet_cs_ids = []
 
     def add_rotor_barrier(self, m2d: Maxwell2d, barrier_points, segment_type=None) -> None:
         modeler = m2d.modeler
@@ -95,9 +97,14 @@ class GeometryBase(ABC):
         assert isinstance(m2d.modeler, Modeler2D)
         m2d.modeler.delete(self.rotor_id)
 
-        magnets = m2d.modeler.get_objects_w_string("Magnet", case_sensitive=True)
-        if magnets:
-            m2d.modeler.delete(magnets)
+        if self.magnet_ids:
+            m2d.modeler.delete(self.magnet_ids)
+        self.magnet_ids = []
+
+        # Delete after the magnets, which reference them
+        for cs in self.magnet_cs_ids:
+            cs.delete()
+        self.magnet_cs_ids = []
 
     def _push_stator_variables(self, m2d: Maxwell2d) -> None:
         modeler = m2d.modeler
@@ -229,6 +236,7 @@ class GeometryBase(ABC):
             cover_surface=True,
             name="Magnet",
         )
+        self.magnet_ids.append(mag_id)
         cs_angle_deg = np.degrees(np.arctan2(radial[1], radial[0]))
 
         self.assign_magnet_cs(m2d, mag_id, cs_angle_deg)
@@ -240,16 +248,14 @@ class GeometryBase(ABC):
         modeler.set_working_coordinate_system("Global")
 
     def _create_magnet_cs(self, m2d: Maxwell2d, name: str, angle_deg: float) -> None:
-        for cs in m2d.modeler.coordinate_systems:
-            if cs.name == name:
-                cs.delete()
-        m2d.modeler.create_coordinate_system(
+        cs = m2d.modeler.create_coordinate_system(
             origin=[0, 0, 0],
             name=name,
             mode="axis",
             x_pointing=[float(np.cos(np.radians(angle_deg))), float(np.sin(np.radians(angle_deg))), 0],
             y_pointing=[float(-np.sin(np.radians(angle_deg))), float(np.cos(np.radians(angle_deg))), 0],
         )
+        self.magnet_cs_ids.append(cs)
 
     def assign_magnet_cs(self, m2d: Maxwell2d, magnet_name: str, angle_deg: float) -> None:
         cs_name = f"CS_{magnet_name}"

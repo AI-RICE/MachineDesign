@@ -85,15 +85,15 @@ for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max 
         y = torch.tensor(obj, dtype=torch.float64)
         return y.repeat(n_penalty, 1)
 
-    def torque_constraint(Y):
+    def torque_constraint(Y):  # torque constraints
         return t_target - Y[..., 1]
 
-    def ripple_constraint(Y):
+    def ripple_constraint(Y):  # ripple constraints
         ripple = -Y[..., 2]
         ripple_max = -ref_cons_ripple
         return ripple - ripple_max
 
-    def voltage_constraint(Y):
+    def voltage_constraint(Y):  # voltage constraints
         return Y[..., 3] - v_max
 
     constraints = [torque_constraint, ripple_constraint, voltage_constraint]  # computed by Ansys results.
@@ -138,7 +138,7 @@ for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max 
                 feasible_geom = generator.feasible_barriers(barriers)
 
                 peak_current = current_peak(current_X.numpy(), harmonics)
-                feasible_current = i_max is None or peak_current <= i_max
+                feasible_current = i_max is None or peak_current <= i_max      # currents constraints
                 feasible = feasible_geom and feasible_current
                 if feasible:
                     candidates_feasible.append(candidate)

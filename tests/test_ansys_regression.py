@@ -134,5 +134,5 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
     finally:
         if live_design is not None:
             live_design.close_project()
-        elif legacy_design is not None:
+        if legacy_design is not None:
             legacy_design.close_project()

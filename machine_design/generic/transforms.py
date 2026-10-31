@@ -59,6 +59,17 @@ def electrical_angle(position, init_pos, pole_pairs, rot_sign=1.0, degrees=False
     return rot_sign * (position - init_pos) * pole_pairs - np.pi
 
 
+def induced_voltage_angle(theta_el):
+    """theta_el shifted back by half a time step, for transforming ``InducedVoltage``.
+
+    Maxwell computes InducedVoltage as (psi_n - psi_{n-1}) / dt, i.e. the derivative at
+    t_{n-1/2}. Transforming it with theta_el(t_n) rotates the dq voltage by h*w*dt/2,
+    which breaks the dq voltage identities by O(1/PointPer).
+    """
+    theta_el = np.asarray(theta_el, dtype=float)
+    return theta_el - np.gradient(theta_el) / 2
+
+
 def _phase_angles(theta_el, harmonic, n_phases):
     """h * (theta_el - 2*pi*k/m) for k = 0..m-1, shaped (..., m)."""
     theta_el = np.asarray(theta_el, dtype=float)[..., None]

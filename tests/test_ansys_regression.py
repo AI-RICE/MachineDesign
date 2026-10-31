@@ -83,7 +83,7 @@ def _create_design(design_cls, project_name, file_name, extra_args=()):
         *extra_args,
         version=AEDT_VERSION,
         non_graphical=True,
-        new_desktop=False,
+        new_desktop=True,
         close_on_exit=False,
     )
 

@@ -58,11 +58,11 @@ for i in range(0, n_designs):
             design.add_rotor_barrier(barrier)
 
         # Compute the torque
-        Tor = design.compute(*current_setpoint, NUM_CORES=num_cores)
-        # Tor = design.compute(num_cores)
-        if Tor is None:
+        outputs = design.compute(*current_setpoint, NUM_CORES=num_cores)
+        if outputs is None:
             TorAvg, TorRippleRms = np.nan, np.nan
         else:
+            Tor = outputs["Moving1.Torque"]
             TorAvg, _, TorRippleRms = analyze_results(Tor)
 
         # Delete the rotor

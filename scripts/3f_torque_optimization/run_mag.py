@@ -59,8 +59,6 @@ for i in range(0, n_designs):
             if generator.name == "MagnetGenerator":
                 design.add_rotor_magnet(magnets[j])
 
-        design.reassign_motion_setup()
-
         # Compute the torque
         outputs = design.compute(*current_setpoint, NUM_CORES=num_cores)
         if outputs is None:

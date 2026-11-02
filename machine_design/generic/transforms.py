@@ -66,7 +66,7 @@ def induced_voltage_angle(theta_el):
     t_{n-1/2}. Transforming it with theta_el(t_n) rotates the dq voltage by h*w*dt/2,
     which breaks the dq voltage identities by O(1/PointPer).
     """
-    theta_el = np.asarray(theta_el, dtype=float)
+    theta_el = np.unwrap(np.asarray(theta_el, dtype=float))
     return theta_el - np.gradient(theta_el) / 2
 
 

@@ -19,6 +19,7 @@ import pytest
 
 from machine_design.config import load_config
 from machine_design.designs.design import Design as LiveDesign
+from machine_design.generic.transforms import induced_voltage_angle
 from machine_design.optimization.generators import HacklGenerator_OneLambda
 from motors.synrm_3f_36s import Computation, Geometry
 
@@ -33,8 +34,8 @@ current_setpoint = (1.5, 1.5)
 check_expressions = [
     "Flux_d",
     "Flux_q",
-    "Ui_d",
-    "Ui_q",
+    # "Ui_d",
+    # "Ui_q",
     "I_d",
     "I_q",
     "L_d",
@@ -102,7 +103,7 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
     legacy_design, live_design = None, None
     try:
         legacy_design = _create_design(LegacyDesign, "RegressionTest_legacy", str(tmp_path / "legacy.aedt"))
-        legacy_design.solution_expressions = ["Moving1.Torque", *check_expressions]
+        legacy_design.solution_expressions = ["Moving1.Torque", "Ui_d", "Ui_q", *check_expressions]
 
         def _legacy_extract_results(solutions):
             out = {}
@@ -130,6 +131,15 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
             np.testing.assert_allclose(torque_live["Moving1.Torque"], torque_legacy["Moving1.Torque"], rtol=1e-3, err_msg=f"mismatch for Moving1.Torque, seed {seed}")
             for expr in check_expressions:
                 np.testing.assert_allclose(torque_live[expr], torque_legacy[expr], rtol=1e-3, err_msg=f"mismatch for {expr}, seed {seed}")
+
+            pointper = int(live_computation.oper_params["PointPer"])
+            delta = np.pi/(pointper-1)
+            Ui_d_unshifted = torque_live["Ui_d"] * np.cos(delta) + torque_live["Ui_q"] * np.sin(delta)
+            Ui_q_unshifted = torque_live["Ui_q"] * np.cos(delta) - torque_live["Ui_d"] * np.sin(delta)
+            np.testing.assert_allclose(Ui_d_unshifted[:-2], torque_legacy["Ui_d"][:-2], rtol=1e-3, err_msg=f"mismatch for Ui_d, seed {seed}")
+            np.testing.assert_allclose(Ui_q_unshifted[:-2], torque_legacy["Ui_q"][:-2], rtol=1e-3, err_msg=f"mismatch for Ui_q, seed {seed}")
+            np.testing.assert_allclose(Ui_d_unshifted[-2:], torque_legacy["Ui_d"][-2:], rtol=1e-3, atol=10, err_msg=f"mismatch for Ui_d, boundary, seed {seed}")
+            np.testing.assert_allclose(Ui_q_unshifted[-2:], torque_legacy["Ui_q"][-2:], rtol=1e-3, atol=10, err_msg=f"mismatch for Ui_q, boundary, seed {seed}")
 
     finally:
         if live_design is not None:

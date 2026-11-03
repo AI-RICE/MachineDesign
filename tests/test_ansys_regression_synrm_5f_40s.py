@@ -82,6 +82,17 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
 
         live_geometry = Geometry()
         live_computation = Computation(live_geometry)
+
+        _orig_extract_results = live_computation.extract_results
+
+        def _extract_results_with_time(solutions):
+            out = _orig_extract_results(solutions)
+            time_unit = solutions.units_sweeps[solutions.primary_sweep]
+            out["time_s"] = np.array(solutions._convert_list_to_SI(solutions.primary_sweep_values, solutions._quantity(time_unit), time_unit))
+            return out
+
+        live_computation.extract_results = _extract_results_with_time
+
         live_design = _create_design(
             LiveDesign,
             "RegressionTest_live",
@@ -96,11 +107,30 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
             assert torque_legacy is not None, f"legacy torque is None for seed {seed}"
             assert torque_live is not None, f"live torque is None for seed {seed}"
 
+            voltage_exprs = {"V_d1", "V_q1", "V_d3", "V_q3"}
             for expr in legacy_design.solution_expressions:
+                if expr in voltage_exprs:
+                    continue
                 np.testing.assert_allclose(torque_live[expr], torque_legacy[expr], rtol=1e-3, atol=2e-4, err_msg=f"mismatch for {expr}, seed {seed}")
                 # rtol is a relative tolerance, but when current_setpoint = (7.0711, 7.0711, 0.0, 0.0) is used,
                 # I_d3 is 1e-15 and 2.2e-16 for legacy and live, respectively, rtol is not meaningful when comparing such small numbers,
                 # so atol (absolute tolerance) is used to avoid false failures.
+
+            dt = np.diff(torque_live["time_s"])
+            delta_n = np.pi * 50 * np.r_[dt[0], dt]
+
+            for harmonic in (1, 3):
+                delta = harmonic * delta_n
+                Vind_d = torque_live[f"Vind_d{harmonic}"]
+                Vind_q = torque_live[f"Vind_q{harmonic}"]
+                Vind_d_unshifted = Vind_d * np.cos(delta) + Vind_q * np.sin(delta)
+                Vind_q_unshifted = Vind_q * np.cos(delta) - Vind_d * np.sin(delta)
+                V_d_reconstructed = torque_live[f"V_d{harmonic}"] - Vind_d + Vind_d_unshifted
+                V_q_reconstructed = torque_live[f"V_q{harmonic}"] - Vind_q + Vind_q_unshifted
+
+                np.testing.assert_allclose(V_d_reconstructed, torque_legacy[f"V_d{harmonic}"], rtol=1e-3, atol=2e-4, err_msg=f"mismatch for V_d{harmonic}, seed {seed}")
+                np.testing.assert_allclose(V_q_reconstructed, torque_legacy[f"V_q{harmonic}"], rtol=1e-3, atol=2e-4, err_msg=f"mismatch for V_q{harmonic}, seed {seed}")
+
     finally:
         if live_design is not None:
             live_design.close_project()

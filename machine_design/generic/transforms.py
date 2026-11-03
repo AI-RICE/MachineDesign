@@ -67,7 +67,8 @@ def induced_voltage_angle(theta_el):
     which breaks the dq voltage identities by O(1/PointPer).
     """
     theta_el = np.unwrap(np.asarray(theta_el, dtype=float))
-    return theta_el - np.gradient(theta_el) / 2
+    dtheta = np.diff(theta_el)
+    return theta_el - np.r_[dtheta[0], dtheta] / 2
 
 
 def _phase_angles(theta_el, harmonic, n_phases):

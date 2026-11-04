@@ -179,6 +179,7 @@ class Computation(ComputationBase):
         f = 50  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
+        self.Rstat = 11.4
         self.oper_params = {
             "Id": "0.0A",
             "Iq": "0.0A",
@@ -218,6 +219,8 @@ class Computation(ComputationBase):
         Ui_d, Ui_q = to_dq(vind_phases, induced_voltage_angle(theta_el), harmonic=1)
         I_d, I_q = to_dq(current_phases, theta_el, harmonic=1)
 
+        V_phases = vind_phases + self.Rstat * current_phases
+
         L_d_row = np.zeros((len(position), self.geometry.n_phases))
         L_q_row = np.zeros((len(position), self.geometry.n_phases))
         for i, L_row in enumerate(L_raw):
@@ -240,6 +243,8 @@ class Computation(ComputationBase):
             "L_q": L_q,
             "Irms": Irms,
             "Moving1.Torque": torque,
+            "V_phases": V_phases,
+            "I_phases": current_phases,
         }
 
         return out

@@ -103,6 +103,7 @@ class Computation(ComputationBase):
             dI_dt_phases[:, k] = -Im1 * self.w * np.sin(self.w * time + phase_offset + epsI1 - np.pi) - Im3 * 3 * self.w * np.sin(3 * (self.w * time + phase_offset) + epsI3 - np.pi)
 
         V_rest_phases = self.Rstat * current_phases + self.Lew * dI_dt_phases
+        V_phases = vind_phases + V_rest_phases
 
         V_rest_d1, V_rest_q1 = to_dq(V_rest_phases, theta_el, harmonic=1)
         V_rest_d3, V_rest_q3 = to_dq(V_rest_phases, theta_el, harmonic=3)
@@ -167,6 +168,8 @@ class Computation(ComputationBase):
             "Flux_e_d3": Flux_e_d3,
             "Flux_e_q3": Flux_e_q3,
             "Moving1.Torque": torque,
+            "V_phases": V_phases,
+            "I_phases": current_phases,
         }
 
         return out

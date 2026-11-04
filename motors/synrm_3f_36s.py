@@ -6,7 +6,7 @@ from ansys.aedt.core.modeler.modeler_2d import Modeler2D
 
 from machine_design.designs.computation import ComputationBase
 from machine_design.designs.geometry import GeometryBase
-from machine_design.generic.transforms import to_dq
+from machine_design.generic.transforms import induced_voltage_angle, to_dq
 
 
 class Geometry(GeometryBase):
@@ -215,7 +215,7 @@ class Computation(ComputationBase):
         flux_phases, vind_phases, current_phases, L_raw = self.extract_phase_results(solutions)
 
         Flux_d, Flux_q = to_dq(flux_phases, theta_el, harmonic=1)
-        Ui_d, Ui_q = to_dq(vind_phases, theta_el, harmonic=1)
+        Ui_d, Ui_q = to_dq(vind_phases, induced_voltage_angle(theta_el), harmonic=1)
         I_d, I_q = to_dq(current_phases, theta_el, harmonic=1)
 
         L_d_row = np.zeros((len(position), self.geometry.n_phases))

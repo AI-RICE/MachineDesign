@@ -245,6 +245,7 @@ class Computation(ComputationBase):
             "Moving1.Torque": torque,
             "V_phases": V_phases,
             "I_phases": current_phases,
+            "theta_el": theta_el,
         }
 
         return out

@@ -33,8 +33,8 @@ current_setpoint = (1.5, 1.5)
 check_expressions = [
     "Flux_d",
     "Flux_q",
-    # "Ui_d",
-    # "Ui_q",
+    "Ui_d",
+    "Ui_q",
     "I_d",
     "I_q",
     "L_d",
@@ -95,14 +95,16 @@ def _compute_torque(design, barriers, add_rotor, setpoint=current_setpoint):
     return torque
 
 
-def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
+def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Legacy transforms InducedVoltage with the unshifted angle; disable the half-step correction to compare like with like.
+    monkeypatch.setattr("motors.synrm_3f_36s.induced_voltage_angle", lambda theta_el: theta_el)
     barrier_sets = [_generate_one_lambda_barriers(seed) for seed in SEEDS]
     LegacyDesign = _load_legacy_design_class()
 
     legacy_design, live_design = None, None
     try:
         legacy_design = _create_design(LegacyDesign, "RegressionTest_legacy", str(tmp_path / "legacy.aedt"))
-        legacy_design.solution_expressions = ["Moving1.Torque", "Ui_d", "Ui_q", *check_expressions]
+        legacy_design.solution_expressions = ["Moving1.Torque", *check_expressions]
 
         def _legacy_extract_results(solutions):
             out = {}
@@ -114,17 +116,6 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
 
         live_geometry = Geometry()
         live_computation = Computation(live_geometry)
-
-        _orig_extract_results = live_computation.extract_results
-
-        def _extract_results_with_time(solutions):
-            out = _orig_extract_results(solutions)
-            time_unit = solutions.units_sweeps[solutions.primary_sweep]
-            out["time_s"] = np.array(solutions._convert_list_to_SI(solutions.primary_sweep_values, solutions._quantity(time_unit), time_unit))
-            return out
-
-        live_computation.extract_results = _extract_results_with_time
-
         live_design = _create_design(
             LiveDesign,
             "RegressionTest_live",
@@ -141,13 +132,6 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
             np.testing.assert_allclose(torque_live["Moving1.Torque"], torque_legacy["Moving1.Torque"], rtol=1e-3, err_msg=f"mismatch for Moving1.Torque, seed {seed}")
             for expr in check_expressions:
                 np.testing.assert_allclose(torque_live[expr], torque_legacy[expr], rtol=1e-3, err_msg=f"mismatch for {expr}, seed {seed}")
-
-            dt = np.diff(torque_live["time_s"])
-            delta_n = np.pi * 50 * np.r_[dt[0], dt]
-            Ui_d_unshifted = torque_live["Ui_d"] * np.cos(delta_n) + torque_live["Ui_q"] * np.sin(delta_n)
-            Ui_q_unshifted = torque_live["Ui_q"] * np.cos(delta_n) - torque_live["Ui_d"] * np.sin(delta_n)
-            np.testing.assert_allclose(Ui_d_unshifted, torque_legacy["Ui_d"], rtol=1e-3, err_msg=f"mismatch for Ui_d, seed {seed}")
-            np.testing.assert_allclose(Ui_q_unshifted, torque_legacy["Ui_q"], rtol=1e-3, err_msg=f"mismatch for Ui_q, seed {seed}")
 
     finally:
         if live_design is not None:

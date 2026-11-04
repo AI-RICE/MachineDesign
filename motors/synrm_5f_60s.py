@@ -4,8 +4,10 @@ Derives from `synrm_5f_40s`, overriding only the slotting and winding it needs f
 phases. Excitation is dq1 + dq3.
 """
 
-from .synrm_5f_40s import Computation as BaseComputation
+from .synrm_5f_40s import Computation
 from .synrm_5f_40s import Geometry as BaseGeometry
+
+__all__ = ["Computation", "Geometry"]
 
 
 class Geometry(BaseGeometry):
@@ -24,11 +26,3 @@ class Geometry(BaseGeometry):
     def set_winds_params(self):
         super().set_winds_params()
         self.wind_params["CoilPitch"] = "15"
-
-
-class Computation(BaseComputation):
-    def set_solution_expressions(self):
-        self.solution_expressions = ["Moving1.Torque"]
-
-    def extract_results(self, solutions):
-        return {"Moving1.Torque": self.extract_expression(solutions, "Moving1.Torque")}

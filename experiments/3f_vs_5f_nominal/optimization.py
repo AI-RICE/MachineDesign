@@ -19,7 +19,7 @@ def current_peak(current, harmonics, n_points=720):  # h(theta)*i_s
     return np.max(np.abs(waveform))
 
 
-def current_inequality_constraints(harmonics, i_max, bounds, current_n, n_points=36):
+def current_inequality_constraints(harmonics, i_max, bounds, current_n, n_points=72):
     theta = np.linspace(0, 2 * np.pi, n_points, endpoint=False)
     columns = [trig(h * theta) for h in harmonics for trig in (np.cos, lambda t: -np.sin(t))]
     a = torch.from_numpy(np.column_stack(columns))

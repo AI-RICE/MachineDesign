@@ -430,11 +430,29 @@ class HacklGenerator_3BrokenLines(AbstractHacklGenerator):
 
 
 class MagnetGenerator(BarrierGenerator):
-    def __init__(self, design, r_stator_end, der1=1.0, der2=1.0, symmetric=True, min_bridge=0.0, **kwargs):
+    def __init__(
+        self,
+        design,
+        r_stator_end,
+        der1=1.0,
+        der2=1.0,
+        symmetric=True,
+        min_bridge=0.0,
+        shape="rect",
+        bend_ratio=0.7,
+        thickness_ratio=0.5,
+        **kwargs,
+    ):
+        # fraction of the rotor height (r_max - r_min) occupied by all barriers together
+        self.thickness_ratio = thickness_ratio
         self.n_designs = kwargs.get("n_designs", 1)
         self.der1 = der1
         self.der2 = der2
         self.symmetric = symmetric
+        # "spline" = smooth curved barrier, "rect" = flat magnet pocket + straight leg
+        self.shape = shape
+        # x position of the bend as a fraction of y_min (< 1 keeps the bend inside the pole)
+        self.bend_ratio = bend_ratio
         self.n_barriers = kwargs.get("n_barriers", 1)
         self.sector_angle = np.pi / design.geometry.PolePairs
         self.min_bridge = min_bridge
@@ -486,6 +504,51 @@ class MagnetGenerator(BarrierGenerator):
         x_all, y_all = rotate(x_all, y_all, -45)
         return x_all, y_all
 
+    def _polyline(self, points):
+        # Discretize a polyline into dense points, dropping duplicate joints
+        n_seg = max(self.n_curve // (len(points) - 1), 2)
+        z = np.linspace(0, 1, n_seg)[:, None]
+        segs = [(1 - z) * p + z * q for p, q in zip(points[:-1], points[1:])]
+        return np.vstack([segs[0]] + [s[1:] for s in segs[1:]])
+
+    def _create_rect_barrier(
+        self,
+        y_min,
+        w_min,
+        y_mid,
+        w_mid,
+        theta,
+        w_max,
+    ):
+        # Lower edge: flat bottom (magnet pocket) up to the bend, then straight leg to the rim
+        theta1 = (theta + 45) / 180 * np.pi
+        p_rim1 = self.R * np.array([np.cos(theta1), np.sin(theta1)])
+        b1 = np.array([self.bend_ratio * y_min, y_min])
+
+        # Upper edge: flat part offset by w_min, leg parallel to the lower leg offset by w_mid
+        d = (p_rim1 - b1) / np.linalg.norm(p_rim1 - b1)
+        n = np.array([-d[1], d[0]])
+        q = b1 + w_mid * n
+        y_top = y_min + w_min
+        b2 = q + (y_top - q[1]) / d[1] * d
+        b2[0] = max(b2[0], 0.0)
+
+        # Intersection of the upper leg line with the circle of radius R
+        bd = np.dot(b2, d)
+        s = -bd + np.sqrt(bd**2 - (np.dot(b2, b2) - self.R**2))
+        p_rim2 = b2 + s * d
+
+        lower = self._polyline([np.array([0.0, y_min]), b1, p_rim1])
+        upper = self._polyline([np.array([0.0, y_top]), b2, p_rim2])
+
+        x_all = np.concatenate((lower[:, 0], upper[::-1, 0]))
+        y_all = np.concatenate((lower[:, 1], upper[::-1, 1]))
+        if self.symmetric:
+            x_all = np.concatenate((x_all, -x_all[::-1][1:]))
+            y_all = np.concatenate((y_all, y_all[::-1][1:]))
+        x_all, y_all = rotate(x_all, y_all, -45)
+        return x_all, y_all
+
     @property
     def bounds(self) -> tuple[np.ndarray, np.ndarray]:
         n = self.n_barriers
@@ -505,10 +568,7 @@ class MagnetGenerator(BarrierGenerator):
     def generate_w_mins_base(self, rotor_r_min, rotor_r_max):
         n_barriers = self.n_barriers
         available_height = rotor_r_max - rotor_r_min
-        gap_ratio = 0.5
-        total_dap = available_height * gap_ratio
-
-        total_height_barrier = available_height - total_dap
+        total_height_barrier = available_height * self.thickness_ratio
 
         if n_barriers == 1:
             weights = np.array([1.0])
@@ -588,8 +648,9 @@ class MagnetGenerator(BarrierGenerator):
 
     def generate_barriers(self) -> list[np.ndarray]:
         barriers = []
+        create = self._create_rect_barrier if self.shape == "rect" else self._create_barrier
         for args in zip(self.y_mins, self.w_mins, self.y_mids, self.w_mids, self.thetas, self.w_maxs):
-            x_all, y_all = self._create_barrier(*args)
+            x_all, y_all = create(*args)
             xy_all = np.vstack((x_all, y_all)).T
             barriers.append(xy_all)
         return barriers

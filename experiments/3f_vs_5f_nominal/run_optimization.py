@@ -35,10 +35,16 @@ offset = 0.7 / 2
 batch_size = 4
 max_candidate_tries = 10
 t_target = 6.0
+current_scale = 0.584  # according to PR79
+i_peak_3f = 2.5
+i_max_3f = 3.0
+i_peak_5f = current_scale * i_peak_3f
+i_max_5f = current_scale * i_max_3f
+v_max = 311.13
 
 for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max are set temperally to check the code can work.
-    ("motors.synrm_3f_60s", 3, np.array([[0.0, 0.0], [2.5, 2.5]]), 3.0, 311.13),
-    ("motors.synrm_5f_60s", 5, np.array([[0.0, 0.0, -1.5, -1.5], [1.5, 1.5, 1.5, 1.5]]), 3.0, 311.13),
+    ("motors.synrm_3f_60s", 3, np.array([[0.0, 0.0], [i_peak_3f, i_peak_3f]]), i_max_3f, v_max),
+    ("motors.synrm_5f_60s", 5, np.array([[0.0, 0.0, -i_peak_5f, -i_peak_5f], [i_peak_5f, i_peak_5f, i_peak_5f, i_peak_5f]]), i_max_5f, v_max),
 ]:
     module = importlib.import_module(module_name)
     Computation, Geometry = module.Computation, module.Geometry
@@ -138,7 +144,7 @@ for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max 
                 feasible_geom = generator.feasible_barriers(barriers)
 
                 peak_current = current_peak(current_X.numpy(), harmonics)
-                feasible_current = i_max is None or peak_current <= i_max      # currents constraints
+                feasible_current = i_max is None or peak_current <= i_max  # currents constraints
                 feasible = feasible_geom and feasible_current
                 if feasible:
                     candidates_feasible.append(candidate)

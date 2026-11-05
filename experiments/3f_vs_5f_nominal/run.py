@@ -25,10 +25,16 @@ n_designs = 10
 r_stator_end = 0.7
 offset = 0.7 / 2
 plot_design = True
+current_scale = 0.584  # according to PR79
+i_peak_3f = 2.5
+i_max_3f = 3.0
+i_peak_5f = current_scale * i_peak_3f
+i_max_5f = current_scale * i_max_3f
+v_max = 311.13
 
 for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max are set temperally to check the code can work.
-    ("motors.synrm_3f_60s", 3, np.array([[0.0, 0.0], [2.5, 2.5]]), 3.0, 311.13),
-    ("motors.synrm_5f_60s", 5, np.array([[0.0, 0.0, -1.5, -1.5], [1.5, 1.5, 1.5, 1.5]]), 3.0, 311.13),
+    ("motors.synrm_3f_60s", 3, np.array([[0.0, 0.0], [i_peak_3f, i_peak_3f]]), i_max_3f, v_max),
+    ("motors.synrm_5f_60s", 5, np.array([[0.0, 0.0, -i_peak_5f, -i_peak_5f], [i_peak_5f, i_peak_5f, i_peak_5f, i_peak_5f]]), i_max_5f, v_max),
 ]:
     module = importlib.import_module(module_name)
     Computation, Geometry = module.Computation, module.Geometry
@@ -60,7 +66,7 @@ for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max 
             if feasible:
                 break
 
-        while True:
+        while True:  # currents constraints
             current_setpoint = np.random.uniform(current_bounds[0], current_bounds[1])
             peak_current = current_peak(current_setpoint, harmonics)
             if i_max is None or peak_current <= i_max:

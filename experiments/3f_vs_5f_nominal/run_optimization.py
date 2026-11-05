@@ -39,19 +39,23 @@ t_target = 6.0
 current_scale = 0.584  # according to PR79
 i_max_3f = 2.0
 i_max_5f = current_scale * i_max_3f
-current_half_bounds_3f = i_max_3f
-current_half_bounds_5f = (4 / np.pi) * i_max_5f
+current_half_bounds_3f = i_max_3f  # case 1, 3f
+current_half_bounds_5f_i3zero = i_max_5f  # case 2, 5f, id3=iq3=0
+current_half_bounds_5f = (4 / np.pi) * i_max_5f  # case 3, 5f, free id3 and iq3
 v_max = 311.13
 
-for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max are set temperally to check the code can work.
-    ("motors.synrm_3f_60s", 3, np.array([[-current_half_bounds_3f] * 2, [current_half_bounds_3f] * 2]), i_max_3f, v_max),
-    ("motors.synrm_5f_60s", 5, np.array([[-current_half_bounds_5f] * 4, [current_half_bounds_5f] * 4]), i_max_5f, v_max),
+for case, module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max are set temperally to check the code can work.
+    (1, "motors.synrm_3f_60s", 3, np.array([[-current_half_bounds_3f] * 2, [current_half_bounds_3f] * 2]), i_max_3f, v_max),
+    (2, "motors.synrm_5f_60s", 5, np.array([[-current_half_bounds_5f_i3zero] * 2, [current_half_bounds_5f_i3zero] * 2]), i_max_5f, v_max),
+    (3, "motors.synrm_5f_60s", 5, np.array([[-current_half_bounds_5f] * 4, [current_half_bounds_5f] * 4]), i_max_5f, v_max),
 ]:
     module = importlib.import_module(module_name)
     Computation, Geometry = module.Computation, module.Geometry
     geometry = Geometry()
     current_n = current_bounds.shape[1]
-    harmonics = [1] if current_n == 2 else [1, 3]
+    harmonics = [1] if n_phases == 3 else [1, 3]
+    harmonics_free = harmonics[: current_n // 2]
+    case_name = f"{n_phases}f_case{case}"
 
     objective_fallback = {"loss": 40, "torque": 1.0, "ripple": 40.0, "voltage": 1000.0}
     ref_cons = {"ripple": 10.0}
@@ -60,7 +64,7 @@ for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max 
     project_name = f"SynRM_{n_phases}f_nominal"
     design_name = "Design01"
     path_data = os.path.join(os.getcwd(), "data")
-    root_init = f"results/results_{n_phases}f"
+    root_init = f"results/results_{case_name}"
     os.makedirs(path_data, exist_ok=True)
     file_name_aedt = f"{path_data}/{project_name}.aedt"
 
@@ -71,7 +75,7 @@ for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max 
     objective_fallback_tuple = (objective_fallback["loss"], objective_fallback["torque"], objective_fallback["ripple"], objective_fallback["voltage"])
 
     method = generator.__class__.__name__
-    output_name = f"results/results_{method}_{n_phases}f.npz"
+    output_name = f"results/results_{method}_{case_name}.npz"
 
     if os.path.exists(output_name):
         data = np.load(output_name)
@@ -82,7 +86,7 @@ for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max 
 
     bounds = torch.from_numpy(np.hstack([np.vstack(generator.bounds), current_bounds]))
     bounds_normalized = normalize(bounds, bounds)
-    current_constraints = current_inequality_constraints(harmonics, i_max, bounds, current_n)
+    current_constraints = current_inequality_constraints(harmonics_free, i_max, bounds, current_n)
     train_X = normalize(train_X, bounds)
 
     def objective_lambda(Xs):
@@ -146,7 +150,7 @@ for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max 
                 barriers = generator.split_barriers(barriers)
                 feasible_geom = generator.feasible_barriers(barriers)
 
-                peak_current = current_peak(current_X.numpy(), harmonics)
+                peak_current = current_peak(current_X.numpy(), harmonics_free)
                 feasible_current = i_max is None or peak_current <= i_max  # currents constraints
                 feasible = feasible_geom and feasible_current
                 if feasible:

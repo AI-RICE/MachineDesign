@@ -28,24 +28,28 @@ plot_design = True
 current_scale = 0.584  # according to PR79
 i_max_3f = 2.0
 i_max_5f = current_scale * i_max_3f
-current_half_bounds_3f = i_max_3f
-current_half_bounds_5f = (4 / np.pi) * i_max_5f
+current_half_bounds_3f = i_max_3f  # case 1, 3f
+current_half_bounds_5f_i3zero = i_max_5f  # case 2, 5f, id3=iq3=0
+current_half_bounds_5f = (4 / np.pi) * i_max_5f  # case 3, 5f, free id3 and iq3
 v_max = 311.13
 
-for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max are set temperally to check the code can work.
-    ("motors.synrm_3f_60s", 3, np.array([[-current_half_bounds_3f] * 2, [current_half_bounds_3f] * 2]), i_max_3f, v_max),
-    ("motors.synrm_5f_60s", 5, np.array([[-current_half_bounds_5f] * 4, [current_half_bounds_5f] * 4]), i_max_5f, v_max),
+for case, module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max are set temperally to check the code can work.
+    (1, "motors.synrm_3f_60s", 3, np.array([[-current_half_bounds_3f] * 2, [current_half_bounds_3f] * 2]), i_max_3f, v_max),
+    (2, "motors.synrm_5f_60s", 5, np.array([[-current_half_bounds_5f_i3zero] * 2, [current_half_bounds_5f_i3zero] * 2]), i_max_5f, v_max),
+    (3, "motors.synrm_5f_60s", 5, np.array([[-current_half_bounds_5f] * 4, [current_half_bounds_5f] * 4]), i_max_5f, v_max),
 ]:
     module = importlib.import_module(module_name)
     Computation, Geometry = module.Computation, module.Geometry
     geometry = Geometry()
     current_n = current_bounds.shape[1]
-    harmonics = [1] if current_n == 2 else [1, 3]
+    harmonics = [1] if n_phases == 3 else [1, 3]
+    harmonics_free = harmonics[: current_n // 2]
+    case_name = f"{n_phases}f_case{case}"
 
     project_name = f"SynRM_{n_phases}f_nominal"
     design_name = "Design01"
     path_data = os.path.join(os.getcwd(), "data")
-    path_results = f"results/results_{n_phases}f"
+    path_results = f"results/results_{case_name}"
     for path in [path_data, path_results]:
         os.makedirs(path, exist_ok=True)
     file_name_aedt = f"{path_data}/{project_name}.aedt"
@@ -68,9 +72,12 @@ for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max 
 
         while True:  # currents constraints
             current_setpoint = np.random.uniform(current_bounds[0], current_bounds[1])
-            peak_current = current_peak(current_setpoint, harmonics)
+            peak_current = current_peak(current_setpoint, harmonics_free)
             if i_max is None or peak_current <= i_max:
                 break
+
+        current_setpoint_full = np.zeros(2 * len(harmonics))
+        current_setpoint_full[: len(current_setpoint)] = current_setpoint
 
         # Generate the geometry
         design.add_rotor()
@@ -78,7 +85,7 @@ for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max 
             design.add_rotor_barrier(barrier)
 
         # Compute the torque
-        out = design.compute(*current_setpoint, NUM_CORES=num_cores)
+        out = design.compute(*current_setpoint_full, NUM_CORES=num_cores)
         # Tor = design.compute(num_cores)
         if out is None:
             TorAvg, TorRippleRms, V_peak = np.nan, np.nan, np.nan

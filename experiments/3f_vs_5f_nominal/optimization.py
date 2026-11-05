@@ -49,7 +49,8 @@ def objective_single(X: Tensor, design, generator, current_n, bounds, NUM_CORES,
     # current_n means number of current, 3f is 2, 5f is 4
     X = unnormalize(X, bounds)
     barrier_X, current_X = X[:-current_n], X[-current_n:]
-    current = current_X.numpy()
+    current = np.zeros(2 * len(harmonics))
+    current[:current_n] = current_X.numpy()
 
     params = generator.X_to_params(barrier_X.numpy())
 

@@ -37,15 +37,15 @@ batch_size = 4
 max_candidate_tries = 10
 t_target = 6.0
 current_scale = 0.584  # according to PR79
-i_peak_3f = 2.5
 i_max_3f = 2.0
-i_peak_5f = current_scale * i_peak_3f
 i_max_5f = current_scale * i_max_3f
+current_half_bounds_3f = i_max_3f
+current_half_bounds_5f = (4 / np.pi) * i_max_5f
 v_max = 311.13
 
 for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max are set temperally to check the code can work.
-    ("motors.synrm_3f_60s", 3, np.array([[0.0, 0.0], [i_peak_3f, i_peak_3f]]), i_max_3f, v_max),
-    ("motors.synrm_5f_60s", 5, np.array([[0.0, 0.0, -i_peak_5f, -i_peak_5f], [i_peak_5f, i_peak_5f, i_peak_5f, i_peak_5f]]), i_max_5f, v_max),
+    ("motors.synrm_3f_60s", 3, np.array([[-current_half_bounds_3f] * 2, [current_half_bounds_3f] * 2]), i_max_3f, v_max),
+    ("motors.synrm_5f_60s", 5, np.array([[-current_half_bounds_5f] * 4, [current_half_bounds_5f] * 4]), i_max_5f, v_max),
 ]:
     module = importlib.import_module(module_name)
     Computation, Geometry = module.Computation, module.Geometry

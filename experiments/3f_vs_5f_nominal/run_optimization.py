@@ -18,6 +18,7 @@ from machine_design.config import load_config
 from machine_design.designs import load_design
 from machine_design.optimization import HacklGenerator_SixLambdas
 from optimization import (
+    current_inequality_constraints,
     current_peak,
     init_points,
     objective,
@@ -81,6 +82,7 @@ for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max 
 
     bounds = torch.from_numpy(np.hstack([np.vstack(generator.bounds), current_bounds]))
     bounds_normalized = normalize(bounds, bounds)
+    current_constraints = current_inequality_constraints(harmonics, i_max, bounds, current_n)
     train_X = normalize(train_X, bounds)
 
     def objective_lambda(Xs):
@@ -127,6 +129,7 @@ for module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max 
             candidates, _ = optimize_acqf(
                 acq_function=acq,
                 bounds=bounds_normalized,
+                inequality_constraints=current_constraints,
                 q=batch_size,
                 num_restarts=10,
                 raw_samples=128,

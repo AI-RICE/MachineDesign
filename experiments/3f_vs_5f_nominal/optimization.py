@@ -19,6 +19,17 @@ def current_peak(current, harmonics, n_points=720):  # h(theta)*i_s
     return np.max(np.abs(waveform))
 
 
+def current_inequality_constraints(harmonics, i_max, bounds, current_n, n_points=36):
+    theta = np.linspace(0, 2 * np.pi, n_points, endpoint=False)
+    columns = [trig(h * theta) for h in harmonics for trig in (np.cos, lambda t: -np.sin(t))]
+    a = torch.from_numpy(np.column_stack(columns))
+
+    indices = torch.arange(bounds.shape[1] - current_n, bounds.shape[1])
+    lb, ub = bounds[0, indices], bounds[1, indices]
+    a_scaled, offset = a * (ub - lb), a @ lb
+    return [c for row, off in zip(a_scaled, offset) for c in ((indices, row, float(-i_max - off)), (indices, -row, float(off - i_max)))]
+
+
 def objective_transform(loss, TorAvg, TorRippleRms, V_peak=np.nan, objective_fallback=None):
     if pd.isnull(TorAvg):
         if objective_fallback is None:

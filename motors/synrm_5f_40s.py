@@ -35,7 +35,7 @@ class Geometry(BaseGeometry):
 
 class Computation(ComputationBase):
     def set_oper_params(self):
-        f = 50  # [Hz]
+        f = self.f  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
         self.RotSign = 1
@@ -53,7 +53,7 @@ class Computation(ComputationBase):
             "Im3": "sqrt(Id3^2+Iq3^2)",
             "w": f"{w}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
-            "Nper": "1/10",  # number of included periods
+            "Nper": self.Nper if self.Nper is not None else "1/10",  # number of included periods
             "PointPer": "101",  # number of time points per period
         }
         self.set_initpos()

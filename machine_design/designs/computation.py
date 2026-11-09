@@ -10,7 +10,7 @@ from .reserved_variables import check_no_reserved_variable_names
 
 
 class ComputationBase(ABC):
-    def __init__(self, geometry: GeometryBase) -> None:
+    def __init__(self, geometry: GeometryBase, f: float = 50.0, Nper: str | None = None) -> None:
         self.geometry = geometry
         self.phases = "ABCDEFGHIJK"[: self.geometry.n_phases]
         self.setup_name = "Setup1"
@@ -19,6 +19,8 @@ class ComputationBase(ABC):
         self.set_solution_expressions()
         self.set_output_vars()
         self.set_post_params()
+        self.f = f
+        self.Nper = Nper
         check_no_reserved_variable_names(self.oper_params, self.output_vars)
 
     @abstractmethod

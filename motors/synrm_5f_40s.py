@@ -166,6 +166,7 @@ class Computation(ComputationBase):
             "Flux_e_q1": Flux_e_q1,
             "Flux_e_d3": Flux_e_d3,
             "Flux_e_q3": Flux_e_q3,
+            "theta_el": theta_el,
             "Moving1.Torque": torque,
         }
 

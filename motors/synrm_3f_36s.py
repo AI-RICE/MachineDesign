@@ -256,6 +256,7 @@ class Computation(ComputationBase):
             "L_d": L_d,
             "L_q": L_q,
             "Irms": Irms,
+            "theta_el": theta_el,
             "Moving1.Torque": torque,
         }
 

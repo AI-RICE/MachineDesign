@@ -100,8 +100,8 @@ def results_by_frequency(tmp_path_factory):
             results[f] = out
         yield results
     finally:
-        for design in designs:
-            design.close_project()
+        if designs:
+            designs[0].m2d.close_desktop()
 
 
 def test_fluxlinkage_independence(results_by_frequency):

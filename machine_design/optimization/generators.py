@@ -9,6 +9,87 @@ from shapely.geometry import LineString
 from ..designs.design import Design
 from .geometry import rotate
 
+TEMPLATES: dict[str, dict[str, dict]] = {
+    "IPMCore": {
+        "defaults": {
+            "PoleType": "1",
+            "D1": "DiaShaft + 0.6*(DiaRotorGap - DiaShaft)",
+            "O1": "2mm",
+            "O2": "10mm",
+            "B1": "2mm",
+            "Rib": "1mm",
+            "HRib": "2mm",
+            "DminMag": "1mm",
+            "ThickMag": "3mm",
+            "WidthMag": "15mm",
+        },
+        "bounds": {
+            "B1": (1.0, 4.0),
+            "ThickMag": (2.0, 6.0),
+            "WidthMag": (8.0, 20.0),
+            "Rib": (0.5, 2.0),
+        },
+    },
+    "PMCore": {
+        "defaults": {
+            "PoleType": "5",
+            "ThickMag": "8mm",
+            "WidthMag": "45mm",
+        },
+        "bounds": {
+            "ThickMag": (8.0, 8.0),
+            "WidthMag": (45.0, 45.0),
+        }},
+    "UPMCore": {
+        "skew": False,
+        "defaults": {
+            "DiaLimit": "0.5*DiaRotorGap",
+            "ThkBridge": "2mm",
+            "ThkWeb": "5mm",
+            "AngOffOut": "-10deg",
+            "ThkDuctOut": "2mm",
+            "ThkDuctIn": "5mm",
+            "ThkPostOut": "1mm",
+            "ThkPostIn": "-5mm",
+            "ThkPostMid": "1mm",
+            "WidMagOut": "13mm",
+            "GapMagOut": "0.2mm",
+            "WidMagIn": "30mm",
+            "GapMagIn": "0.2mm",
+        },
+        "bounds": {
+            "ThkBridge": (0.5, 2.0),
+            "ThkWeb": (2.0, 6.0),
+            "ThkDuctOut": (1.0, 4.0),
+            "ThkDuctIn": (2.0, 6.0),
+            "WidMagOut": (5.0, 15.0),
+            "WidMagIn": (10.0, 30.0),
+        },
+    },
+    "VPMCore": {
+        "defaults": {
+            "PoleType": "0",
+            "ThkDuct": "4mm",
+            "WidDuct": "30mm",
+            "ThkBridge": "2mm",
+            "AngPoleV": "140deg",
+            "ArcPole": "155deg",
+            "ThkPost": "1mm",
+            "DminMag": "2mm",
+            "WidMag": "30mm",
+            "GapMag": "0.2mm",
+        },
+        "bounds": {
+            "ThkDuct": (2.0, 6.0),
+            "WidDuct": (15.0, 30.0),
+            "ThkBridge": (0.5, 2.0),
+            "AngPoleV": (100.0, 160.0, "deg"),
+            "WidMag": (10.0, 30.0),
+        },
+    },
+}
+TEMPLATE_NAME = list(TEMPLATES)
+
 
 def get_arc(R: float, start_deg: float, end_deg: float, n_points: int) -> np.ndarray:
     angles = np.linspace(np.radians(start_deg), np.radians(end_deg), n_points)
@@ -677,3 +758,106 @@ class MagnetGenerator(BarrierGenerator):
             magnets.append([mag_pts[center_mask]])
 
         return magnets
+
+class MagnetGenerator_template(MagnetGenerator):
+    def __init__(self, design, r_stator_end, template: str = "IPMCore", **kwargs):
+        if template not in TEMPLATES:
+            raise KeyError(f"Unknown template {template!r}, choose from {TEMPLATE_NAME}")
+        if not TEMPLATES[template]["defaults"]:
+            raise NotImplementedError(f"Template {template!r} has no parameters defined in TEMPLATES yet")
+        super().__init__(design, r_stator_end, **kwargs)
+        self.design = design
+        self.template = template
+        self.default_template = TEMPLATES[template]["defaults"]
+        self.opt_bounds = TEMPLATES[template]["bounds"]
+        self.opt_names = list(self.opt_bounds)
+
+    @property
+    def bounds(self) -> tuple[np.ndarray, np.ndarray]:
+        lb = np.array([b[0] for b in self.opt_bounds.values()])
+        ub = np.array([b[1] for b in self.opt_bounds.values()])
+        return lb, ub
+
+    def random_parameters(self):
+        lb, ub = self.bounds
+        return np.random.uniform(lb, ub)
+
+    def X_to_params(self, X: np.ndarray):
+        X = np.asarray(X, dtype=float)
+        if len(X) != len(self.opt_names):
+            raise ValueError(f"X length {len(X)} does not match {len(self.opt_names)} parameters {self.opt_names}")
+        return X
+
+    def set_parameters(self, params) -> None:
+        units = [b[2] if len(b) > 2 else "mm" for b in self.opt_bounds.values()]
+        self.set_template(**{name: f"{value}{unit}" for name, value, unit in zip(self.opt_names, params, units)})
+
+    @staticmethod
+    def _var_name(udp_name: str) -> str:
+        return udp_name.replace("/", "_")
+
+    def generate_barriers(self) -> list[np.ndarray]:
+        return []
+
+    def _udp_params(self, info_core: str) -> list[list[str]]:
+        has_skew = TEMPLATES[self.template].get("skew", True)
+        return [
+            ["DiaGap", "DiaRotorGap"],
+            ["DiaYoke", "DiaShaft"],
+            ["Length", "0mm"],
+            *([["Skew", "0deg"]] if has_skew else []),
+            ["Poles", "Poles"],
+            *[[name, self._var_name(name)] for name in self.default_template],
+            ["LenRegion", "0mm"],
+            ["InfoCore", info_core], # 0 - core, 1 magnet
+        ]
+
+    def take_template(self, template_params: dict[str, str] | None = None):
+        m2d = self.design.m2d
+        geometry = self.design.geometry
+        modeler = m2d.modeler
+
+        params = {**self.default_template, **(template_params or {})}
+        m2d["DiaRotorGap"] = "DiaStatorGap - 2*Airgap"
+        for k, v in params.items():
+            m2d[self._var_name(k)] = v
+
+        rotor_id = modeler.create_udp(
+            dll=f"RMxprt/{self.template}.dll",
+            parameters=self._udp_params("0"),
+            library="syslib",
+            name="Rotor",
+        )
+        magnet_id = modeler.create_udp(
+            dll=f"RMxprt/{self.template}.dll",
+            parameters=self._udp_params("1"),
+            library="syslib",
+            name="Magnet",
+        )
+
+        modeler.set_working_coordinate_system("Section")
+        modeler.split(assignment=[rotor_id, magnet_id], plane="ZX", sides="NegativeOnly")
+        modeler.set_working_coordinate_system("Global")
+        modeler.split(assignment=[rotor_id, magnet_id], plane="ZX", sides="PositiveOnly")
+
+        rotor_id.material_name = geometry.Fe
+        magnet_names = modeler.separate_bodies(assignment=magnet_id.name)
+        magnet_ids = [modeler[name] for name in magnet_names]
+        for mag in magnet_ids:
+            if getattr(geometry, "magnet", None):
+                mag.material_name = geometry.magnet
+            mag.solve_inside = True
+            mag.color = (255, 0, 0)
+
+        geometry.rotor_id = rotor_id
+        geometry.magnet_ids = magnet_ids
+        geometry.magnet_cs_ids = []
+        return rotor_id, magnet_ids
+
+    def set_template(self, **shape: str) -> None:
+        allowed = {self._var_name(name) for name in self.default_template}
+        unknown = {k for k in shape if self._var_name(k) not in allowed}
+        if unknown:
+            raise KeyError(f"Unknown template parameters: {sorted(unknown)}")
+        for k, v in shape.items():
+            self.design.m2d[self._var_name(k)] = v

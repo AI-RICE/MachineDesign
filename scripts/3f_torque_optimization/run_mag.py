@@ -9,6 +9,7 @@ from machine_design.config import load_config
 from machine_design.designs import load_design
 from machine_design.optimization import (
     MagnetGenerator,
+    MagnetGenerator_template,
     analyze_results,
     plot_barriers,
     save_params,
@@ -35,7 +36,7 @@ file_name_aedt = f"{path_data}/{project_name}.aedt"
 geometry = Geometry()
 computation = Computation(geometry)
 design = load_design(file_name_aedt, project_name, design_name, aedt_version, geometry, computation)
-generators = [MagnetGenerator(design, r_stator_end, offset=offset)]
+generators = [MagnetGenerator_template(design, r_stator_end, offset=offset)]
 
 metadata = pd.DataFrame()
 for i in range(0, n_designs):

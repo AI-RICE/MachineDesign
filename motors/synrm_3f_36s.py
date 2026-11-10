@@ -210,7 +210,8 @@ class Computation(ComputationBase):
 
     def extract_results(self, solutions):
         # SI units
-        position = self.extract_expression(solutions, "Moving1.Position")
+        # position = self.extract_expression(solutions, "Moving1.Position")
+        position = np.unwrap(self.extract_expression(solutions, "Moving1.Position"))
         torque = self.extract_expression(solutions, "Moving1.Torque")
 
         theta_el = (position - np.deg2rad(self.InitPos)) * self.geometry.PolePairs

@@ -21,7 +21,7 @@ from optimization import current_peak
 config = load_config()
 aedt_version = config["aedt_version"]
 num_cores = config["num_cores"]
-n_designs = 10
+n_designs = 20
 r_stator_end = 0.7
 offset = 0.7 / 2
 plot_design = True

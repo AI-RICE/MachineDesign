@@ -30,7 +30,7 @@ torch.set_default_dtype(torch.float64)
 config = load_config()
 aedt_version = config["aedt_version"]
 num_cores = config["num_cores"]
-n_evals = 20
+n_evals = 150
 r_stator_end = 0.7
 offset = 0.7 / 2
 batch_size = 4

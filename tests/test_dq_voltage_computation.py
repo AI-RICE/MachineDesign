@@ -68,14 +68,16 @@ def _create_design(design_cls, project_name, file_name, extra_args=()):
     )
 
 
-def _fft_derivative(y, theta):
-    # theta spans a full period with theta[-1] == theta[0] + 2*pi (duplicate endpoint)
+def _induced_voltage_terms(y, theta):
+    # Mirrors how Maxwell computes InducedVoltage: a backward difference
+    # representing the derivative at t_{n-1/2}, with the flux term itself
+    # also sampled at that same half-step point (simple averaging). theta
+    # spans a full period with theta[-1] == theta[0] + 2*pi (duplicate endpoint).
+    h = theta[1] - theta[0]
     y = np.asarray(y)[:-1]
-    n = len(y)
-    harmonic = np.fft.fftfreq(n, d=1.0 / n)
-    dy = np.fft.ifft(1j * harmonic * np.fft.fft(y)).real
-    return np.r_[dy, dy[0]]
-
+    dy = (y - np.roll(y, 1)) / h
+    y_half = (y + np.roll(y, 1)) / 2
+    return np.r_[dy, dy[0]], np.r_[y_half, y_half[0]]
 
 
 def _compute_at(f, barriers, tmp_path):
@@ -117,23 +119,23 @@ def test_predicted_voltage_solve(results_by_frequency):
     ref = results_by_frequency[f_ref]
     theta = ref["theta_el"]
     Rstat = Computation(Geometry()).Rstat
-    dFlux_d=np.gradient(ref["Flux_d"],theta)
-    dFlux_q=np.gradient(ref["Flux_q"],theta)
+    dFlux_d, Flux_d_half = _induced_voltage_terms(ref["Flux_d"], theta)
+    dFlux_q, Flux_q_half = _induced_voltage_terms(ref["Flux_q"], theta)
 
     def _report(label, w, out):
-        V_d_pred = Rstat * current_setpoint[0] + w * (dFlux_d - ref["Flux_q"])
-        V_q_pred = Rstat * current_setpoint[1] + w * (dFlux_q + ref["Flux_d"])
+        V_d_pred = Rstat * current_setpoint[0] + w * (dFlux_d - Flux_q_half)
+        V_q_pred = Rstat * current_setpoint[1] + w * (dFlux_q + Flux_d_half)
+
         err_d = np.abs(V_d_pred - out["V_d"])
         err_q = np.abs(V_q_pred - out["V_q"])
         rel_d = np.linalg.norm(err_d) / np.linalg.norm(out["V_d"])
         rel_q = np.linalg.norm(err_q) / np.linalg.norm(out["V_q"])
         print(f"{label}: V_d rel err={rel_d:.4%}, V_q rel err={rel_q:.4%}")
-        assert rel_d<0.2, f"{label}: V_d rel err {rel_d: 0.2%} exceeds 20% threshold"
-        assert rel_q<0.05, f"{label}: V_q rel err {rel_q: 0.2%} exceeds 20% threshold"
+        assert rel_d < 0.01, f"{label}: V_d rel err {rel_d: 0.2%} exceeds 1% threshold"
+        assert rel_q < 0.01, f"{label}: V_q rel err {rel_q: 0.2%} exceeds 1% threshold"
 
     _report(f"self-check at {f_ref}Hz", 2 * np.pi * f_ref, ref)
     for f, out in results_by_frequency.items():
         if f == f_ref:
             continue
         _report(f"{f}Hz", 2 * np.pi * f, out)
-

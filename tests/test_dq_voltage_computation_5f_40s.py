@@ -139,11 +139,8 @@ def test_predicted_voltage_solve(results_by_frequency):
         for harmonic, V_d_pred, V_q_pred in ((1, V_d1_pred, V_q1_pred), (3, V_d3_pred, V_q3_pred)):
             V_d_actual = out[f"V_d{harmonic}"][-point_per:]
             V_q_actual = out[f"V_q{harmonic}"][-point_per:]
-            abs_d = np.linalg.norm(V_d_pred - V_d_actual)
-            abs_q = np.linalg.norm(V_q_pred - V_q_actual)
             rel_d = np.linalg.norm(V_d_pred - V_d_actual) / np.linalg.norm(V_d_actual)
             rel_q = np.linalg.norm(V_q_pred - V_q_actual) / np.linalg.norm(V_q_actual)
-            print(f"{label} h={harmonic}: V_d abs err {abs_d:.4f}V (actual norm {np.linalg.norm(V_d_actual):.4f}V), V_q abs err {abs_q:.4f}V (actual norm {np.linalg.norm(V_q_actual):.4f}V)")
             assert rel_d < 1e-3, f"{label} h={harmonic}: V_d rel err {rel_d: 0.2%} exceeds 0.1% threshold"
             assert rel_q < 1e-3, f"{label} h={harmonic}: V_q rel err {rel_q: 0.2%} exceeds 0.1% threshold"
 

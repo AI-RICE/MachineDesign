@@ -190,7 +190,7 @@ class Computation(ComputationBase):
             "w": f"{w}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
             "Nper": self.Nper if self.Nper is not None else "1/6",  # number of included periods
-            "PointPer": "1001",  # number of time points per period
+            "PointPer": "101",  # number of time points per period
         }
         self.set_initpos()
 
@@ -210,6 +210,8 @@ class Computation(ComputationBase):
 
     def extract_results(self, solutions):
         # SI units
+        # Ansys raw field vars: Moving1.Position, Moving1.Torque, flux_phases, vind_phases, current_phases, L_raw
+        # Computed with Python: theta_el, Flux_d/q, Ui_d/q, I_d/q, V_d/q, L_d/q, Irms
         # position = self.extract_expression(solutions, "Moving1.Position")
         position = np.unwrap(self.extract_expression(solutions, "Moving1.Position"))
         torque = self.extract_expression(solutions, "Moving1.Torque")

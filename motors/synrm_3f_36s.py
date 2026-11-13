@@ -230,8 +230,10 @@ class Computation(ComputationBase):
             phase_offset = -2 * np.pi * k / self.geometry.n_phases
             dI_dt_phases[:, k] = -Im * self.w * np.sin(self.w * time + phase_offset + epsI)
 
-        V_phases = vind_phases + self.Rstat * current_phases + self.Lew * dI_dt_phases
-        V_d, V_q = to_dq(V_phases, theta_el, harmonic=1)
+        V_rest_phases = self.Rstat * current_phases + self.Lew * dI_dt_phases
+        V_rest_d, V_rest_q = to_dq(V_rest_phases, theta_el, harmonic=1)
+        V_d = Ui_d + V_rest_d
+        V_q = Ui_q + V_rest_q
 
         L_d_row = np.zeros((len(position), self.geometry.n_phases))
         L_q_row = np.zeros((len(position), self.geometry.n_phases))
@@ -256,6 +258,7 @@ class Computation(ComputationBase):
             "L_d": L_d,
             "L_q": L_q,
             "Irms": Irms,
+            "theta_el": theta_el,
             "Moving1.Torque": torque,
         }
 

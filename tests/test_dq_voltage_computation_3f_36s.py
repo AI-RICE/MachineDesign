@@ -6,7 +6,7 @@ V_qh=Rs*Iqh+w*(dpsi_qh/dtheta_el+h*ps_dh)
 
 Run explicitly with:
 
-    pytest -m ansys tests/test_dq_voltage_speed_independence.py
+    pytest -m ansys tests/test_dq_voltage_computation_3f_36s.py
 
 Requires a running Ansys Electronics Desktop session and a free license seat.
 """
@@ -27,7 +27,7 @@ OFFSET = 0.35
 SEED = 42
 NUM_CORES = 1
 f_ref = 50
-Nper = "1"
+Nper = 2
 frequencies = (25.0, 50.0, 75.0, 100.0)
 current_setpoint = (1.5, 1.5)
 
@@ -68,21 +68,19 @@ def _create_design(design_cls, project_name, file_name, extra_args=()):
     )
 
 
-def _induced_voltage_terms(y, theta):
-    # Mirrors how Maxwell computes InducedVoltage: a backward difference
-    # representing the derivative at t_{n-1/2}, with the flux term itself
-    # also sampled at that same half-step point (simple averaging). theta
-    # spans a full period with theta[-1] == theta[0] + 2*pi (duplicate endpoint).
+def _last_period_terms(y, theta, point_per):
+    # backward difference using real adjacent samples
+    y = np.asarray(y)[-(point_per + 1) :]
+    theta = np.asarray(theta)[-(point_per + 1) :]
     h = theta[1] - theta[0]
-    y = np.asarray(y)[:-1]
-    dy = (y - np.roll(y, 1)) / h
-    y_half = (y + np.roll(y, 1)) / 2
-    return np.r_[dy, dy[0]], np.r_[y_half, y_half[0]]
+    dy = (y[1:] - y[:-1]) / h
+    y_half = (y[1:] + y[:-1]) / 2
+    return dy, y_half
 
 
 def _compute_at(f, barriers, tmp_path):
     geometry = Geometry()
-    computation = Computation(geometry, f=f, Nper=Nper)
+    computation = Computation(geometry, f=f, Nper=str(Nper))
     design = _create_design(LiveDesign, f"verifySpeedIndependence_f{f:g}", str(tmp_path / f"f{f:g}.aedt"), extra_args=(geometry, computation))
     _add_rotor(design, barriers)
     out = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
@@ -118,24 +116,27 @@ def test_fluxlinkage_independence(results_by_frequency):
 def test_predicted_voltage_solve(results_by_frequency):
     ref = results_by_frequency[f_ref]
     theta = ref["theta_el"]
-    Rstat = Computation(Geometry()).Rstat
-    dFlux_d, Flux_d_half = _induced_voltage_terms(ref["Flux_d"], theta)
-    dFlux_q, Flux_q_half = _induced_voltage_terms(ref["Flux_q"], theta)
+    computation = Computation(Geometry())
+    Rstat = computation.Rstat
+    point_per = int(computation.oper_params["PointPer"])
+    assert len(theta) == Nper * (point_per - 1) + 1, f"unexpected array length {len(theta)}, check Ansys output convention"
+    dFlux_d, Flux_d_half = _last_period_terms(ref["Flux_d"], theta, point_per)
+    dFlux_q, Flux_q_half = _last_period_terms(ref["Flux_q"], theta, point_per)
 
-    def _report(label, w, out):
+    def _check(label, w, out):
         V_d_pred = Rstat * current_setpoint[0] + w * (dFlux_d - Flux_q_half)
         V_q_pred = Rstat * current_setpoint[1] + w * (dFlux_q + Flux_d_half)
 
-        err_d = np.abs(V_d_pred - out["V_d"])
-        err_q = np.abs(V_q_pred - out["V_q"])
-        rel_d = np.linalg.norm(err_d) / np.linalg.norm(out["V_d"])
-        rel_q = np.linalg.norm(err_q) / np.linalg.norm(out["V_q"])
-        print(f"{label}: V_d rel err={rel_d:.4%}, V_q rel err={rel_q:.4%}")
-        assert rel_d < 0.01, f"{label}: V_d rel err {rel_d: 0.2%} exceeds 1% threshold"
-        assert rel_q < 0.01, f"{label}: V_q rel err {rel_q: 0.2%} exceeds 1% threshold"
+        V_d_actual = out["V_d"][-point_per:]
+        V_q_actual = out["V_q"][-point_per:]
 
-    _report(f"self-check at {f_ref}Hz", 2 * np.pi * f_ref, ref)
+        rel_d = np.linalg.norm(V_d_pred - V_d_actual) / np.linalg.norm(V_d_actual)
+        rel_q = np.linalg.norm(V_q_pred - V_q_actual) / np.linalg.norm(V_q_actual)
+        assert rel_d < 1e-3, f"{label}: V_d rel err {rel_d: 0.2%} exceeds 0.1% threshold"
+        assert rel_q < 1e-3, f"{label}: V_q rel err {rel_q: 0.2%} exceeds 0.1% threshold"
+
+    _check(f"self-check at {f_ref}Hz", 2 * np.pi * f_ref, ref)
     for f, out in results_by_frequency.items():
         if f == f_ref:
             continue
-        _report(f"{f}Hz", 2 * np.pi * f, out)
+        _check(f"{f}Hz", 2 * np.pi * f, out)

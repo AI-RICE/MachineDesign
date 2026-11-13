@@ -90,7 +90,7 @@ def main():
             axes[row, 1].set_title("period 1 vs period 2 (overlaid)")
             axes[row, 1].legend()
 
-    for ax in list(axes[:,0])+ list(axes[:, 1]):
+    for ax in list(axes[:, 0]) + list(axes[:, 1]):
         ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda val, pos: f"{val:g}$\\pi$"))
 
     axes[-1, 0].set_xlabel("theta_el/pi [rad]")

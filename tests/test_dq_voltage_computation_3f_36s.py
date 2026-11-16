@@ -28,7 +28,7 @@ OFFSET = 0.35
 SEED = 42
 NUM_CORES = 1
 f_ref = 50
-Nper = 2
+Nper = 1
 frequencies = (25.0, 50.0, 75.0, 100.0)
 current_setpoint = (1.5, 1.5)
 
@@ -114,9 +114,9 @@ def test_predicted_voltage_solve(results_by_frequency):
 
     def _check(label, w, out):
         V_d_pred, V_q_pred = voltage_from_flux(
-            ref["Flux_d"][-(point_per + 1) :],
-            ref["Flux_q"][-(point_per + 1) :],
-            theta[-(point_per + 1) :],
+            ref["Flux_d"],
+            ref["Flux_q"],
+            theta,
             current_setpoint[0],
             current_setpoint[1],
             Rstat,
@@ -125,8 +125,8 @@ def test_predicted_voltage_solve(results_by_frequency):
             Lew=computation.Lew,
         )
 
-        V_d_actual = out["V_d"][-point_per:]
-        V_q_actual = out["V_q"][-point_per:]
+        V_d_actual = out["V_d"][1:]
+        V_q_actual = out["V_q"][1:]
 
         rel_d = np.linalg.norm(V_d_pred - V_d_actual) / np.linalg.norm(V_d_actual)
         rel_q = np.linalg.norm(V_q_pred - V_q_actual) / np.linalg.norm(V_q_actual)

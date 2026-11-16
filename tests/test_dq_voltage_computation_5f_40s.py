@@ -16,6 +16,7 @@ import pytest
 
 from machine_design.config import load_config
 from machine_design.designs.design import Design as LiveDesign
+from machine_design.generic.transforms import voltage_from_flux
 from machine_design.optimization.generators import HacklGenerator_OneLambda
 from motors.synrm_5f_40s import Computation, Geometry
 
@@ -27,7 +28,6 @@ OFFSET = 0.35
 SEED = 42
 NUM_CORES = 1
 f_ref = 50
-Nper = 2
 PointPer = "201"
 frequencies = (25.0, 50.0, 75.0, 100.0)
 current_setpoint = (1.5, 1.5, 0.5, 0.5)
@@ -69,19 +69,9 @@ def _create_design(design_cls, project_name, file_name, extra_args=()):
     )
 
 
-def _last_period_terms(y, theta, point_per):
-    # backward difference using real adjacent samples
-    y = np.asarray(y)[-(point_per + 1) :]
-    theta = np.asarray(theta)[-(point_per + 1) :]
-    h = theta[1] - theta[0]
-    dy = (y[1:] - y[:-1]) / h
-    y_half = (y[1:] + y[:-1]) / 2
-    return dy, y_half
-
-
 def _compute_at(f, barriers, tmp_path):
     geometry = Geometry()
-    computation = Computation(geometry, f=f, Nper=str(Nper))
+    computation = Computation(geometry, f=f)
     computation.oper_params["PointPer"] = PointPer
     design = _create_design(LiveDesign, f"verifySpeedIndependence_f{f:g}", str(tmp_path / f"f{f:g}.aedt"), extra_args=(geometry, computation))
     _add_rotor(design, barriers)
@@ -122,23 +112,15 @@ def test_predicted_voltage_solve(results_by_frequency):
     computation = Computation(Geometry())
     computation.oper_params["PointPer"] = PointPer
     Rstat = computation.Rstat
-    point_per = int(computation.oper_params["PointPer"])
-    assert len(theta) == Nper * (point_per - 1) + 1, f"unexpected array length {len(theta)}, check Ansys output convention"
-    dFlux_d1, Flux_d1_half = _last_period_terms(ref["Flux_d1"], theta, point_per)
-    dFlux_q1, Flux_q1_half = _last_period_terms(ref["Flux_q1"], theta, point_per)
-    dFlux_d3, Flux_d3_half = _last_period_terms(ref["Flux_d3"], theta, point_per)
-    dFlux_q3, Flux_q3_half = _last_period_terms(ref["Flux_q3"], theta, point_per)
+    assert len(theta) >= 2, f"unexpected array length {len(theta)}, check Ansys output convention"
 
     def _check(label, w, out):
         Id1, Iq1, Id3, Iq3 = current_setpoint
-        V_d1_pred = Rstat * Id1 + w * (dFlux_d1 - Flux_q1_half)
-        V_q1_pred = Rstat * Iq1 + w * (dFlux_q1 + Flux_d1_half)
-        V_d3_pred = Rstat * Id3 + w * (dFlux_d3 - 3 * Flux_q3_half)
-        V_q3_pred = Rstat * Iq3 + w * (dFlux_q3 + 3 * Flux_d3_half)
 
-        for harmonic, V_d_pred, V_q_pred in ((1, V_d1_pred, V_q1_pred), (3, V_d3_pred, V_q3_pred)):
-            V_d_actual = out[f"V_d{harmonic}"][-point_per:]
-            V_q_actual = out[f"V_q{harmonic}"][-point_per:]
+        for harmonic, Idh, Iqh, Flux_dh, Flux_qh in ((1, Id1, Iq1, ref["Flux_d1"], ref["Flux_q1"]), (3, Id3, Iq3, ref["Flux_d3"], ref["Flux_q3"])):
+            V_d_pred, V_q_pred = voltage_from_flux(Flux_dh, Flux_qh, theta, Idh, Iqh, Rstat, w, harmonic=harmonic, Lew=computation.Lew)
+            V_d_actual = out[f"V_d{harmonic}"][1:]
+            V_q_actual = out[f"V_q{harmonic}"][1:]
             rel_d = np.linalg.norm(V_d_pred - V_d_actual) / np.linalg.norm(V_d_actual)
             rel_q = np.linalg.norm(V_q_pred - V_q_actual) / np.linalg.norm(V_q_actual)
             assert rel_d < 1e-3, f"{label} h={harmonic}: V_d rel err {rel_d: 0.2%} exceeds 0.1% threshold"

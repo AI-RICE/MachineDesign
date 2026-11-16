@@ -108,8 +108,7 @@ def test_predicted_voltage_solve(results_by_frequency):
     theta = ref["theta_el"]
     computation = Computation(Geometry())
     Rstat = computation.Rstat
-    point_per = int(computation.oper_params["PointPer"])
-    assert len(theta) >=2, f"unexpected array length {len(theta)}, check Ansys output convention"
+    assert len(theta) >= 2, f"unexpected array length {len(theta)}, check Ansys output convention"
 
     def _check(label, w, out):
         V_d_pred, V_q_pred = voltage_from_flux(

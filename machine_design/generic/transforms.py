@@ -76,8 +76,8 @@ def voltage_from_flux(Flux_dh, Flux_qh, theta_el, Idh, Iqh, Rstat, w, harmonic, 
     Induced voltage. Backward difference needs a real previous sample, so the output is
     one sample shorter than the input (drop index 0 at t=0).
     """
-    dFlux_dh = (Flux_dh[1:] - Flux_dh[:-1]) / (theta_el[1:] - theta_el[:-1])
-    dFlux_qh = (Flux_qh[1:] - Flux_qh[:-1]) / (theta_el[1:] - theta_el[:-1])
+    dFlux_dh = np.diff(Flux_dh) / np.diff(theta_el)
+    dFlux_qh = np.diff(Flux_qh) / np.diff(theta_el)
     Flux_dh_half = (Flux_dh[1:] + Flux_dh[:-1]) / 2
     Flux_qh_half = (Flux_qh[1:] + Flux_qh[:-1]) / 2
     V_dh = Rstat * Idh + w * (dFlux_dh - harmonic * Flux_qh_half) - harmonic * w * Lew * Iqh

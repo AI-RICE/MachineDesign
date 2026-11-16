@@ -71,6 +71,20 @@ def induced_voltage_angle(theta_el):
     return theta_el - np.r_[dtheta[0], dtheta] / 2
 
 
+def voltage_from_flux(Flux_dh, Flux_qh, theta_el, Idh, Iqh, Rstat, w, harmonic, Lew):
+    """compute V_dh, V_qh for constant dq currents from dq flux linkage, without Ansys's
+    Induced voltage. Backward difference nedds a real previous sample, so the output is
+    one sample shorter than the input (drop index 0 at t=0).
+    """
+    dFlux_dh = (Flux_dh[1:] - Flux_qh[:-1]) / (theta_el[1:] - theta_el[:-1])
+    dFlux_qh = (Flux_qh[1:] - Flux_qh[:-1]) / (theta_el[1:] - theta_el[:-1])
+    Flux_dh_half = (Flux_dh[1:] + Flux_dh[:-1]) / 2
+    Flux_qh_half = (Flux_qh[1:] + Flux_qh[:-1]) / 2
+    V_dh = Rstat * Idh + w * (dFlux_dh - harmonic * Flux_qh_half) - harmonic * w * Lew * Iqh
+    V_qh = Rstat * Iqh + w * (dFlux_qh - harmonic * Flux_dh_half) - harmonic * w * Lew * Idh
+    return V_dh, V_qh
+
+
 def _phase_angles(theta_el, harmonic, n_phases):
     """h * (theta_el - 2*pi*k/m) for k = 0..m-1, shaped (..., m)."""
     theta_el = np.asarray(theta_el, dtype=float)[..., None]

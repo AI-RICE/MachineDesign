@@ -18,14 +18,13 @@ TEMPLATES: dict[str, dict[str, dict]] = {
             "O2": "10mm",
             "B1": "2mm",
             "Rib": "1mm",
-            "HRib": "2mm",
+            "HRib": "0.5*B1",  # must stay below ThickMag (= B1), otherwise the magnet UDP fails
             "DminMag": "1mm",
-            "ThickMag": "3mm",
+            "ThickMag": "B1",  # magnet as thick as the barrier -> no wider pocket
             "WidthMag": "15mm",
         },
         "bounds": {
             "B1": (1.0, 4.0),
-            "ThickMag": (2.0, 6.0),
             "WidthMag": (8.0, 20.0),
             "Rib": (0.5, 2.0),
         },
@@ -760,7 +759,10 @@ class MagnetGenerator(BarrierGenerator):
         return magnets
 
 class MagnetGenerator_template(MagnetGenerator):
-    def __init__(self, design, r_stator_end, template: str = "IPMCore", **kwargs):
+    def __init__(self, design, r_stator_end, template: str = "IPMCore", fill_barriers: bool = False, **kwargs):
+        # fill_barriers=True: every template barrier is completely filled with magnet material
+        # fill_barriers=False: the template's own magnets are used, trimmed to the barriers
+        self.fill_barriers = fill_barriers
         if template not in TEMPLATES:
             raise KeyError(f"Unknown template {template!r}, choose from {TEMPLATE_NAME}")
         if not TEMPLATES[template]["defaults"]:
@@ -790,7 +792,8 @@ class MagnetGenerator_template(MagnetGenerator):
 
     def set_parameters(self, params) -> None:
         units = [b[2] if len(b) > 2 else "mm" for b in self.opt_bounds.values()]
-        self.set_template(**{name: f"{value}{unit}" for name, value, unit in zip(self.opt_names, params, units)})
+        self.current_params = {name: f"{value}{unit}" for name, value, unit in zip(self.opt_names, params, units)}
+        self.set_template(**self.current_params)
 
     @staticmethod
     def _var_name(udp_name: str) -> str:
@@ -817,7 +820,11 @@ class MagnetGenerator_template(MagnetGenerator):
         geometry = self.design.geometry
         modeler = m2d.modeler
 
-        params = {**self.default_template, **(template_params or {})}
+        unclassified = list(modeler.oeditor.GetObjectsInGroup("Unclassified"))
+        self._delete_names(modeler, unclassified)
+        before = set(self._all_objects(modeler))
+
+        params = {**self.default_template, **getattr(self, "current_params", {}), **(template_params or {})}
         m2d["DiaRotorGap"] = "DiaStatorGap - 2*Airgap"
         for k, v in params.items():
             m2d[self._var_name(k)] = v
@@ -828,31 +835,96 @@ class MagnetGenerator_template(MagnetGenerator):
             library="syslib",
             name="Rotor",
         )
-        magnet_id = modeler.create_udp(
-            dll=f"RMxprt/{self.template}.dll",
-            parameters=self._udp_params("1"),
-            library="syslib",
-            name="Magnet",
-        )
+        
+        holes_name = "Magnet" if self.fill_barriers else "RotorHoles"
+        holes_id = modeler.create_circle(origin=[0, 0, 0], radius="DiaRotorGap/2", is_covered=True, name=holes_name)
+        shaft_tmp = modeler.create_circle(origin=[0, 0, 0], radius="DiaShaft/2", is_covered=True, name="ShaftTmp")
+        modeler.subtract(blank_list=[holes_id], tool_list=[shaft_tmp], keep_originals=False)
 
+        magnet_id = None
+        if not self.fill_barriers:
+            magnet_id = modeler.create_udp(
+                dll=f"RMxprt/{self.template}.dll",
+                parameters=self._udp_params("1"),
+                library="syslib",
+                name="Magnet",
+            )
+
+        if not rotor_id or (not self.fill_barriers and not magnet_id):
+            self._cleanup_new(modeler, before)
+            return None
+
+        modeler.purge_history([rotor_id.name] + ([magnet_id.name] if magnet_id else []))
+
+        to_split = [rotor_id, holes_id] + ([magnet_id] if magnet_id else [])
         modeler.set_working_coordinate_system("Section")
-        modeler.split(assignment=[rotor_id, magnet_id], plane="ZX", sides="NegativeOnly")
+        modeler.split(assignment=to_split, plane="ZX", sides="NegativeOnly")
         modeler.set_working_coordinate_system("Global")
-        modeler.split(assignment=[rotor_id, magnet_id], plane="ZX", sides="PositiveOnly")
+        modeler.split(assignment=to_split, plane="ZX", sides="PositiveOnly")
 
         rotor_id.material_name = geometry.Fe
-        magnet_names = modeler.separate_bodies(assignment=magnet_id.name)
-        magnet_ids = [modeler[name] for name in magnet_names]
+        modeler.subtract(blank_list=[holes_id], tool_list=[rotor_id], keep_originals=True)
+
+        if magnet_id:
+            if modeler.intersect(assignment=[magnet_id.name, holes_id.name], keep_originals=False) is None:
+                self._cleanup_new(modeler, before)
+                return None
+            holes_id = magnet_id
+
+        separated = modeler.separate_bodies(assignment=holes_id.name)
+        magnet_ids = list(separated) if separated else [holes_id]
+
+        slivers = [mag for mag in magnet_ids if mag.faces[0].area < 1e-3]
+        if slivers:
+            modeler.delete([mag.name for mag in slivers])
+        magnet_ids = [mag for mag in magnet_ids if mag not in slivers]
+        if not magnet_ids:
+            self._cleanup_new(modeler, before)
+            return None
+
+        self._cleanup_new(modeler, before, keep=[rotor_id.name] + [mag.name for mag in magnet_ids])
+
+        geometry.rotor_id = rotor_id
+        geometry.magnet_ids = magnet_ids
+        geometry.magnet_cs_ids = []
+
         for mag in magnet_ids:
             if getattr(geometry, "magnet", None):
                 mag.material_name = geometry.magnet
             mag.solve_inside = True
             mag.color = (255, 0, 0)
+            geometry.assign_magnet_cs(m2d, mag.name, self._magnetization_angle(mag, radial=self.fill_barriers))
 
-        geometry.rotor_id = rotor_id
-        geometry.magnet_ids = magnet_ids
-        geometry.magnet_cs_ids = []
+        modeler.set_working_coordinate_system("Global")
+        self.design.reassign_motion_setup()
         return rotor_id, magnet_ids
+
+    @staticmethod
+    def _all_objects(modeler) -> list[str]:
+        return list(modeler.oeditor.GetMatchedObjectName("*"))
+
+    @staticmethod
+    def _delete_names(modeler, names) -> None:
+        if names:
+            modeler.oeditor.Delete(["NAME:Selections", "Selections:=", ",".join(names)])
+            modeler.refresh_all_ids()
+
+    def _cleanup_new(self, modeler, before: set[str], keep=()) -> None:
+        new = [name for name in self._all_objects(modeler) if name not in before and name not in keep]
+        self._delete_names(modeler, new)
+        modeler.set_working_coordinate_system("Global")
+
+    @staticmethod
+    def _magnetization_angle(mag, radial: bool = False) -> float:
+        pts = np.array([v.position[:2] for v in mag.vertices], dtype=float)
+        center = pts.mean(axis=0)
+        if radial:
+            return float(np.degrees(np.arctan2(center[1], center[0])))
+        _, _, vt = np.linalg.svd(pts - center)
+        normal = np.array([-vt[0, 1], vt[0, 0]])
+        if np.dot(normal, center) < 0:
+            normal = -normal
+        return float(np.degrees(np.arctan2(normal[1], normal[0])))
 
     def set_template(self, **shape: str) -> None:
         allowed = {self._var_name(name) for name in self.default_template}

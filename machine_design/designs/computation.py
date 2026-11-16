@@ -162,7 +162,7 @@ class ComputationBase(ABC):
         # Delete solution data to prevent the saving size to explode
         m2d.odesign.DeleteFullVariation("All", False)
 
-        return result
+        return result, solutions
 
     def delete_rotor_mesh(self) -> None:
         if self.rotor_mesh is not None:

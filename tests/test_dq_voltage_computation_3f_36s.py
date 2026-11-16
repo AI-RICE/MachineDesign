@@ -17,6 +17,7 @@ import pytest
 from machine_design.config import load_config
 from machine_design.designs.design import Design as LiveDesign
 from machine_design.optimization.generators import HacklGenerator_OneLambda
+from machine_design.generic.transforms import voltage_from_flux
 from motors.synrm_3f_36s import Computation, Geometry
 
 pytestmark = pytest.mark.ansys
@@ -68,16 +69,6 @@ def _create_design(design_cls, project_name, file_name, extra_args=()):
     )
 
 
-def _last_period_terms(y, theta, point_per):
-    # backward difference using real adjacent samples
-    y = np.asarray(y)[-(point_per + 1) :]
-    theta = np.asarray(theta)[-(point_per + 1) :]
-    h = theta[1] - theta[0]
-    dy = (y[1:] - y[:-1]) / h
-    y_half = (y[1:] + y[:-1]) / 2
-    return dy, y_half
-
-
 def _compute_at(f, barriers, tmp_path):
     geometry = Geometry()
     computation = Computation(geometry, f=f, Nper=str(Nper))
@@ -120,12 +111,19 @@ def test_predicted_voltage_solve(results_by_frequency):
     Rstat = computation.Rstat
     point_per = int(computation.oper_params["PointPer"])
     assert len(theta) == Nper * (point_per - 1) + 1, f"unexpected array length {len(theta)}, check Ansys output convention"
-    dFlux_d, Flux_d_half = _last_period_terms(ref["Flux_d"], theta, point_per)
-    dFlux_q, Flux_q_half = _last_period_terms(ref["Flux_q"], theta, point_per)
 
     def _check(label, w, out):
-        V_d_pred = Rstat * current_setpoint[0] + w * (dFlux_d - Flux_q_half)
-        V_q_pred = Rstat * current_setpoint[1] + w * (dFlux_q + Flux_d_half)
+        V_d_pred, V_q_pred = voltage_from_flux(
+            ref["Flux_d"][-(point_per + 1) :],
+            ref["Flux_q"][-(point_per + 1) :],
+            theta[-(point_per + 1) :],
+            current_setpoint[0],
+            current_setpoint[1],
+            Rstat,
+            w,
+            harmonic=1,
+            Lew=computation.Lew,
+        )
 
         V_d_actual = out["V_d"][-point_per:]
         V_q_actual = out["V_q"][-point_per:]

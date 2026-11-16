@@ -53,7 +53,7 @@ class Computation(ComputationBase):
             "Im3": "sqrt(Id3^2+Iq3^2)",
             "w": f"{w}Hz",
             "RotSpeed": f"{RotSpeed}rpm",
-            "Nper": self.Nper if self.Nper is not None else "1/10",  # number of included periods
+            "Nper": "1/10",  # number of included periods
             "PointPer": "101",  # number of time points per period
         }
         self.set_initpos()

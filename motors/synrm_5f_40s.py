@@ -8,7 +8,7 @@ import numpy as np
 from ansys.aedt.core import Maxwell2d
 
 from machine_design.designs.computation import ComputationBase
-from machine_design.generic.transforms import electrical_angle, to_dq
+from machine_design.generic.transforms import electrical_angle, induced_voltage_angle, to_dq
 
 from .synrm_3f_36s import Geometry as BaseGeometry
 
@@ -80,13 +80,14 @@ class Computation(ComputationBase):
         torque = self.extract_expression(solutions, "Moving1.Torque")
 
         theta_el = electrical_angle(position, np.deg2rad(self.InitPos), self.geometry.PolePairs, self.RotSign, degrees=False)
+        theta_vind = induced_voltage_angle(theta_el)
 
         flux_phases, vind_phases, current_phases, L_raw = self.extract_phase_results(solutions)
 
         Flux_d1, Flux_q1 = to_dq(flux_phases, theta_el, harmonic=1)
         Flux_d3, Flux_q3 = to_dq(flux_phases, theta_el, harmonic=3)
-        Vind_d1, Vind_q1 = to_dq(vind_phases, theta_el, harmonic=1)
-        Vind_d3, Vind_q3 = to_dq(vind_phases, theta_el, harmonic=3)
+        Vind_d1, Vind_q1 = to_dq(vind_phases, theta_vind, harmonic=1)
+        Vind_d3, Vind_q3 = to_dq(vind_phases, theta_vind, harmonic=3)
         I_d1, I_q1 = to_dq(current_phases, theta_el, harmonic=1)
         I_d3, I_q3 = to_dq(current_phases, theta_el, harmonic=3)
 
@@ -101,10 +102,14 @@ class Computation(ComputationBase):
             phase_offset = -2 * np.pi * k / self.geometry.n_phases
             dI_dt_phases[:, k] = -Im1 * self.w * np.sin(self.w * time + phase_offset + epsI1 - np.pi) - Im3 * 3 * self.w * np.sin(3 * (self.w * time + phase_offset) + epsI3 - np.pi)
 
-        V_phases = vind_phases + self.Rstat * current_phases + self.Lew * dI_dt_phases
+        V_rest_phases = self.Rstat * current_phases + self.Lew * dI_dt_phases
 
-        V_d1, V_q1 = to_dq(V_phases, theta_el, harmonic=1)
-        V_d3, V_q3 = to_dq(V_phases, theta_el, harmonic=3)
+        V_rest_d1, V_rest_q1 = to_dq(V_rest_phases, theta_el, harmonic=1)
+        V_rest_d3, V_rest_q3 = to_dq(V_rest_phases, theta_el, harmonic=3)
+        V_d1 = Vind_d1 + V_rest_d1
+        V_q1 = Vind_q1 + V_rest_q1
+        V_d3 = Vind_d3 + V_rest_d3
+        V_q3 = Vind_q3 + V_rest_q3
 
         L_d1_row = np.zeros((len(time), self.geometry.n_phases))
         L_q1_row = np.zeros((len(time), self.geometry.n_phases))

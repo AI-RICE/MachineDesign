@@ -8,7 +8,6 @@ import pandas as pd
 from machine_design.config import load_config
 from machine_design.designs import load_design
 from machine_design.optimization import (
-    MagnetGenerator,
     MagnetGenerator_template,
     analyze_results,
     plot_barriers,
@@ -33,10 +32,19 @@ for path in [path_data, path_results]:
     os.makedirs(path, exist_ok=True)
 file_name_aedt = f"{path_data}/{project_name}.aedt"
 
+template = "PMCore"  # choose one from TEMPLATE_NAME
+fill_barriers = False  # True = fill the whole barrier with magnets
+template_defaults = {
+    "PoleType": "5",
+}  # will add for all templates later, need to check first
+template_bounds = {
+    # addind later, need to check first
+}
+
 geometry = Geometry()
 computation = Computation(geometry)
 design = load_design(file_name_aedt, project_name, design_name, aedt_version, geometry, computation)
-generators = [MagnetGenerator_template(design, r_stator_end, offset=offset)]
+generators = [MagnetGenerator_template(design, r_stator_end, template=template, offset=offset)]
 
 metadata = pd.DataFrame()
 for i in range(0, n_designs):

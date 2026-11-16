@@ -38,7 +38,8 @@ TEMPLATES: dict[str, dict[str, dict]] = {
         "bounds": {
             "ThickMag": (8.0, 8.0),
             "WidthMag": (45.0, 45.0),
-        }},
+        },
+    },
     "UPMCore": {
         "skew": False,
         "defaults": {
@@ -758,6 +759,7 @@ class MagnetGenerator(BarrierGenerator):
 
         return magnets
 
+
 class MagnetGenerator_template(MagnetGenerator):
     def __init__(self, design, r_stator_end, template: str = "IPMCore", fill_barriers: bool = False, **kwargs):
         # fill_barriers=True: every template barrier is completely filled with magnet material
@@ -812,7 +814,7 @@ class MagnetGenerator_template(MagnetGenerator):
             ["Poles", "Poles"],
             *[[name, self._var_name(name)] for name in self.default_template],
             ["LenRegion", "0mm"],
-            ["InfoCore", info_core], # 0 - core, 1 magnet
+            ["InfoCore", info_core],  # 0 - core, 1 magnet
         ]
 
     def take_template(self, template_params: dict[str, str] | None = None):
@@ -835,7 +837,7 @@ class MagnetGenerator_template(MagnetGenerator):
             library="syslib",
             name="Rotor",
         )
-        
+
         holes_name = "Magnet" if self.fill_barriers else "RotorHoles"
         holes_id = modeler.create_circle(origin=[0, 0, 0], radius="DiaRotorGap/2", is_covered=True, name=holes_name)
         shaft_tmp = modeler.create_circle(origin=[0, 0, 0], radius="DiaShaft/2", is_covered=True, name="ShaftTmp")

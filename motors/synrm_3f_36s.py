@@ -6,7 +6,7 @@ from ansys.aedt.core.modeler.modeler_2d import Modeler2D
 
 from machine_design.designs.computation import ComputationBase
 from machine_design.designs.geometry import GeometryBase
-from machine_design.generic.transforms import induced_voltage_angle, to_dq
+from machine_design.generic.transforms import to_dq, voltage_from_flux
 
 
 class Geometry(GeometryBase):
@@ -218,25 +218,28 @@ class Computation(ComputationBase):
 
         theta_el = (position - np.deg2rad(self.InitPos)) * self.geometry.PolePairs
 
-        flux_phases, vind_phases, current_phases, L_raw = self.extract_phase_results(solutions)
+        flux_phases, _, current_phases, L_raw = self.extract_phase_results(solutions)
 
         Flux_d, Flux_q = to_dq(flux_phases, theta_el, harmonic=1)
-        Ui_d, Ui_q = to_dq(vind_phases, induced_voltage_angle(theta_el), harmonic=1)
+        # Ui_d, Ui_q = to_dq(vind_phases, induced_voltage_angle(theta_el), harmonic=1)
         I_d, I_q = to_dq(current_phases, theta_el, harmonic=1)
 
-        Im = np.sqrt(self.Id**2 + self.Iq**2)
-        epsI = np.arctan2(self.Iq, self.Id)
+        V_d, V_q = voltage_from_flux(Flux_d, Flux_q, theta_el, self.Id, self.Iq, self.Rstat, self.w, harmonic=1, Lew=self.Lew)
+        # V_d/V_q are one sample shorter than other fields since it drops t=0.
 
-        time = np.array(solutions.primary_sweep_values)
-        dI_dt_phases = np.zeros((len(time), self.geometry.n_phases))
-        for k in range(self.geometry.n_phases):
-            phase_offset = -2 * np.pi * k / self.geometry.n_phases
-            dI_dt_phases[:, k] = -Im * self.w * np.sin(self.w * time + phase_offset + epsI)
+        # Im = np.sqrt(self.Id**2 + self.Iq**2)
+        # epsI = np.arctan2(self.Iq, self.Id)
 
-        V_rest_phases = self.Rstat * current_phases + self.Lew * dI_dt_phases
-        V_rest_d, V_rest_q = to_dq(V_rest_phases, theta_el, harmonic=1)
-        V_d = Ui_d + V_rest_d
-        V_q = Ui_q + V_rest_q
+        # time = np.array(solutions.primary_sweep_values)
+        # dI_dt_phases = np.zeros((len(time), self.geometry.n_phases))
+        # for k in range(self.geometry.n_phases):
+        #     phase_offset = -2 * np.pi * k / self.geometry.n_phases
+        #     dI_dt_phases[:, k] = -Im * self.w * np.sin(self.w * time + phase_offset + epsI)
+
+        # V_rest_phases = self.Rstat * current_phases + self.Lew * dI_dt_phases
+        # V_rest_d, V_rest_q = to_dq(V_rest_phases, theta_el, harmonic=1)
+        # V_d = Ui_d + V_rest_d
+        # V_q = Ui_q + V_rest_q
 
         L_d_row = np.zeros((len(position), self.geometry.n_phases))
         L_q_row = np.zeros((len(position), self.geometry.n_phases))
@@ -254,8 +257,6 @@ class Computation(ComputationBase):
             "V_q": V_q,
             "Flux_d": Flux_d,
             "Flux_q": Flux_q,
-            "Ui_d": Ui_d,
-            "Ui_q": Ui_q,
             "I_d": I_d,
             "I_q": I_q,
             "L_d": L_d,

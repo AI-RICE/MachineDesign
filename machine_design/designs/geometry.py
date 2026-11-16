@@ -217,7 +217,12 @@ class GeometryBase(ABC):
         center = magnet_points[:, :2].mean(axis=0)
         if np.linalg.norm(center) < 1e-10:
             return
-        cs_angle_deg = np.degrees(np.arctan2(center[1], center[0]))
+
+        _, _, vt = np.linalg.svd(magnet_points[:, :2] - center)
+        normal = np.array([-vt[0, 1], vt[0, 0]])
+        if np.dot(normal, center) < 0:
+            normal = -normal
+        cs_angle_deg = np.degrees(np.arctan2(normal[1], normal[0]))
 
         if magnet_points.shape[1] == 2:
             magnet_points = np.hstack((magnet_points, np.zeros((len(magnet_points), 1))))

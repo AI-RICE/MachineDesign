@@ -8,7 +8,7 @@ import pandas as pd
 from machine_design.config import load_config
 from machine_design.designs import load_design
 from machine_design.optimization import (
-    MagnetGenerator,
+    MagnetGenerator_template,
     analyze_results,
     plot_barriers,
     save_params,
@@ -32,32 +32,49 @@ for path in [path_data, path_results]:
     os.makedirs(path, exist_ok=True)
 file_name_aedt = f"{path_data}/{project_name}.aedt"
 
+template = "PMCore"  # choose one from TEMPLATE_NAME
+fill_barriers = False  # True = fill the whole barrier with magnets
+template_defaults = {
+    "PoleType": "5",
+}  # will add for all templates later, need to check first
+template_bounds = {
+    # addind later, need to check first
+}
+
 geometry = Geometry()
 computation = Computation(geometry)
 design = load_design(file_name_aedt, project_name, design_name, aedt_version, geometry, computation)
-generators = [MagnetGenerator(design, r_stator_end, offset=offset)]
+generators = [MagnetGenerator_template(design, r_stator_end, template=template, offset=offset)]
 
 metadata = pd.DataFrame()
 for i in range(0, n_designs):
     for generator in generators:
-        # Generate a feasible design
-        while True:
-            params = generator.random_parameters()
-            generator.set_parameters(params)
-            barriers = generator.generate_barriers()
-            barriers = generator.split_barriers(barriers)
-            if generator.name == "MagnetGenerator":
-                magnets = generator.generate_magnets(barriers)
-            feasible = generator.feasible_barriers(barriers)
-            if feasible:
-                break
+        is_template = isinstance(generator, MagnetGenerator_template)
 
-        # Generate the geometry
-        design.add_rotor()
-        for j, barrier in enumerate(barriers):
-            design.add_rotor_barrier(barrier)
-            if generator.name == "MagnetGenerator":
-                design.add_rotor_magnet(magnets[j])
+        if is_template:
+            while True:
+                params = generator.random_parameters()
+                generator.set_parameters(params)
+                if generator.take_template() is not None:
+                    break
+        else:
+            # Generate a feasible design
+            while True:
+                params = generator.random_parameters()
+                generator.set_parameters(params)
+                barriers = generator.generate_barriers()
+                barriers = generator.split_barriers(barriers)
+                if generator.name == "MagnetGenerator":
+                    magnets = generator.generate_magnets(barriers)
+                if generator.feasible_barriers(barriers):
+                    break
+
+            # Generate the geometry
+            design.add_rotor()
+            for j, barrier in enumerate(barriers):
+                design.add_rotor_barrier(barrier)
+                if generator.name == "MagnetGenerator":
+                    design.add_rotor_magnet(magnets[j])
 
         # Compute the torque
         outputs = design.compute(*current_setpoint, NUM_CORES=num_cores)
@@ -67,14 +84,20 @@ for i in range(0, n_designs):
             Tor = outputs["Moving1.Torque"]
             TorAvg, _, TorRippleRms = analyze_results(Tor)
 
+        title = f"Torque mean value: {np.round(TorAvg, 2)} Nm, ripple relative value: {np.round(TorRippleRms, 2)} %"
+        file_name = f"{path_results}/design_{generator.name}_{i}"
+
+        if plot_design and is_template:
+            design.m2d.plot(show=False, output_file=os.path.abspath(f"{file_name}.png"), view="xy", plot_air_objects=False)
+            print(f"{file_name}: {title}")
+
         # Delete the rotor
         design.delete_rotor()
 
         # Potentially save the design
         if plot_design:
-            title = f"Torque mean value: {np.round(TorAvg, 2)} Nm, ripple relative value: {np.round(TorRippleRms, 2)} %"
-            file_name = f"{path_results}/design_{generator.name}_{i}"
-            plot_barriers(barriers, design, title=title, file_name=f"{file_name}.png", magnets=magnets)
+            if not is_template:
+                plot_barriers(barriers, design, title=title, file_name=f"{file_name}.png", magnets=None)
             save_params(params, f"{file_name}.pkl")
 
         metadata_new = {

@@ -9,6 +9,87 @@ from shapely.geometry import LineString
 from ..designs.design import Design
 from .geometry import rotate
 
+TEMPLATES: dict[str, dict[str, dict]] = {
+    "IPMCore": {
+        "defaults": {
+            "PoleType": "1",
+            "D1": "DiaShaft + 0.6*(DiaRotorGap - DiaShaft)",
+            "O1": "2mm",
+            "O2": "10mm",
+            "B1": "2mm",
+            "Rib": "1mm",
+            "HRib": "0.5*B1",  # must stay below ThickMag (= B1), otherwise the magnet UDP fails
+            "DminMag": "1mm",
+            "ThickMag": "B1",  # magnet as thick as the barrier -> no wider pocket
+            "WidthMag": "15mm",
+        },
+        "bounds": {
+            "B1": (1.0, 4.0),
+            "WidthMag": (8.0, 20.0),
+            "Rib": (0.5, 2.0),
+        },
+    },
+    "PMCore": {
+        "defaults": {
+            "PoleType": "5",
+            "ThickMag": "8mm",
+            "WidthMag": "45mm",
+        },
+        "bounds": {
+            "ThickMag": (8.0, 8.0),
+            "WidthMag": (45.0, 45.0),
+        },
+    },
+    "UPMCore": {
+        "skew": False,
+        "defaults": {
+            "DiaLimit": "0.5*DiaRotorGap",
+            "ThkBridge": "2mm",
+            "ThkWeb": "5mm",
+            "AngOffOut": "-10deg",
+            "ThkDuctOut": "2mm",
+            "ThkDuctIn": "5mm",
+            "ThkPostOut": "1mm",
+            "ThkPostIn": "-5mm",
+            "ThkPostMid": "1mm",
+            "WidMagOut": "13mm",
+            "GapMagOut": "0.2mm",
+            "WidMagIn": "30mm",
+            "GapMagIn": "0.2mm",
+        },
+        "bounds": {
+            "ThkBridge": (0.5, 2.0),
+            "ThkWeb": (2.0, 6.0),
+            "ThkDuctOut": (1.0, 4.0),
+            "ThkDuctIn": (2.0, 6.0),
+            "WidMagOut": (5.0, 15.0),
+            "WidMagIn": (10.0, 30.0),
+        },
+    },
+    "VPMCore": {
+        "defaults": {
+            "PoleType": "0",
+            "ThkDuct": "4mm",
+            "WidDuct": "30mm",
+            "ThkBridge": "2mm",
+            "AngPoleV": "140deg",
+            "ArcPole": "155deg",
+            "ThkPost": "1mm",
+            "DminMag": "2mm",
+            "WidMag": "30mm",
+            "GapMag": "0.2mm",
+        },
+        "bounds": {
+            "ThkDuct": (2.0, 6.0),
+            "WidDuct": (15.0, 30.0),
+            "ThkBridge": (0.5, 2.0),
+            "AngPoleV": (100.0, 160.0, "deg"),
+            "WidMag": (10.0, 30.0),
+        },
+    },
+}
+TEMPLATE_NAME = list(TEMPLATES)
+
 
 def get_arc(R: float, start_deg: float, end_deg: float, n_points: int) -> np.ndarray:
     angles = np.linspace(np.radians(start_deg), np.radians(end_deg), n_points)
@@ -430,11 +511,29 @@ class HacklGenerator_3BrokenLines(AbstractHacklGenerator):
 
 
 class MagnetGenerator(BarrierGenerator):
-    def __init__(self, design, r_stator_end, der1=1.0, der2=1.0, symmetric=True, min_bridge=0.0, **kwargs):
+    def __init__(
+        self,
+        design,
+        r_stator_end,
+        der1=1.0,
+        der2=1.0,
+        symmetric=True,
+        min_bridge=0.0,
+        shape="rect",
+        bend_ratio=0.7,
+        thickness_ratio=0.5,
+        **kwargs,
+    ):
+        # fraction of the rotor height (r_max - r_min) occupied by all barriers together
+        self.thickness_ratio = thickness_ratio
         self.n_designs = kwargs.get("n_designs", 1)
         self.der1 = der1
         self.der2 = der2
         self.symmetric = symmetric
+        # "spline" = smooth curved barrier, "rect" = flat magnet pocket + straight leg
+        self.shape = shape
+        # x position of the bend as a fraction of y_min (< 1 keeps the bend inside the pole)
+        self.bend_ratio = bend_ratio
         self.n_barriers = kwargs.get("n_barriers", 1)
         self.sector_angle = np.pi / design.geometry.PolePairs
         self.min_bridge = min_bridge
@@ -486,6 +585,51 @@ class MagnetGenerator(BarrierGenerator):
         x_all, y_all = rotate(x_all, y_all, -45)
         return x_all, y_all
 
+    def _polyline(self, points):
+        # Discretize a polyline into dense points, dropping duplicate joints
+        n_seg = max(self.n_curve // (len(points) - 1), 2)
+        z = np.linspace(0, 1, n_seg)[:, None]
+        segs = [(1 - z) * p + z * q for p, q in zip(points[:-1], points[1:])]
+        return np.vstack([segs[0]] + [s[1:] for s in segs[1:]])
+
+    def _create_rect_barrier(
+        self,
+        y_min,
+        w_min,
+        y_mid,
+        w_mid,
+        theta,
+        w_max,
+    ):
+        # Lower edge: flat bottom (magnet pocket) up to the bend, then straight leg to the rim
+        theta1 = (theta + 45) / 180 * np.pi
+        p_rim1 = self.R * np.array([np.cos(theta1), np.sin(theta1)])
+        b1 = np.array([self.bend_ratio * y_min, y_min])
+
+        # Upper edge: flat part offset by w_min, leg parallel to the lower leg offset by w_mid
+        d = (p_rim1 - b1) / np.linalg.norm(p_rim1 - b1)
+        n = np.array([-d[1], d[0]])
+        q = b1 + w_mid * n
+        y_top = y_min + w_min
+        b2 = q + (y_top - q[1]) / d[1] * d
+        b2[0] = max(b2[0], 0.0)
+
+        # Intersection of the upper leg line with the circle of radius R
+        bd = np.dot(b2, d)
+        s = -bd + np.sqrt(bd**2 - (np.dot(b2, b2) - self.R**2))
+        p_rim2 = b2 + s * d
+
+        lower = self._polyline([np.array([0.0, y_min]), b1, p_rim1])
+        upper = self._polyline([np.array([0.0, y_top]), b2, p_rim2])
+
+        x_all = np.concatenate((lower[:, 0], upper[::-1, 0]))
+        y_all = np.concatenate((lower[:, 1], upper[::-1, 1]))
+        if self.symmetric:
+            x_all = np.concatenate((x_all, -x_all[::-1][1:]))
+            y_all = np.concatenate((y_all, y_all[::-1][1:]))
+        x_all, y_all = rotate(x_all, y_all, -45)
+        return x_all, y_all
+
     @property
     def bounds(self) -> tuple[np.ndarray, np.ndarray]:
         n = self.n_barriers
@@ -505,10 +649,7 @@ class MagnetGenerator(BarrierGenerator):
     def generate_w_mins_base(self, rotor_r_min, rotor_r_max):
         n_barriers = self.n_barriers
         available_height = rotor_r_max - rotor_r_min
-        gap_ratio = 0.5
-        total_dap = available_height * gap_ratio
-
-        total_height_barrier = available_height - total_dap
+        total_height_barrier = available_height * self.thickness_ratio
 
         if n_barriers == 1:
             weights = np.array([1.0])
@@ -588,8 +729,9 @@ class MagnetGenerator(BarrierGenerator):
 
     def generate_barriers(self) -> list[np.ndarray]:
         barriers = []
+        create = self._create_rect_barrier if self.shape == "rect" else self._create_barrier
         for args in zip(self.y_mins, self.w_mins, self.y_mids, self.w_mids, self.thetas, self.w_maxs):
-            x_all, y_all = self._create_barrier(*args)
+            x_all, y_all = create(*args)
             xy_all = np.vstack((x_all, y_all)).T
             barriers.append(xy_all)
         return barriers
@@ -616,3 +758,180 @@ class MagnetGenerator(BarrierGenerator):
             magnets.append([mag_pts[center_mask]])
 
         return magnets
+
+
+class MagnetGenerator_template(MagnetGenerator):
+    def __init__(self, design, r_stator_end, template: str = "IPMCore", fill_barriers: bool = False, **kwargs):
+        # fill_barriers=True: every template barrier is completely filled with magnet material
+        # fill_barriers=False: the template's own magnets are used, trimmed to the barriers
+        self.fill_barriers = fill_barriers
+        if template not in TEMPLATES:
+            raise KeyError(f"Unknown template {template!r}, choose from {TEMPLATE_NAME}")
+        if not TEMPLATES[template]["defaults"]:
+            raise NotImplementedError(f"Template {template!r} has no parameters defined in TEMPLATES yet")
+        super().__init__(design, r_stator_end, **kwargs)
+        self.design = design
+        self.template = template
+        self.default_template = TEMPLATES[template]["defaults"]
+        self.opt_bounds = TEMPLATES[template]["bounds"]
+        self.opt_names = list(self.opt_bounds)
+
+    @property
+    def bounds(self) -> tuple[np.ndarray, np.ndarray]:
+        lb = np.array([b[0] for b in self.opt_bounds.values()])
+        ub = np.array([b[1] for b in self.opt_bounds.values()])
+        return lb, ub
+
+    def random_parameters(self):
+        lb, ub = self.bounds
+        return np.random.uniform(lb, ub)
+
+    def X_to_params(self, X: np.ndarray):
+        X = np.asarray(X, dtype=float)
+        if len(X) != len(self.opt_names):
+            raise ValueError(f"X length {len(X)} does not match {len(self.opt_names)} parameters {self.opt_names}")
+        return X
+
+    def set_parameters(self, params) -> None:
+        units = [b[2] if len(b) > 2 else "mm" for b in self.opt_bounds.values()]
+        self.current_params = {name: f"{value}{unit}" for name, value, unit in zip(self.opt_names, params, units)}
+        self.set_template(**self.current_params)
+
+    @staticmethod
+    def _var_name(udp_name: str) -> str:
+        return udp_name.replace("/", "_")
+
+    def generate_barriers(self) -> list[np.ndarray]:
+        return []
+
+    def _udp_params(self, info_core: str) -> list[list[str]]:
+        has_skew = TEMPLATES[self.template].get("skew", True)
+        return [
+            ["DiaGap", "DiaRotorGap"],
+            ["DiaYoke", "DiaShaft"],
+            ["Length", "0mm"],
+            *([["Skew", "0deg"]] if has_skew else []),
+            ["Poles", "Poles"],
+            *[[name, self._var_name(name)] for name in self.default_template],
+            ["LenRegion", "0mm"],
+            ["InfoCore", info_core],  # 0 - core, 1 magnet
+        ]
+
+    def take_template(self, template_params: dict[str, str] | None = None):
+        m2d = self.design.m2d
+        geometry = self.design.geometry
+        modeler = m2d.modeler
+
+        unclassified = list(modeler.oeditor.GetObjectsInGroup("Unclassified"))
+        self._delete_names(modeler, unclassified)
+        before = set(self._all_objects(modeler))
+
+        params = {**self.default_template, **getattr(self, "current_params", {}), **(template_params or {})}
+        m2d["DiaRotorGap"] = "DiaStatorGap - 2*Airgap"
+        for k, v in params.items():
+            m2d[self._var_name(k)] = v
+
+        rotor_id = modeler.create_udp(
+            dll=f"RMxprt/{self.template}.dll",
+            parameters=self._udp_params("0"),
+            library="syslib",
+            name="Rotor",
+        )
+
+        holes_name = "Magnet" if self.fill_barriers else "RotorHoles"
+        holes_id = modeler.create_circle(origin=[0, 0, 0], radius="DiaRotorGap/2", is_covered=True, name=holes_name)
+        shaft_tmp = modeler.create_circle(origin=[0, 0, 0], radius="DiaShaft/2", is_covered=True, name="ShaftTmp")
+        modeler.subtract(blank_list=[holes_id], tool_list=[shaft_tmp], keep_originals=False)
+
+        magnet_id = None
+        if not self.fill_barriers:
+            magnet_id = modeler.create_udp(
+                dll=f"RMxprt/{self.template}.dll",
+                parameters=self._udp_params("1"),
+                library="syslib",
+                name="Magnet",
+            )
+
+        if not rotor_id or (not self.fill_barriers and not magnet_id):
+            self._cleanup_new(modeler, before)
+            return None
+
+        modeler.purge_history([rotor_id.name] + ([magnet_id.name] if magnet_id else []))
+
+        to_split = [rotor_id, holes_id] + ([magnet_id] if magnet_id else [])
+        modeler.set_working_coordinate_system("Section")
+        modeler.split(assignment=to_split, plane="ZX", sides="NegativeOnly")
+        modeler.set_working_coordinate_system("Global")
+        modeler.split(assignment=to_split, plane="ZX", sides="PositiveOnly")
+
+        rotor_id.material_name = geometry.Fe
+        modeler.subtract(blank_list=[holes_id], tool_list=[rotor_id], keep_originals=True)
+
+        if magnet_id:
+            if modeler.intersect(assignment=[magnet_id.name, holes_id.name], keep_originals=False) is None:
+                self._cleanup_new(modeler, before)
+                return None
+            holes_id = magnet_id
+
+        separated = modeler.separate_bodies(assignment=holes_id.name)
+        magnet_ids = list(separated) if separated else [holes_id]
+
+        slivers = [mag for mag in magnet_ids if mag.faces[0].area < 1e-3]
+        if slivers:
+            modeler.delete([mag.name for mag in slivers])
+        magnet_ids = [mag for mag in magnet_ids if mag not in slivers]
+        if not magnet_ids:
+            self._cleanup_new(modeler, before)
+            return None
+
+        self._cleanup_new(modeler, before, keep=[rotor_id.name] + [mag.name for mag in magnet_ids])
+
+        geometry.rotor_id = rotor_id
+        geometry.magnet_ids = magnet_ids
+        geometry.magnet_cs_ids = []
+
+        for mag in magnet_ids:
+            if getattr(geometry, "magnet", None):
+                mag.material_name = geometry.magnet
+            mag.solve_inside = True
+            mag.color = (255, 0, 0)
+            geometry.assign_magnet_cs(m2d, mag.name, self._magnetization_angle(mag, radial=self.fill_barriers))
+
+        modeler.set_working_coordinate_system("Global")
+        self.design.reassign_motion_setup()
+        return rotor_id, magnet_ids
+
+    @staticmethod
+    def _all_objects(modeler) -> list[str]:
+        return list(modeler.oeditor.GetMatchedObjectName("*"))
+
+    @staticmethod
+    def _delete_names(modeler, names) -> None:
+        if names:
+            modeler.oeditor.Delete(["NAME:Selections", "Selections:=", ",".join(names)])
+            modeler.refresh_all_ids()
+
+    def _cleanup_new(self, modeler, before: set[str], keep=()) -> None:
+        new = [name for name in self._all_objects(modeler) if name not in before and name not in keep]
+        self._delete_names(modeler, new)
+        modeler.set_working_coordinate_system("Global")
+
+    @staticmethod
+    def _magnetization_angle(mag, radial: bool = False) -> float:
+        pts = np.array([v.position[:2] for v in mag.vertices], dtype=float)
+        center = pts.mean(axis=0)
+        if radial:
+            return float(np.degrees(np.arctan2(center[1], center[0])))
+        _, _, vt = np.linalg.svd(pts - center)
+        normal = np.array([-vt[0, 1], vt[0, 0]])
+        if np.dot(normal, center) < 0:
+            normal = -normal
+        return float(np.degrees(np.arctan2(normal[1], normal[0])))
+
+    def set_template(self, **shape: str) -> None:
+        allowed = {self._var_name(name) for name in self.default_template}
+        unknown = {k for k in shape if self._var_name(k) not in allowed}
+        if unknown:
+            raise KeyError(f"Unknown template parameters: {sorted(unknown)}")
+        for k, v in shape.items():
+            self.design.m2d[self._var_name(k)] = v

@@ -5,6 +5,7 @@ from .generators import (
     HacklGenerator_SixLambdas,
     HacklGenerator_TwoLambdas,
     MagnetGenerator,
+    MagnetGenerator_template,
     save_params,
 )
 from .geometry import analyze_results, plot_barriers, rotate

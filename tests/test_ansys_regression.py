@@ -39,7 +39,7 @@ check_expressions = [
     "L_q",
     "Irms",
 ]
-# we should verify all the above 9 vars + Moving1.Torque (a total of 10 vars with different seeds)
+# we should verify all the above 7 vars + Moving1.Torque (a total of 8 vars with different seeds)
 
 
 def _load_legacy_design_class():
@@ -86,14 +86,15 @@ def _create_design(design_cls, project_name, file_name, extra_args=()):
     )
 
 
-def _compute_torque(design, barriers, add_rotor, setpoint=current_setpoint):
+def _compute_torque(design, barriers, add_rotor, setpoint=current_setpoint, live=False):
     add_rotor(design, barriers)
-    torque = design.compute(*setpoint, NUM_CORES=NUM_CORES)
+    result = design.compute(*setpoint, NUM_CORES=NUM_CORES)
+    torque = result[0] if live else result
     design.delete_rotor()
     return torque
 
 
-def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path: Path) -> None:
     barrier_sets = [_generate_one_lambda_barriers(seed) for seed in SEEDS]
     LegacyDesign = _load_legacy_design_class()
 
@@ -121,7 +122,7 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path: Path, monk
 
         for seed, barriers in zip(SEEDS, barrier_sets):
             torque_legacy = _compute_torque(legacy_design, barriers, _add_rotor)
-            torque_live = _compute_torque(live_design, barriers, _add_rotor)
+            torque_live = _compute_torque(live_design, barriers, _add_rotor, live=True)
 
             assert torque_legacy is not None, f"legacy torque is None for seed {seed}"
             assert torque_live is not None, f"live torque is None for seed {seed}"

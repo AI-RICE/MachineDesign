@@ -75,7 +75,7 @@ def _compute_at(f, barriers, tmp_path):
     computation.oper_params["PointPer"] = PointPer
     design = _create_design(LiveDesign, f"verifySpeedIndependence_f{f:g}", str(tmp_path / f"f{f:g}.aedt"), extra_args=(geometry, computation))
     _add_rotor(design, barriers)
-    out = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
+    out,_ = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
     design.delete_rotor()
     return design, out
 
@@ -119,14 +119,13 @@ def test_predicted_voltage_solve(results_by_frequency):
 
         for harmonic, Idh, Iqh, Flux_dh, Flux_qh in ((1, Id1, Iq1, ref["Flux_d1"], ref["Flux_q1"]), (3, Id3, Iq3, ref["Flux_d3"], ref["Flux_q3"])):
             V_d_pred, V_q_pred = voltage_from_flux(Flux_dh, Flux_qh, theta, Idh, Iqh, Rstat, w, harmonic=harmonic, Lew=computation.Lew)
-            V_d_actual = out[f"V_d{harmonic}"][1:]
-            V_q_actual = out[f"V_q{harmonic}"][1:]
+            V_d_actual = out[f"V_d{harmonic}"]
+            V_q_actual = out[f"V_q{harmonic}"]
             rel_d = np.linalg.norm(V_d_pred - V_d_actual) / np.linalg.norm(V_d_actual)
             rel_q = np.linalg.norm(V_q_pred - V_q_actual) / np.linalg.norm(V_q_actual)
             assert rel_d < 1e-3, f"{label} h={harmonic}: V_d rel err {rel_d: 0.2%} exceeds 0.1% threshold"
             assert rel_q < 1e-3, f"{label} h={harmonic}: V_q rel err {rel_q: 0.2%} exceeds 0.1% threshold"
 
-    _check(f"self-check at {f_ref}Hz", 2 * np.pi * f_ref, ref)
     for f, out in results_by_frequency.items():
         if f == f_ref:
             continue

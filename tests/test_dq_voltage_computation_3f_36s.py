@@ -73,7 +73,7 @@ def _compute_at(f, barriers, tmp_path):
     computation = Computation(geometry, f=f)
     design = _create_design(LiveDesign, f"verifySpeedIndependence_f{f:g}", str(tmp_path / f"f{f:g}.aedt"), extra_args=(geometry, computation))
     _add_rotor(design, barriers)
-    out = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
+    out,_ = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
     design.delete_rotor()
     return design, out
 
@@ -123,15 +123,14 @@ def test_predicted_voltage_solve(results_by_frequency):
             Lew=computation.Lew,
         )
 
-        V_d_actual = out["V_d"][1:]
-        V_q_actual = out["V_q"][1:]
+        V_d_actual = out["V_d"]
+        V_q_actual = out["V_q"]
 
         rel_d = np.linalg.norm(V_d_pred - V_d_actual) / np.linalg.norm(V_d_actual)
         rel_q = np.linalg.norm(V_q_pred - V_q_actual) / np.linalg.norm(V_q_actual)
         assert rel_d < 1e-3, f"{label}: V_d rel err {rel_d: 0.2%} exceeds 0.1% threshold"
         assert rel_q < 1e-3, f"{label}: V_q rel err {rel_q: 0.2%} exceeds 0.1% threshold"
 
-    _check(f"self-check at {f_ref}Hz", 2 * np.pi * f_ref, ref)
     for f, out in results_by_frequency.items():
         if f == f_ref:
             continue

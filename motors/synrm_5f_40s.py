@@ -76,6 +76,8 @@ class Computation(ComputationBase):
 
     def extract_results(self, solutions):
         # SI units
+        # Ansys raw field vars: Moving1.Position, Moving1.Torque, flux_phases, vind_phases, current_phases, L_raw
+        # Computed with Python: theta_el, Flux_d1/q1/d3/q3, I_d1/q1/d3/q3, V_d1/q1/d3/q3, L_d1/q1/d3/q3, Flux_e_d1/q1/d3/q3
         position = self.extract_expression(solutions, "Moving1.Position")
         torque = self.extract_expression(solutions, "Moving1.Torque")
 

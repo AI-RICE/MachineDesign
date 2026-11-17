@@ -212,8 +212,7 @@ class Computation(ComputationBase):
         # SI units
         # Ansys raw field vars: Moving1.Position, Moving1.Torque, flux_phases, vind_phases, current_phases, L_raw
         # Computed with Python: theta_el, Flux_d/q, I_d/q, V_d/q, L_d/q, Irms
-        # position = self.extract_expression(solutions, "Moving1.Position")
-        position = np.unwrap(self.extract_expression(solutions, "Moving1.Position"))
+        position = self.extract_expression(solutions, "Moving1.Position")
         torque = self.extract_expression(solutions, "Moving1.Torque")
 
         theta_el = (position - np.deg2rad(self.InitPos)) * self.geometry.PolePairs

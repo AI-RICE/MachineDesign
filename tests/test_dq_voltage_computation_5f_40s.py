@@ -16,7 +16,7 @@ import pytest
 
 from machine_design.config import load_config
 from machine_design.designs.design import Design as LiveDesign
-from machine_design.generic.transforms import voltage_from_flux
+from machine_design.generic.transforms import voltage_from_flux, induced_voltage_angle, to_dq
 from machine_design.optimization.generators import HacklGenerator_OneLambda
 from motors.synrm_5f_40s import Computation, Geometry
 
@@ -75,7 +75,7 @@ def _compute_at(f, barriers, tmp_path):
     computation.oper_params["PointPer"] = PointPer
     design = _create_design(LiveDesign, f"verifySpeedIndependence_f{f:g}", str(tmp_path / f"f{f:g}.aedt"), extra_args=(geometry, computation))
     _add_rotor(design, barriers)
-    out,_ = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
+    out, _ = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
     design.delete_rotor()
     return design, out
 
@@ -130,3 +130,51 @@ def test_predicted_voltage_solve(results_by_frequency):
         if f == f_ref:
             continue
         _check(f"{f}Hz", 2 * np.pi * f, out)
+
+
+def test_voltage_from_flux_matches_induced_voltage(tmp_path):
+    """test voltage from flux equals induced voltage"""
+    barriers = _generate_one_lambda_barriers(SEED)
+    geometry = Geometry()
+    computation = Computation(geometry, f=f_ref)
+    computation.oper_params["PointPer"] = PointPer
+    design = _create_design(LiveDesign, "verifyInducedVoltageMatch", str(tmp_path / "f_ref.aedt"), extra_args=(geometry, computation))
+    try:
+        _add_rotor(design, barriers)
+        out, solutions = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
+        design.delete_rotor()
+    finally:
+        design.m2d.close_desktop()
+
+    theta_el = out["theta_el"]
+    _, vind_phases, current_phases, _ = computation.extract_phase_results(solutions)
+    theta_vind = induced_voltage_angle(theta_el)
+    Vind_d1, Vind_q1 = to_dq(vind_phases, theta_vind, harmonic=1)
+    Vind_d3, Vind_q3 = to_dq(vind_phases, theta_vind, harmonic=3)
+
+    Im1 = np.sqrt(computation.Id1**2 + computation.Iq1**2)
+    Im3 = np.sqrt(computation.Id3**2 + computation.Iq3**2)
+    epsI1 = np.arctan2(computation.Iq1, computation.Id1)
+    epsI3 = np.arctan2(computation.Iq3, computation.Id3)
+
+    time = np.array(solutions.primary_sweep_values)
+    dI_dt_phases = np.zeros((len(time), geometry.n_phases))
+    for k in range(geometry.n_phases):
+        phase_offset = -2 * np.pi * k / geometry.n_phases
+        dI_dt_phases[:, k] = -Im1 * computation.w * np.sin(computation.w * time + phase_offset + epsI1 - np.pi) - Im3 * 3 * computation.w * np.sin(3 * (computation.w * time + phase_offset) + epsI3 - np.pi)
+
+    V_rest_phases = computation.Rstat * current_phases + computation.Lew * dI_dt_phases
+
+    V_rest_d1, V_rest_q1 = to_dq(V_rest_phases, theta_el, harmonic=1)
+    V_rest_d3, V_rest_q3 = to_dq(V_rest_phases, theta_el, harmonic=3)
+
+    induced = {
+        "V_d1": Vind_d1 + V_rest_d1,
+        "V_q1": Vind_q1 + V_rest_q1,
+        "V_d3": Vind_d3 + V_rest_d3,
+        "V_q3": Vind_q3 + V_rest_q3,
+    }
+
+    for expr, V_induced in induced.items():
+        rel = np.linalg.norm(out[expr] - V_induced[1:]) / np.linalg.norm(V_induced[1:])
+        assert rel < 1e-3, f"{expr} rel err {rel: 0.2%} exceeds 0.1% threshold to induced voltage"

@@ -3,7 +3,7 @@ Hypothesis: flux linkage psi_h(theta_el,i) depends only on rotor position and dq
 w. If true, a single reference solve predicts voltage at different speed via
 V_dh=Rs*Idh+w*(dpsi_dh/dtheta_el-h*ps_qh)-h*w*Lew*Iqh
 V_qh=Rs*Iqh+w*(dpsi_qh/dtheta_el+h*ps_dh)+h*w*Lew*Idh
-Also verify voltage_from_flux matches inducedvoltage method.
+Also verify voltage_from_flux matches InducedVoltage method.
 
 Run explicitly with:
 

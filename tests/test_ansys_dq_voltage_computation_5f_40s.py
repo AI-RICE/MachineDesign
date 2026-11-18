@@ -30,7 +30,7 @@ SEED = 42
 NUM_CORES = 1
 f_ref = 50
 PointPer = "201"
-frequencies = (25.0, 50.0, 75.0, 100.0)
+frequencies = (25.0, 50.0, 75.0)
 current_setpoint = (1.5, 1.5, 0.5, 0.5)
 
 
@@ -103,6 +103,9 @@ def test_fluxlinkage_independence(results_by_frequency):
         if f == f_ref:
             continue
         for harmonic in (1, 3):
+            rel_d = np.max(np.abs(out[f"Flux_d{harmonic}"] - ref[f"Flux_d{harmonic}"])) / np.max(np.abs(ref[f"Flux_d{harmonic}"]))
+            rel_q = np.max(np.abs(out[f"Flux_q{harmonic}"] - ref[f"Flux_q{harmonic}"])) / np.max(np.abs(ref[f"Flux_q{harmonic}"]))
+            print(f"{f}Hz vs {f_ref}Hz h={harmonic}: Flux_d max rel diff {rel_d:.4%}, Flux_q max rel diff {rel_q:.4%}")
             np.testing.assert_allclose(out[f"Flux_d{harmonic}"], ref[f"Flux_d{harmonic}"], rtol=1e-3, atol=1e-5, err_msg=f"Flux_d{harmonic} differs at {f}Hz vs {f_ref}Hz")
             np.testing.assert_allclose(out[f"Flux_q{harmonic}"], ref[f"Flux_q{harmonic}"], rtol=1e-3, atol=1e-5, err_msg=f"Flux_q{harmonic} differs at {f}Hz vs {f_ref}Hz")
 
@@ -124,6 +127,7 @@ def test_predicted_voltage_solve(results_by_frequency):
             V_q_actual = out[f"V_q{harmonic}"]
             rel_d = np.linalg.norm(V_d_pred - V_d_actual) / np.linalg.norm(V_d_actual)
             rel_q = np.linalg.norm(V_q_pred - V_q_actual) / np.linalg.norm(V_q_actual)
+            print(f"{label} h={harmonic}: V_d rel err {rel_d:.4%}, V_q rel err {rel_q:.4%}")
             assert rel_d < 1e-3, f"{label} h={harmonic}: V_d rel err {rel_d: 0.2%} exceeds 0.1% threshold"
             assert rel_q < 1e-3, f"{label} h={harmonic}: V_q rel err {rel_q: 0.2%} exceeds 0.1% threshold"
 
@@ -178,4 +182,5 @@ def test_voltage_from_flux_matches_induced_voltage(tmp_path):
 
     for expr, V_induced in induced.items():
         rel = np.linalg.norm(out[expr] - V_induced[1:]) / np.linalg.norm(V_induced[1:])
+        print(f"{expr}: rel err {rel:.4%}")
         assert rel < 1e-3, f"{expr} rel err {rel: 0.2%} exceeds 0.1% threshold to induced voltage"

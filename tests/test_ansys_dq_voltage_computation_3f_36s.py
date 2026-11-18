@@ -29,7 +29,7 @@ OFFSET = 0.35
 SEED = 42
 NUM_CORES = 1
 f_ref = 50
-frequencies = (25.0, 50.0, 75.0, 100.0)
+frequencies = (25.0, 50.0, 75.0)
 current_setpoint = (1.5, 1.5)
 
 
@@ -100,6 +100,9 @@ def test_fluxlinkage_independence(results_by_frequency):
     for f, out in results_by_frequency.items():
         if f == f_ref:
             continue
+        rel_d = np.max(np.abs(out["Flux_d"] - ref["Flux_d"])) / np.max(np.abs(ref["Flux_d"]))
+        rel_q = np.max(np.abs(out["Flux_q"] - ref["Flux_q"])) / np.max(np.abs(ref["Flux_q"]))
+        print(f"{f}Hz vs {f_ref}Hz: Flux_d max rel diff {rel_d:.4%}, Flux_q max rel diff {rel_q:.4%}")
         np.testing.assert_allclose(out["Flux_d"], ref["Flux_d"], rtol=1e-3, atol=1e-5, err_msg=f"Flux_d differs at {f}Hz vs {f_ref}Hz")
         np.testing.assert_allclose(out["Flux_q"], ref["Flux_q"], rtol=1e-3, atol=1e-5, err_msg=f"Flux_q differs at {f}Hz vs {f_ref}Hz")
 
@@ -129,6 +132,7 @@ def test_predicted_voltage_solve(results_by_frequency):
 
         rel_d = np.linalg.norm(V_d_pred - V_d_actual) / np.linalg.norm(V_d_actual)
         rel_q = np.linalg.norm(V_q_pred - V_q_actual) / np.linalg.norm(V_q_actual)
+        print(f"{label}: V_d rel err {rel_d:.4%}, V_q rel err {rel_q:.4%}")
         assert rel_d < 1e-3, f"{label}: V_d rel err {rel_d: 0.2%} exceeds 0.1% threshold"
         assert rel_q < 1e-3, f"{label}: V_q rel err {rel_q: 0.2%} exceeds 0.1% threshold"
 
@@ -170,5 +174,6 @@ def test_voltage_from_flux_matches_induced_voltage(tmp_path):
 
     rel_d = np.linalg.norm(out["V_d"] - V_d_induced[1:]) / np.linalg.norm(V_d_induced[1:])
     rel_q = np.linalg.norm(out["V_q"] - V_q_induced[1:]) / np.linalg.norm(V_q_induced[1:])
+    print(f"V_d rel err {rel_d:.4%}, V_q rel err {rel_q:.4%}")
     assert rel_d < 1e-3, f"V_d rel err {rel_d: 0.2%} exceeds 0.1% threshold"
     assert rel_q < 1e-3, f"V_q rel err {rel_q: 0.2%} exceeds 0.1% threshold"

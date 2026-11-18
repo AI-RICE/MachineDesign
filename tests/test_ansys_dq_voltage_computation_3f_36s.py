@@ -17,8 +17,8 @@ import pytest
 
 from machine_design.config import load_config
 from machine_design.designs.design import Design as LiveDesign
+from machine_design.generic.transforms import induced_voltage_angle, to_dq, voltage_from_flux
 from machine_design.optimization.generators import HacklGenerator_OneLambda
-from machine_design.generic.transforms import voltage_from_flux, to_dq, induced_voltage_angle
 from motors.synrm_3f_36s import Computation, Geometry
 
 pytestmark = pytest.mark.ansys

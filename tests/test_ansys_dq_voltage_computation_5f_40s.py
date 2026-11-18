@@ -17,7 +17,7 @@ import pytest
 
 from machine_design.config import load_config
 from machine_design.designs.design import Design as LiveDesign
-from machine_design.generic.transforms import voltage_from_flux, induced_voltage_angle, to_dq
+from machine_design.generic.transforms import induced_voltage_angle, to_dq, voltage_from_flux
 from machine_design.optimization.generators import HacklGenerator_OneLambda
 from motors.synrm_5f_40s import Computation, Geometry
 

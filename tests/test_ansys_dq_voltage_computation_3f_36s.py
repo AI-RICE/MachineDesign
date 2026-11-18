@@ -74,8 +74,10 @@ def _compute_at(f, barriers, tmp_path):
     computation = Computation(geometry, f=f)
     design = _create_design(LiveDesign, f"verifySpeedIndependence_f{f:g}", str(tmp_path / f"f{f:g}.aedt"), extra_args=(geometry, computation))
     _add_rotor(design, barriers)
-    out, _ = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
+    out, solutions = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
     design.delete_rotor()
+    out["_solutions"] = solutions
+    out["_computation"] = computation
     return design, out
 
 
@@ -142,18 +144,12 @@ def test_predicted_voltage_solve(results_by_frequency):
         _check(f"{f}Hz", 2 * np.pi * f, out)
 
 
-def test_voltage_from_flux_matches_induced_voltage(tmp_path):
+def test_voltage_from_flux_matches_induced_voltage(results_by_frequency):
     """test voltage from flux equals induced voltage"""
-    barriers = _generate_one_lambda_barriers(SEED)
-    geometry = Geometry()
-    computation = Computation(geometry, f=f_ref)
-    design = _create_design(LiveDesign, "verifyInducedVoltageMatch", str(tmp_path / "f_ref.aedt"), extra_args=(geometry, computation))
-    try:
-        _add_rotor(design, barriers)
-        out, solutions = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
-        design.delete_rotor()
-    finally:
-        design.m2d.close_desktop()
+    out = results_by_frequency[f_ref]
+    solutions = out["_solutions"]
+    computation = out["_computation"]
+    geometry = computation.geometry
 
     theta_el = out["theta_el"]
     _, vind_phases, current_phases, _ = computation.extract_phase_results(solutions)

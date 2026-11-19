@@ -10,8 +10,9 @@ from .reserved_variables import check_no_reserved_variable_names
 
 
 class ComputationBase(ABC):
-    def __init__(self, geometry: GeometryBase) -> None:
+    def __init__(self, geometry: GeometryBase, f: float = 50.0) -> None:
         self.geometry = geometry
+        self.f = f
         self.phases = "ABCDEFGHIJK"[: self.geometry.n_phases]
         self.setup_name = "Setup1"
         self.rotor_mesh = None

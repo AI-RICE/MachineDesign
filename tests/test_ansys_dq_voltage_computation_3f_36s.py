@@ -71,10 +71,7 @@ def _create_design(design_cls, project_name, file_name, extra_args=()):
 
 def _compute_at(f, barriers, tmp_path):
     geometry = Geometry()
-    computation = Computation(geometry)
-    computation.w = 2 * np.pi * f
-    computation.oper_params["w"] = f"{computation.w}Hz"
-    computation.oper_params["RotSpeed"] = f"{60 * f / geometry.PolePairs}rpm"
+    computation = Computation(geometry,f=f)
     design = _create_design(LiveDesign, f"verifySpeedIndependence_f{f:g}", str(tmp_path / f"f{f:g}.aedt"), extra_args=(geometry, computation))
     _add_rotor(design, barriers)
 

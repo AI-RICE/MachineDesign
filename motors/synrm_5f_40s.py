@@ -35,7 +35,7 @@ class Geometry(BaseGeometry):
 
 class Computation(ComputationBase):
     def set_oper_params(self):
-        f = 50  # [Hz]
+        f = self.f  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
         self.RotSign = 1

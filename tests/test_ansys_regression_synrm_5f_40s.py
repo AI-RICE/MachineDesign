@@ -68,7 +68,7 @@ def _create_design(design_cls, project_name, file_name, extra_args=()):
     )
 
 
-def _compute_torque(design, barriers, add_rotor, setpoint=current_setpoint, live=False):
+def _compute_torque(design, barriers, add_rotor, setpoint=current_setpoint):
     add_rotor(design, barriers)
     torque = design.compute(*setpoint, NUM_CORES=NUM_CORES)
     design.delete_rotor()
@@ -93,7 +93,7 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path: Path) -> N
 
         for seed, barriers in zip(SEEDS, barrier_sets):
             torque_legacy = _compute_torque(legacy_design, barriers, _add_rotor)
-            torque_live = _compute_torque(live_design, barriers, _add_rotor, live=True)
+            torque_live = _compute_torque(live_design, barriers, _add_rotor)
 
             assert torque_legacy is not None, f"legacy torque is None for seed {seed}"
             assert torque_live is not None, f"live torque is None for seed {seed}"

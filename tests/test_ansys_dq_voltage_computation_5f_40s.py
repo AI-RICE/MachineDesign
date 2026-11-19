@@ -72,13 +72,17 @@ def _create_design(design_cls, project_name, file_name, extra_args=()):
 
 def _compute_at(f, barriers, tmp_path):
     geometry = Geometry()
-    computation = Computation(geometry, f=f)
+    computation = Computation(geometry)
+    computation.w = 2 * np.pi * f
+    computation.oper_params["w"] = f"{computation.w}Hz"
+    computation.oper_params["RotSpeed"] = f"{60 * f / geometry.PolePairs}rpm"
     computation.oper_params["PointPer"] = PointPer
     design = _create_design(LiveDesign, f"verifySpeedIndependence_f{f:g}", str(tmp_path / f"f{f:g}.aedt"), extra_args=(geometry, computation))
     _add_rotor(design, barriers)
-    out, solutions = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
+
+    out = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
     design.delete_rotor()
-    out["_solutions"] = solutions
+    out["_solutions"] = computation.last_solutions
     out["_computation"] = computation
     return design, out
 

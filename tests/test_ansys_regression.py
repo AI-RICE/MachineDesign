@@ -88,8 +88,7 @@ def _create_design(design_cls, project_name, file_name, extra_args=()):
 
 def _compute_torque(design, barriers, add_rotor, setpoint=current_setpoint, live=False):
     add_rotor(design, barriers)
-    result = design.compute(*setpoint, NUM_CORES=NUM_CORES)
-    torque = result[0] if live else result
+    torque = design.compute(*setpoint, NUM_CORES=NUM_CORES)
     design.delete_rotor()
     return torque
 

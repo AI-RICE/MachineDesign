@@ -10,7 +10,7 @@ from .reserved_variables import check_no_reserved_variable_names
 
 
 class ComputationBase(ABC):
-    def __init__(self, geometry: GeometryBase, f: float = 50.0, Nper: str | None = None) -> None:
+    def __init__(self, geometry: GeometryBase) -> None:
         self.geometry = geometry
         self.phases = "ABCDEFGHIJK"[: self.geometry.n_phases]
         self.setup_name = "Setup1"
@@ -157,10 +157,12 @@ class ComputationBase(ABC):
         except AttributeError:
             result = None
 
+        self.last_solutions = solutions
+
         # Delete solution data to prevent the saving size to explode
         m2d.odesign.DeleteFullVariation("All", False)
 
-        return result, solutions
+        return result
 
     def delete_rotor_mesh(self) -> None:
         if self.rotor_mesh is not None:

@@ -7,7 +7,7 @@ case_info={
     3:{"n_phases":5,"current_n":4,"Rstat":19.0},
 }
 
-for case, info in case_info.items:
+for case, info in case_info.items():
     case_name=f"{info['n_phases']}f_case{case}"
     data = np.load(f"results/results_HacklGenerator_SixLambdas_{case_name}.npz")
     train_X, train_Y = data["train_X"], data["train_Y"]

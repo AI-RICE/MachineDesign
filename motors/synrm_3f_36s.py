@@ -6,7 +6,7 @@ from ansys.aedt.core.modeler.modeler_2d import Modeler2D
 
 from machine_design.designs.computation import ComputationBase
 from machine_design.designs.geometry import GeometryBase
-from machine_design.generic.transforms import induced_voltage_angle, to_dq
+from machine_design.generic.transforms import to_dq, voltage_from_flux
 
 
 class Geometry(GeometryBase):
@@ -176,9 +176,12 @@ class Geometry(GeometryBase):
 
 class Computation(ComputationBase):
     def set_oper_params(self):
-        f = 50  # [Hz]
+        f = self.f  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
+        self.Rstat = 11.4
+        self.Lew = 0.0
+        self.w = w
         self.oper_params = {
             "Id": "0.0A",
             "Iq": "0.0A",
@@ -207,16 +210,20 @@ class Computation(ComputationBase):
 
     def extract_results(self, solutions):
         # SI units
+        # Ansys raw field vars: Moving1.Position, Moving1.Torque, flux_phases, vind_phases, current_phases, L_raw
+        # Computed with Python: theta_el, Flux_d/q, I_d/q, V_d/q, L_d/q, Irms
         position = self.extract_expression(solutions, "Moving1.Position")
         torque = self.extract_expression(solutions, "Moving1.Torque")
 
         theta_el = (position - np.deg2rad(self.InitPos)) * self.geometry.PolePairs
 
-        flux_phases, vind_phases, current_phases, L_raw = self.extract_phase_results(solutions)
+        flux_phases, _, current_phases, L_raw = self.extract_phase_results(solutions)
 
         Flux_d, Flux_q = to_dq(flux_phases, theta_el, harmonic=1)
-        Ui_d, Ui_q = to_dq(vind_phases, induced_voltage_angle(theta_el), harmonic=1)
         I_d, I_q = to_dq(current_phases, theta_el, harmonic=1)
+
+        V_d, V_q = voltage_from_flux(Flux_d, Flux_q, theta_el, self.Id, self.Iq, self.Rstat, self.w, harmonic=1, Lew=self.Lew)
+        # V_d/V_q are one sample shorter than other fields since it drops t=0.
 
         L_d_row = np.zeros((len(position), self.geometry.n_phases))
         L_q_row = np.zeros((len(position), self.geometry.n_phases))
@@ -230,15 +237,16 @@ class Computation(ComputationBase):
         Irms = np.sqrt(I_d**2 + I_q**2) / np.sqrt(2)
 
         out = {
+            "V_d": V_d,
+            "V_q": V_q,
             "Flux_d": Flux_d,
             "Flux_q": Flux_q,
-            "Ui_d": Ui_d,
-            "Ui_q": Ui_q,
             "I_d": I_d,
             "I_q": I_q,
             "L_d": L_d,
             "L_q": L_q,
             "Irms": Irms,
+            "theta_el": theta_el,
             "Moving1.Torque": torque,
         }
 

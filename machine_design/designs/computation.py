@@ -158,8 +158,6 @@ class ComputationBase(ABC):
         except AttributeError:
             result = None
 
-        self.last_solutions = solutions
-
         # Delete solution data to prevent the saving size to explode
         m2d.odesign.DeleteFullVariation("All", False)
 

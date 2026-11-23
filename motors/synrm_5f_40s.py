@@ -8,7 +8,7 @@ import numpy as np
 from ansys.aedt.core import Maxwell2d
 
 from machine_design.designs.computation import ComputationBase
-from machine_design.generic.transforms import electrical_angle, induced_voltage_angle, to_dq
+from machine_design.generic.transforms import electrical_angle, to_dq, voltage_from_flux
 
 from .synrm_3f_36s import Geometry as BaseGeometry
 
@@ -35,7 +35,7 @@ class Geometry(BaseGeometry):
 
 class Computation(ComputationBase):
     def set_oper_params(self):
-        f = 50  # [Hz]
+        f = self.f  # [Hz]
         RotSpeed = 60 * f / self.geometry.PolePairs  # [rpm]
         w = 2 * np.pi * f
         self.RotSign = 1
@@ -76,45 +76,28 @@ class Computation(ComputationBase):
 
     def extract_results(self, solutions):
         # SI units
+        # Ansys raw field vars: Moving1.Position, Moving1.Torque, flux_phases, vind_phases, current_phases, L_raw
+        # Computed with Python: theta_el, Flux_d1/q1/d3/q3, I_d1/q1/d3/q3, V_d1/q1/d3/q3, L_d1/q1/d3/q3, Flux_e_d1/q1/d3/q3
         position = self.extract_expression(solutions, "Moving1.Position")
         torque = self.extract_expression(solutions, "Moving1.Torque")
 
         theta_el = electrical_angle(position, np.deg2rad(self.InitPos), self.geometry.PolePairs, self.RotSign, degrees=False)
-        theta_vind = induced_voltage_angle(theta_el)
 
-        flux_phases, vind_phases, current_phases, L_raw = self.extract_phase_results(solutions)
+        flux_phases, _, current_phases, L_raw = self.extract_phase_results(solutions)
 
         Flux_d1, Flux_q1 = to_dq(flux_phases, theta_el, harmonic=1)
         Flux_d3, Flux_q3 = to_dq(flux_phases, theta_el, harmonic=3)
-        Vind_d1, Vind_q1 = to_dq(vind_phases, theta_vind, harmonic=1)
-        Vind_d3, Vind_q3 = to_dq(vind_phases, theta_vind, harmonic=3)
+
         I_d1, I_q1 = to_dq(current_phases, theta_el, harmonic=1)
         I_d3, I_q3 = to_dq(current_phases, theta_el, harmonic=3)
 
-        Im1 = np.sqrt(self.Id1**2 + self.Iq1**2)
-        Im3 = np.sqrt(self.Id3**2 + self.Iq3**2)
-        epsI1 = np.arctan2(self.Iq1, self.Id1)
-        epsI3 = np.arctan2(self.Iq3, self.Id3)
+        V_d1, V_q1 = voltage_from_flux(Flux_d1, Flux_q1, theta_el, self.Id1, self.Iq1, self.Rstat, self.w, harmonic=1, Lew=self.Lew)
+        V_d3, V_q3 = voltage_from_flux(Flux_d3, Flux_q3, theta_el, self.Id3, self.Iq3, self.Rstat, self.w, harmonic=3, Lew=self.Lew)
 
-        time = np.array(solutions.primary_sweep_values)
-        dI_dt_phases = np.zeros((len(time), self.geometry.n_phases))
-        for k in range(self.geometry.n_phases):
-            phase_offset = -2 * np.pi * k / self.geometry.n_phases
-            dI_dt_phases[:, k] = -Im1 * self.w * np.sin(self.w * time + phase_offset + epsI1 - np.pi) - Im3 * 3 * self.w * np.sin(3 * (self.w * time + phase_offset) + epsI3 - np.pi)
-
-        V_rest_phases = self.Rstat * current_phases + self.Lew * dI_dt_phases
-
-        V_rest_d1, V_rest_q1 = to_dq(V_rest_phases, theta_el, harmonic=1)
-        V_rest_d3, V_rest_q3 = to_dq(V_rest_phases, theta_el, harmonic=3)
-        V_d1 = Vind_d1 + V_rest_d1
-        V_q1 = Vind_q1 + V_rest_q1
-        V_d3 = Vind_d3 + V_rest_d3
-        V_q3 = Vind_q3 + V_rest_q3
-
-        L_d1_row = np.zeros((len(time), self.geometry.n_phases))
-        L_q1_row = np.zeros((len(time), self.geometry.n_phases))
-        L_d3_row = np.zeros((len(time), self.geometry.n_phases))
-        L_q3_row = np.zeros((len(time), self.geometry.n_phases))
+        L_d1_row = np.zeros((len(position), self.geometry.n_phases))
+        L_q1_row = np.zeros((len(position), self.geometry.n_phases))
+        L_d3_row = np.zeros((len(position), self.geometry.n_phases))
+        L_q3_row = np.zeros((len(position), self.geometry.n_phases))
         for i, L_row in enumerate(L_raw):
             L_d1_row[:, i], L_q1_row[:, i] = (v * self.geometry.n_phases / 2 for v in to_dq(L_row, theta_el, harmonic=1))
             L_d3_row[:, i], L_q3_row[:, i] = (v * self.geometry.n_phases / 2 for v in to_dq(L_row, theta_el, harmonic=3))
@@ -144,10 +127,6 @@ class Computation(ComputationBase):
             "Flux_q1": Flux_q1,
             "Flux_d3": Flux_d3,
             "Flux_q3": Flux_q3,
-            "Vind_d1": Vind_d1,
-            "Vind_q1": Vind_q1,
-            "Vind_d3": Vind_d3,
-            "Vind_q3": Vind_q3,
             "I_d1": I_d1,
             "I_q1": I_q1,
             "I_d3": I_d3,
@@ -166,6 +145,7 @@ class Computation(ComputationBase):
             "Flux_e_q1": Flux_e_q1,
             "Flux_e_d3": Flux_e_d3,
             "Flux_e_q3": Flux_e_q3,
+            "theta_el": theta_el,
             "Moving1.Torque": torque,
         }
 

@@ -1,7 +1,9 @@
-import re
+from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
+from machine_design.generic.transforms import to_dq
 from motors.synrm_3f_36s import Computation, Geometry
 
 
@@ -55,7 +57,7 @@ def test_wind_params(geometry):
         "CoilPitch": "9",
         "SlotLiner": "0.3mm",
         "SpaceLayers": "0.2mm",
-        "Nc": "68",
+        "Nc": "68/Layers",
     }
 
 
@@ -71,10 +73,12 @@ def test_mod_params(geometry):
 
 def test_oper_params(computation):
     assert computation.oper_params == {
-        "Im": "1.5*sqrt(2)A",
-        "epsI": "pi/4",
-        "InitPos": "-30deg",
-        "f": "50Hz",
+        "Id": "0.0A",
+        "Iq": "0.0A",
+        "epsI": "atan2(Iq,Id)",
+        "Im": "sqrt(Id^2+Iq^2)",
+        "InitPos": "-30.0deg",
+        "w": f"{2 * np.pi * 50}Hz",
         "RotSpeed": "1500.0rpm",
         "Nper": "1/6",
         "PointPer": "101",
@@ -91,8 +95,12 @@ def test_derived_params(geometry):
     assert geometry.rotor_r_max == pytest.approx(39.5 - 0.225)
 
 
-def test_solution_expressions(computation):
-    assert computation.solution_expressions == "Moving1.Torque"
+def test_solution_expressions_is_a_list_ending_in_torque(computation):
+    assert isinstance(computation.solution_expressions, list)
+    assert computation.solution_expressions[0] == "Moving1.Position"
+    assert computation.solution_expressions[1] == "Moving1.Torque"
+    assert computation.solution_expressions[-1] == "L(PhaseC,PhaseC)"
+    assert len(computation.solution_expressions) == 20
 
 
 def test_udp_par_list_stator(geometry):
@@ -120,20 +128,8 @@ def test_udp_par_list_stator(geometry):
     ]
 
 
-def test_output_vars_only_reference_earlier_keys(computation):
-    # Ansys evaluates output variables in insertion order, so a formula referencing
-    # another output variable must not reference one that is defined later.
-    defined = set()
-    all_keys = set(computation.output_vars.keys())
-    for key, formula in computation.output_vars.items():
-        later_keys = all_keys - defined - {key}
-        referenced_later = [k for k in later_keys if re.search(rf"\b{re.escape(k)}\b", formula)]
-        assert not referenced_later, f"'{key}' formula references not-yet-defined {referenced_later}"
-        defined.add(key)
-
-
-def test_output_vars_known_formula(computation):
-    assert computation.output_vars["Irms"] == "sqrt(I_d^2+I_q^2)/sqrt(2)"
+def test_output_vars_is_empty(computation):
+    assert computation.output_vars == {}
 
 
 def test_post_params_plot_names_unique(computation):
@@ -148,3 +144,23 @@ def test_mm_to_str(geometry):
 def test_mm_to_str_raises_without_mm_suffix(geometry):
     with pytest.raises(Exception):
         geometry.mm_to_str("geom_params", "SlotNumber")
+
+
+def test_extract_results_converts_units(computation):
+    computation.set_variables(SimpleNamespace(variable_manager={}), Id=1.0, Iq=2.0)
+
+    def data_real(expr, convert_to_SI=False):
+        assert convert_to_SI, f"expected convert_to_SI=True for {expr}"
+        letters = ["ABC".index(part[0]) + 1 for part in expr.split("Phase")[1:]]
+        value = float(np.prod(letters) if letters else 7.0)
+        return np.full(2, value)
+
+    solutions = SimpleNamespace(data_real=data_real, primary_sweep_values=[0.0, 1.0])
+    out = computation.extract_results(solutions)
+
+    theta_el = (np.full(2, 7.0) - np.deg2rad(computation.InitPos)) * computation.geometry.PolePairs
+    current_phases = np.stack([np.full(2, i + 1.0) for i in range(3)], axis=-1)
+    expected_I_d, _ = to_dq(current_phases, theta_el, harmonic=1)
+
+    assert out["I_d"] == pytest.approx(expected_I_d)
+    assert out["Moving1.Torque"] == pytest.approx(np.full(2, 7.0))

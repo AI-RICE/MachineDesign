@@ -1,30 +1,28 @@
 from abc import ABC, abstractmethod
 
+import numpy as np
 from ansys.aedt.core import Maxwell2d
 
+from machine_design.generic.winding import assign_slot_currents_to_aedt, compute_winding_layout
+
 from .geometry import GeometryBase
+from .reserved_variables import check_no_reserved_variable_names
 
 
 class ComputationBase(ABC):
     def __init__(self, geometry: GeometryBase) -> None:
         self.geometry = geometry
+        self.phases = "ABCDEFGHIJK"[: self.geometry.n_phases]
         self.setup_name = "Setup1"
+        self.rotor_mesh = None
         self.set_oper_params()
         self.set_solution_expressions()
         self.set_output_vars()
         self.set_post_params()
+        check_no_reserved_variable_names(self.oper_params, self.output_vars)
 
     @abstractmethod
     def set_oper_params(self): ...
-
-    @abstractmethod
-    def set_solution_expressions(self): ...
-
-    @abstractmethod
-    def set_output_vars(self): ...
-
-    @abstractmethod
-    def set_post_params(self): ...
 
     @abstractmethod
     def assign_stator_coils(self, m2d: Maxwell2d) -> None: ...
@@ -37,6 +35,58 @@ class ComputationBase(ABC):
 
     @abstractmethod
     def extract_results(self, solutions): ...
+
+    @staticmethod
+    def extract_expression(solutions, expr: str) -> np.ndarray:
+        return np.asarray(solutions.data_real(expr, convert_to_SI=True))
+
+    def set_initpos(self) -> None:
+        g = self.geometry
+        Q = int(g.geom_params["SlotNumber"])
+        layout = compute_winding_layout(g.n_phases, Q, g.PolePairs, coil_pitch=int(g.wind_params["CoilPitch"]), layers=int(g.wind_params["Layers"]))
+        self.InitPos = (layout.phase_a_axis - 180) / g.PolePairs
+        self.oper_params["InitPos"] = f"{self.InitPos}deg"
+
+    def set_solution_expressions(self):
+        self.solution_expressions = [
+            "Moving1.Position",
+            "Moving1.Torque",
+            *[f"FluxLinkage(Phase{p})" for p in self.phases],
+            *[f"InducedVoltage(Phase{p})" for p in self.phases],
+            *[f"InputCurrent(Phase{p})" for p in self.phases],
+            *[f"L(Phase{x},Phase{y})" for x in self.phases for y in self.phases],
+        ]
+
+    def set_output_vars(self):
+        self.output_vars = {}
+
+    def set_post_params(self):
+        self.post_params = {
+            tuple(f"InducedVoltage(Phase{p})" for p in self.phases): "InducedVoltage",
+            ("Moving1.Torque"): "Torque",
+            tuple(f"InputCurrent(Phase{p})" for p in self.phases): "Current",
+            tuple(f"FluxLinkage(Phase{p})" for p in self.phases): "FluxLinkage",
+        }
+
+    def assign_phase_windings(self, m2d: Maxwell2d, phase_currents: list) -> None:
+        g = self.geometry
+        Q = int(g.geom_params["SlotNumber"])
+        n = Q // (2 * g.PolePairs)
+        layers = int(g.wind_params["Layers"])
+        layout = compute_winding_layout(g.n_phases, Q, g.PolePairs, coil_pitch=int(g.wind_params["CoilPitch"]), layers=layers)
+        layer_coils = [[f"Coil{i_layer}" if k == 0 else f"Coil{i_layer}_{k}" for k in range(n)] for i_layer in range(layers)]
+        coil_objects = layer_coils[0]
+        coil_objects_back = layer_coils[1] if layers == 2 else None
+        phase_currents_dict = dict(zip(self.phases, phase_currents))
+        assign_slot_currents_to_aedt(m2d, coil_objects, layout, phase_currents_dict, coil_objects_back=coil_objects_back)
+
+    def extract_phase_results(self, solutions):
+        # SI units
+        flux_phases = np.stack([self.extract_expression(solutions, f"FluxLinkage(Phase{p})") for p in self.phases], axis=-1)
+        vind_phases = np.stack([self.extract_expression(solutions, f"InducedVoltage(Phase{p})") for p in self.phases], axis=-1)
+        current_phases = np.stack([self.extract_expression(solutions, f"InputCurrent(Phase{p})") for p in self.phases], axis=-1)
+        L_raw = [np.stack([self.extract_expression(solutions, f"L(Phase{x},Phase{y})") for y in self.phases], axis=-1) for x in self.phases]
+        return flux_phases, vind_phases, current_phases, L_raw
 
     def push_variables(self, m2d: Maxwell2d) -> None:
         for k, v in self.oper_params.items():
@@ -52,8 +102,8 @@ class ComputationBase(ABC):
         m2d.change_symmetry_multiplier("SymmetryFactor")
         # Calculation setup
         setup = m2d.create_setup(name=self.setup_name)
-        setup.props["StopTime"] = "Nper/f"
-        setup.props["TimeStep"] = "1/(f*(PointPer-1))"
+        setup.props["StopTime"] = "2*pi*Nper/w"
+        setup.props["TimeStep"] = "2*pi/(w*(PointPer-1))"
         setup.props["SaveFieldsType"] = "None"
         setup.props["OutputPerObjectCoreLoss"] = False
         setup.props["OutputPerObjectSolidLoss"] = True
@@ -89,7 +139,7 @@ class ComputationBase(ABC):
         for op in list(m2d.mesh.meshoperations):
             if op.name == "rotor":
                 op.delete()
-        m2d.mesh.assign_length_mesh(
+        self.rotor_mesh = m2d.mesh.assign_length_mesh(
             assignment=rotor_id,
             inside_selection=True,
             maximum_length=mesh_length,
@@ -114,3 +164,8 @@ class ComputationBase(ABC):
         m2d.odesign.DeleteFullVariation("All", False)
 
         return result
+
+    def delete_rotor_mesh(self) -> None:
+        if self.rotor_mesh is not None:
+            self.rotor_mesh.delete()
+            self.rotor_mesh = None

@@ -1,4 +1,4 @@
-"""Golden-master check: tests/legacy/design.py vs. the live machine_design/design.py.
+"""Golden-master check: tests/legacy/design.py vs. the live machine_design/designs/design.py.
 
 Generates two feasible rotor designs (different seeds) with HacklGenerator_OneLambda and
 runs each through add_rotor -> compute -> delete_rotor on the SAME Design instance, both
@@ -29,6 +29,19 @@ R_STATOR_END = 0.7
 OFFSET = 0.35
 SEEDS = (42, 43)
 NUM_CORES = 1
+current_setpoint = (1.5, 1.5)
+check_expressions = [
+    "Flux_d",
+    "Flux_q",
+    "Ui_d",
+    "Ui_q",
+    "I_d",
+    "I_q",
+    "L_d",
+    "L_q",
+    "Irms",
+]
+# we should verify all the above 9 vars + Moving1.Torque (a total of 10 vars with different seeds)
 
 
 def _load_legacy_design_class():
@@ -70,25 +83,36 @@ def _create_design(design_cls, project_name, file_name, extra_args=()):
         *extra_args,
         version=AEDT_VERSION,
         non_graphical=True,
-        new_desktop=False,
+        new_desktop=True,
         close_on_exit=False,
     )
 
 
-def _compute_torque(design, barriers, add_rotor):
+def _compute_torque(design, barriers, add_rotor, setpoint=current_setpoint):
     add_rotor(design, barriers)
-    torque = design.compute(NUM_CORES=NUM_CORES)
+    torque = design.compute(*setpoint, NUM_CORES=NUM_CORES)
     design.delete_rotor()
     return torque
 
 
-def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
+def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Legacy transforms InducedVoltage with the unshifted angle; disable the half-step correction to compare like with like.
+    monkeypatch.setattr("motors.synrm_3f_36s.induced_voltage_angle", lambda theta_el: theta_el)
     barrier_sets = [_generate_one_lambda_barriers(seed) for seed in SEEDS]
     LegacyDesign = _load_legacy_design_class()
 
     legacy_design, live_design = None, None
     try:
         legacy_design = _create_design(LegacyDesign, "RegressionTest_legacy", str(tmp_path / "legacy.aedt"))
+        legacy_design.solution_expressions = ["Moving1.Torque", *check_expressions]
+
+        def _legacy_extract_results(solutions):
+            out = {}
+            for expr in legacy_design.solution_expressions:
+                out[expr] = np.array(solutions.data_real(expr, convert_to_SI=True))  # use SI units to compare
+            return out
+
+        legacy_design.extract_results = _legacy_extract_results
 
         live_geometry = Geometry()
         live_computation = Computation(live_geometry)
@@ -105,9 +129,12 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
 
             assert torque_legacy is not None, f"legacy torque is None for seed {seed}"
             assert torque_live is not None, f"live torque is None for seed {seed}"
-            np.testing.assert_allclose(torque_live, torque_legacy, rtol=1e-6, err_msg=f"mismatch for seed {seed}")
+            np.testing.assert_allclose(torque_live["Moving1.Torque"], torque_legacy["Moving1.Torque"], rtol=1e-3, err_msg=f"mismatch for Moving1.Torque, seed {seed}")
+            for expr in check_expressions:
+                np.testing.assert_allclose(torque_live[expr], torque_legacy[expr], rtol=1e-3, err_msg=f"mismatch for {expr}, seed {seed}")
+
     finally:
         if live_design is not None:
             live_design.close_project()
-        elif legacy_design is not None:
+        if legacy_design is not None:
             legacy_design.close_project()

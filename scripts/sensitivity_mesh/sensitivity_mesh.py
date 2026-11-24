@@ -16,6 +16,7 @@ r_stator_end = 0.7
 offset = 0.7 / 2
 
 mesh_sizes = np.round(np.arange(0.1, 3.05, 0.1), 2)
+airgap_mesh_sizes = np.round(np.arange(0.02, 0.11, 0.01), 2)  # investigate airgap mesh layers 
 h_ref = 0.5  # converged value for the regions not being swept
 
 path_data = os.path.join(os.getcwd(), "data")
@@ -99,7 +100,7 @@ for method, X_best in pareto_points.items():
                 sizes[swept_region] = mesh_size
             set_region_mesh(m2d, region_assignments, sizes)
 
-            Tor = design.compute(NUM_CORES=num_cores, mesh_length=mesh_length)
+            Tor = design.compute(0, 0, NUM_CORES=num_cores, mesh_length=mesh_length)
             if Tor is None:
                 TorAvg, TorRippleRms = np.nan, np.nan
             else:
@@ -109,6 +110,31 @@ for method, X_best in pareto_points.items():
                 {
                     "method": method,
                     "region": swept_region,
+                    "mesh_size_mm": mesh_size,
+                    "TorAvg": TorAvg,
+                    "TorRippleRms": TorRippleRms,
+                }
+            )
+
+    # airgap investigation: band vs region vs both together
+    region_assignments_airgap = {**region_assignments, "region": "Region"}
+    airgap_cases = {"band_only": ["band"], "region_only": ["region"], "band_region_together": ["band", "region"]}
+
+    for case_name, swept_keys in airgap_cases.items():
+        for mesh_size in airgap_mesh_sizes:
+            sizes = {region: (mesh_size if region in swept_keys else h_ref) for region in region_assignments_airgap}
+            set_region_mesh(m2d, region_assignments_airgap, sizes)
+
+            Tor = design.compute(0, 0, NUM_CORES=num_cores, mesh_length=h_ref)
+            if Tor is None:
+                TorAvg, TorRippleRms = np.nan, np.nan
+            else:
+                TorAvg, _, TorRippleRms = analyze_results(Tor)
+
+            records.append(
+                {
+                    "method": method,
+                    "region": case_name,
                     "mesh_size_mm": mesh_size,
                     "TorAvg": TorAvg,
                     "TorRippleRms": TorRippleRms,

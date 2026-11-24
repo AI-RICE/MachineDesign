@@ -1,0 +1,182 @@
+"""Issue 77: verify dq voltage is speed independent and only need to be computed with one real Ansys simulation.
+Hypothesis: flux linkage psi_h(theta_el,i) depends only on rotor position and dq currents, not on electrical speed
+w. If true, a single reference solve predicts voltage at different speed via
+V_dh=Rs*Idh+w*(dpsi_dh/dtheta_el-h*ps_qh)-h*w*Lew*Iqh
+V_qh=Rs*Iqh+w*(dpsi_qh/dtheta_el+h*ps_dh)+h*w*Lew*Idh
+Also verify voltage_from_flux matches InducedVoltage method.
+
+Run explicitly with:
+
+    pytest -m ansys tests/test_ansys_dq_voltage_computation_3f_36s.py
+
+Requires a running Ansys Electronics Desktop session and a free license seat.
+"""
+
+import numpy as np
+import pytest
+
+from machine_design.config import load_config
+from machine_design.designs.design import Design as LiveDesign
+from machine_design.generic.transforms import induced_voltage_angle, to_dq, voltage_from_flux
+from machine_design.optimization.generators import HacklGenerator_OneLambda
+from motors.synrm_3f_36s import Computation, Geometry
+
+pytestmark = pytest.mark.ansys
+
+AEDT_VERSION = load_config()["aedt_version"]
+R_STATOR_END = 0.7
+OFFSET = 0.35
+SEED = 42
+NUM_CORES = 1
+f_ref = 50
+frequencies = (25.0, 50.0, 75.0)
+current_setpoint = (1.5, 1.5)
+
+
+def _generate_one_lambda_barriers(seed):
+    # rotor_r_min/rotor_r_max are pure-Python derived params, so a throwaway
+    # instance (no Ansys) is enough to size the generator.
+    geometry = Geometry()
+    dummy = LiveDesign(m2d=None, geometry=geometry, computation=Computation(geometry))
+    generator = HacklGenerator_OneLambda(dummy, R_STATOR_END, offset=OFFSET)
+
+    np.random.seed(seed)
+    while True:
+        params = generator.random_parameters()
+        generator.set_parameters(params)
+        barriers = generator.generate_barriers()
+        barriers = generator.split_barriers(barriers)
+        if generator.feasible_barriers(barriers):
+            return barriers
+
+
+def _add_rotor(design, barriers):
+    design.add_rotor()
+    for barrier in barriers:
+        design.add_rotor_barrier(barrier)
+
+
+def _create_design(design_cls, project_name, file_name, extra_args=()):
+    return design_cls.create(
+        project_name,
+        "Design01",
+        file_name,
+        *extra_args,
+        version=AEDT_VERSION,
+        non_graphical=True,
+        new_desktop=True,
+        close_on_exit=False,
+    )
+
+
+class _Computation_solutions(Computation):
+    def extract_results(self, solutions):
+        self.solutions = solutions
+        return super().extract_results(solutions)
+
+
+def _compute_at(f, barriers, tmp_path):
+    geometry = Geometry()
+    computation = _Computation_solutions(geometry, f=f)
+    design = _create_design(LiveDesign, f"verifySpeedIndependence_f{f:g}", str(tmp_path / f"f{f:g}.aedt"), extra_args=(geometry, computation))
+    _add_rotor(design, barriers)
+
+    out = design.compute(*current_setpoint, NUM_CORES=NUM_CORES)
+    design.delete_rotor()
+    out["_solutions"] = computation.solutions
+    out["_computation"] = computation
+    return design, out
+
+
+@pytest.fixture(scope="module")
+def results_by_frequency(tmp_path_factory):
+    barriers = _generate_one_lambda_barriers(SEED)
+    tmp_path = tmp_path_factory.mktemp("speed_independence")
+    designs, results = [], {}
+    try:
+        for f in frequencies:
+            design, out = _compute_at(f, barriers, tmp_path)
+            designs.append(design)
+            results[f] = out
+        yield results
+    finally:
+        if designs:
+            designs[0].m2d.close_desktop()
+
+
+def test_fluxlinkage_independence(results_by_frequency):
+    ref = results_by_frequency[f_ref]
+    for f, out in results_by_frequency.items():
+        if f == f_ref:
+            continue
+        rel_d = np.max(np.abs(out["Flux_d"] - ref["Flux_d"])) / np.max(np.abs(ref["Flux_d"]))
+        rel_q = np.max(np.abs(out["Flux_q"] - ref["Flux_q"])) / np.max(np.abs(ref["Flux_q"]))
+        print(f"{f}Hz vs {f_ref}Hz: Flux_d max rel diff {rel_d:.4%}, Flux_q max rel diff {rel_q:.4%}")
+        np.testing.assert_allclose(out["Flux_d"], ref["Flux_d"], rtol=1e-3, atol=1e-5, err_msg=f"Flux_d differs at {f}Hz vs {f_ref}Hz")
+        np.testing.assert_allclose(out["Flux_q"], ref["Flux_q"], rtol=1e-3, atol=1e-5, err_msg=f"Flux_q differs at {f}Hz vs {f_ref}Hz")
+
+
+def test_predicted_voltage_solve(results_by_frequency):
+    ref = results_by_frequency[f_ref]
+    theta = ref["theta_el"]
+    computation = Computation(Geometry())
+    Rstat = computation.Rstat
+    assert len(theta) >= 2, f"unexpected array length {len(theta)}, check Ansys output convention"
+
+    def _check(label, w, out):
+        V_d_pred, V_q_pred = voltage_from_flux(
+            ref["Flux_d"],
+            ref["Flux_q"],
+            theta,
+            current_setpoint[0],
+            current_setpoint[1],
+            Rstat,
+            w,
+            harmonic=1,
+            Lew=computation.Lew,
+        )
+
+        V_d_actual = out["V_d"]
+        V_q_actual = out["V_q"]
+
+        rel_d = np.linalg.norm(V_d_pred - V_d_actual) / np.linalg.norm(V_d_actual)
+        rel_q = np.linalg.norm(V_q_pred - V_q_actual) / np.linalg.norm(V_q_actual)
+        print(f"{label}: V_d rel err {rel_d:.4%}, V_q rel err {rel_q:.4%}")
+        assert rel_d < 1e-3, f"{label}: V_d rel err {rel_d: 0.2%} exceeds 0.1% threshold"
+        assert rel_q < 1e-3, f"{label}: V_q rel err {rel_q: 0.2%} exceeds 0.1% threshold"
+
+    for f, out in results_by_frequency.items():
+        if f == f_ref:
+            continue
+        _check(f"{f}Hz", 2 * np.pi * f, out)
+
+
+def test_voltage_from_flux_matches_induced_voltage(results_by_frequency):
+    """test voltage from flux equals induced voltage"""
+    out = results_by_frequency[f_ref]
+    solutions = out["_solutions"]
+    computation = out["_computation"]
+    geometry = computation.geometry
+
+    theta_el = out["theta_el"]
+    _, vind_phases, current_phases, _ = computation.extract_phase_results(solutions)
+    Ui_d, Ui_q = to_dq(vind_phases, induced_voltage_angle(theta_el), harmonic=1)
+
+    Im = np.sqrt(computation.Id**2 + computation.Iq**2)
+    epsI = np.arctan2(computation.Iq, computation.Id)
+    time = np.array(solutions.primary_sweep_values)
+    dI_dt_phases = np.zeros((len(time), geometry.n_phases))
+    for k in range(geometry.n_phases):
+        phase_offset = -2 * np.pi * k / geometry.n_phases
+        dI_dt_phases[:, k] = -Im * computation.w * np.sin(computation.w * time + phase_offset + epsI)
+
+    V_rest_phases = computation.Rstat * current_phases + computation.Lew * dI_dt_phases
+    V_rest_d, V_rest_q = to_dq(V_rest_phases, theta_el, harmonic=1)
+    V_d_induced = Ui_d + V_rest_d
+    V_q_induced = Ui_q + V_rest_q
+
+    rel_d = np.linalg.norm(out["V_d"] - V_d_induced[1:]) / np.linalg.norm(V_d_induced[1:])
+    rel_q = np.linalg.norm(out["V_q"] - V_q_induced[1:]) / np.linalg.norm(V_q_induced[1:])
+    print(f"V_d rel err {rel_d:.4%}, V_q rel err {rel_q:.4%}")
+    assert rel_d < 1e-3, f"V_d rel err {rel_d: 0.2%} exceeds 0.1% threshold"
+    assert rel_q < 1e-3, f"V_q rel err {rel_q: 0.2%} exceeds 0.1% threshold"

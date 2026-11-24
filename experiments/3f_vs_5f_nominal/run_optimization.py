@@ -30,7 +30,7 @@ torch.set_default_dtype(torch.float64)
 config = load_config()
 aedt_version = config["aedt_version"]
 num_cores = config["num_cores"]
-n_evals = 150
+n_evals = 40
 r_stator_end = 0.7
 offset = 0.7 / 2
 batch_size = 4
@@ -42,7 +42,7 @@ i_max_5f = current_scale * i_max_3f
 current_half_bounds_3f = i_max_3f  # case 1, 3f
 current_half_bounds_5f_i3zero = i_max_5f  # case 2, 5f, id3=iq3=0
 current_half_bounds_5f = (4 / np.pi) * i_max_5f  # case 3, 5f, free id3 and iq3
-v_max = 311.13
+v_max = 510
 
 for case, module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and v_max are set temperally to check the code can work.
     (1, "motors.synrm_3f_60s", 3, np.array([[-current_half_bounds_3f] * 2, [current_half_bounds_3f] * 2]), i_max_3f, v_max),

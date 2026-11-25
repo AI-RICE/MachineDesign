@@ -14,7 +14,7 @@ config = load_config()
 aedt_version = config["aedt_version"]
 num_cores = config["num_cores"]
 n_designs = 1
-current_setpoint = (0.0, 1.5)
+current_setpoint = (1.5, 1.5)
 plot_design = True
 
 project_name = "SynRM_test"

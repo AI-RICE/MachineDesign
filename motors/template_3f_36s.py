@@ -72,12 +72,19 @@ class Geometry(Geometry3f36s):
 
         for mag in self.magnet_ids:
             mx, my, _ = mag.faces[0].center
-            self.assign_magnet_cs(m2d, mag.name, float(np.degrees(np.arctan2(my, mx))))
+            self.assign_magnet_cs(m2d, mag.name, float(np.degrees(np.arctan2(my, mx))) + 180)
             mag.material_name = self.magnet
             mag.solve_inside = True
             self._set_appearance(mag, (255, 0, 0), 0.0)
 
         modeler.set_working_coordinate_system("Global")
+        self.reassign_motion_setup(m2d)
+
+    def reassign_motion_setup(self, m2d: Maxwell2d) -> None:
+        motions = [b.name for b in m2d.boundaries if b.type == "Band"]
+        if motions:
+            m2d.omodelsetup.DeleteMotionSetup(motions)
+        self._assign_rotor_motion(m2d)
 
     def delete_rotor(self, m2d: Maxwell2d) -> None:
         names = [m.name for m in self.magnet_ids]

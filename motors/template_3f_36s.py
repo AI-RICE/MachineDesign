@@ -17,8 +17,13 @@ class Geometry(Geometry3f36s):
         self.set_rotor_params()
         self.magnet_ids = []
 
+    def build_stator(self, m2d: Maxwell2d) -> None:
+        super().build_stator(m2d)
+        self._create_material(m2d, self.magnet, **self.magnet_props)
+
     def set_magnets(self):
-        self.magnet = "NdFe35"
+        self.magnet = "NdFeb"
+        self.magnet_props = dict(permeability=1.05, conductivity=0, density=7500, coercivity=900000, coercivity_dir=(1.0, 0.0, 0.0))
 
     def set_rotor_params(self):
         self.rotor_params = {
@@ -82,13 +87,20 @@ class Geometry(Geometry3f36s):
 
         for mag in self.magnet_ids:
             mx, my, _ = mag.faces[0].center
-            self.assign_magnet_cs(m2d, mag.name, float(np.degrees(np.arctan2(my, mx))) + 180)
+            self.assign_magnet_cs(m2d, mag.name, float(np.degrees(np.arctan2(my, mx))))
             mag.material_name = self.magnet
             mag.solve_inside = True
             self._set_appearance(mag, (255, 0, 0), 0.0)
 
         modeler.set_working_coordinate_system("Global")
         self.reassign_motion_setup(m2d)
+
+    def read_magnet_points(self) -> np.ndarray:
+        assert len(self.magnet_ids) == 1
+        pts = np.array([v.position[:2] for v in self.magnet_ids[0].vertices], dtype=float)
+        center = pts.mean(axis=0)
+        order = np.argsort(np.arctan2(pts[:, 1] - center[1], pts[:, 0] - center[0]))
+        return pts[order]
 
     def reassign_motion_setup(self, m2d: Maxwell2d) -> None:
         motions = [b.name for b in m2d.boundaries if b.type == "Band"]

@@ -185,5 +185,6 @@ for case, module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and 
 
         # Save candidates
         np.savez(output_name, train_X=unnormalize(train_X, bounds), train_Y=train_Y)
+        design.m2d.close_project(name=project_name, save=False)
 
 design.close_project()

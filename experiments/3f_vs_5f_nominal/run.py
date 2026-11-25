@@ -119,5 +119,6 @@ for case, module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and 
         }
         metadata = pd.concat((metadata, pd.DataFrame([metadata_new])), ignore_index=True)
         metadata.to_csv(f"{path_results}/metadata.csv", index=False)
+        design.m2d.close_project(name=project_name, save=False)
 
 design.close_project()

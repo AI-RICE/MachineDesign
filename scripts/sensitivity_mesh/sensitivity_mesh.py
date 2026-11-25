@@ -16,7 +16,7 @@ r_stator_end = 0.7
 offset = 0.7 / 2
 
 mesh_sizes = np.round(np.arange(0.1, 3.05, 0.1), 2)
-airgap_mesh_sizes = np.round(np.arange(0.02, 0.11, 0.01), 2)  # investigate airgap mesh layers 
+airgap_mesh_sizes = np.round(np.arange(0.02, 0.11, 0.01), 2)  # investigate airgap mesh layers
 h_ref = 0.5  # converged value for the regions not being swept
 
 path_data = os.path.join(os.getcwd(), "data")
@@ -100,7 +100,7 @@ for method, X_best in pareto_points.items():
                 sizes[swept_region] = mesh_size
             set_region_mesh(m2d, region_assignments, sizes)
 
-            out = design.compute(0, 0, NUM_CORES=num_cores, mesh_length=mesh_length)
+            out = design.compute(1.5, 1.5, NUM_CORES=num_cores, mesh_length=mesh_length)
             if out is None:
                 TorAvg, TorRippleRms = np.nan, np.nan
             else:
@@ -125,7 +125,7 @@ for method, X_best in pareto_points.items():
             sizes = {region: (mesh_size if region in swept_keys else h_ref) for region in region_assignments_airgap}
             set_region_mesh(m2d, region_assignments_airgap, sizes)
 
-            out = design.compute(0, 0, NUM_CORES=num_cores, mesh_length=h_ref)
+            out = design.compute(1.5, 1.5, NUM_CORES=num_cores, mesh_length=h_ref)
             if out is None:
                 TorAvg, TorRippleRms = np.nan, np.nan
             else:

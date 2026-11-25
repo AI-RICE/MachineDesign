@@ -179,7 +179,7 @@ for case, module_name, n_phases, current_bounds, i_max, v_max in [  # i_max and 
         train_X = torch.cat([train_X, candidates_all])
         train_Y = torch.cat([train_Y, new_Y_all])
 
-        feasible = (train_Y[:, 1] >= t_target) & (train_Y[:, 2] >= ref_cons_ripple)
+        feasible = (train_Y[:, 1] >= t_target) & (train_Y[:, 2] >= ref_cons_ripple) & (train_Y[:, 3] <= v_max)
         print(len(train_Y), feasible.sum().item())
         print(train_Y[feasible][:, 0].max() if feasible.any() else None)
 

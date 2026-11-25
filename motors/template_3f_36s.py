@@ -28,7 +28,7 @@ class Geometry(Geometry3f36s):
             "WidthMag": "28mm",
             "Offset": "0mm",
             "Bridge": "1mm",
-            "Rib": "2mm",
+            "Rib": "0mm",
         }
 
     def _udp_par_list_rotor(self, info_core: str) -> list[list[str]]:
@@ -50,9 +50,18 @@ class Geometry(Geometry3f36s):
             m2d[f"Rotor{k}"] = v
 
         rotor_id = modeler.create_udp(dll="RMxprt/PMCore.dll", parameters=self._udp_par_list_rotor("0"), library="syslib", name="Rotor")
-        magnets_id = modeler.create_udp(dll="RMxprt/PMCore.dll", parameters=self._udp_par_list_rotor("1"), library="syslib", name="Magnet")
-        modeler.purge_history([rotor_id.name, magnets_id.name])
+        modeler.purge_history([rotor_id.name])
+
+        magnets_id = modeler.create_circle(origin=[0, 0, 0], radius="DiaStatorGap/2-Airgap", is_covered=True, name="Magnet")
+        shaft_tmp = modeler.create_circle(origin=[0, 0, 0], radius="DiaShaft/2", is_covered=True, name="ShaftTmp")
+        modeler.subtract(blank_list=[magnets_id], tool_list=[shaft_tmp], keep_originals=False)
+        modeler.subtract(blank_list=[magnets_id], tool_list=[rotor_id], keep_originals=True)
         magnet_ids = modeler.separate_bodies(assignment=magnets_id.name) or [magnets_id]
+
+        slivers = [m.name for m in magnet_ids if m.faces[0].area < 1e-3]
+        if slivers:
+            modeler.delete(slivers)
+        magnet_ids = [m for m in magnet_ids if m.name not in slivers]
 
         x, y, _ = magnet_ids[0].faces[0].center
         pole_pitch = 360 / (2 * self.PolePairs)

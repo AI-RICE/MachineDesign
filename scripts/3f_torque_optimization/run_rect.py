@@ -63,7 +63,7 @@ for i in range(0, n_designs):
         design.add_rotor()
         for barrier, magnet in zip(barriers, magnets):
             design.add_rotor_barrier(barrier)
-            design.geometry.add_rotor_magnet(design.m2d, magnet, fill_height=1.0, fill_width=1.0)
+            design.add_rotor_magnet(magnet)
 
         # Compute the torque
         outputs = design.compute(*current_setpoint, NUM_CORES=num_cores)

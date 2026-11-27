@@ -14,19 +14,25 @@ from machine_design.optimization import (
     save_params,
 )
 from motors.synrm_3f_36s_mag import Computation, Geometry
-from motors.template_3f_36s import Geometry as TemplateGeometry
 
 config = load_config()
 aedt_version = config["aedt_version"]
 num_cores = config["num_cores"]
-n_designs = 10
+n_designs = 1
 r_stator_end = 0.7
 offset = 0.7 / 2
 current_setpoint = (1.5, 1.5)
 plot_design = True
-template_rotor = TemplateGeometry().rotor_params
-template_params = [float(template_rotor["Embrace"]), float(template_rotor["ThickMag"][:-2]), float(template_rotor["Bridge"][:-2])]
-exact_template = True
+
+embrace = 0.8
+thick_mag = 4.0
+bridge = 1.0
+template_params = [embrace, thick_mag, bridge]
+
+fill_length = 1.0
+fill_thickness = 1.0
+random_magnet = False
+fill_bounds = (0.5, 1.0)
 
 project_name = "RectMagnet_test"
 design_name = "Design01"
@@ -44,17 +50,14 @@ generators = [RectMagnetGenerator(design, r_stator_end, offset=offset, center=te
 metadata = pd.DataFrame()
 for i in range(0, n_designs):
     for generator in generators:
-        # Generate a feasible design
-        while True:
-            params = np.array(template_params) if exact_template and template_params is not None else generator.random_parameters()
-            generator.set_parameters(params)
-            barriers = generator.generate_barriers()
-            # barriers = generator.split_barriers(barriers)
-            feasible = generator.feasible_barriers(barriers)
-            if feasible:
-                break
+        params = np.array(template_params)
+        generator.set_parameters(params)
+        barriers = generator.generate_barriers()
+        if not generator.feasible_barriers(barriers):
+            raise ValueError(f"Barrier is not feasible for parameters {params}")
 
-        magnets = generator.generate_magnets(barriers)
+        fills = np.random.uniform(*fill_bounds, 2) if random_magnet else np.array([fill_length, fill_thickness])
+        magnets = generator.generate_magnets(barriers, fill_length=fills[0], fill_thickness=fills[1])
 
         # Generate the geometry
         design.add_rotor()
@@ -71,6 +74,9 @@ for i in range(0, n_designs):
             TorAvg, _, TorRippleRms = analyze_results(outputs["Moving1.Torque"])
             means = {k: float(np.mean(outputs[k])) for k in means}
 
+        if plot_design:
+            design.m2d.plot(show=False, output_file=os.path.abspath(f"{path_results}/design_{generator.name}_{i}_ansys.png"), view="xy", plot_air_objects=False)
+
         # Delete the rotor and the magnets
         design.delete_rotor()
         modeler = design.m2d.modeler
@@ -85,17 +91,11 @@ for i in range(0, n_designs):
             title = f"Torque mean value: {np.round(TorAvg, 2)} Nm, ripple relative value: {np.round(TorRippleRms, 2)} %"
             file_name = f"{path_results}/design_{generator.name}_{i}"
             plot_barriers(barriers, design, title=title, file_name=f"{file_name}.png", magnets=magnets)
-            save_params(params, f"{file_name}.pkl")
+            save_params({"barrier": params, "fills": fills}, f"{file_name}.pkl")
 
         metadata_new = {
             "method": generator.name,
             "design": i,
-            "Embrace": params[0],
-            "ThickMag": params[1],
-            "Bridge": params[2],
-            "y_min": generator.y_min,
-            "thickness": generator.thickness,
-            "width": generator.width,
             "T": TorAvg,
             "ripple": TorRippleRms,
             **means,

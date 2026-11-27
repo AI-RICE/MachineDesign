@@ -640,5 +640,14 @@ class RectMagnetGenerator(BarrierGenerator):
         x, y = rotate(x, y, -self.rotation)
         return [np.vstack((x, y)).T]
 
-    def generate_magnets(self, barriers: list[np.ndarray]) -> list[np.ndarray]:
-        return [[barrier[:-1]] for barrier in barriers]
+    def generate_magnets(self, barriers: list[np.ndarray], fill_length: float = 1.0, fill_thickness: float = 1.0) -> list[np.ndarray]:
+        magnets = []
+        for barrier in barriers:
+            pts = barrier[:-1]
+            center = pts.mean(axis=0)
+            long_axis = (pts[1] - pts[0]) / np.linalg.norm(pts[1] - pts[0])
+            short_axis = np.array([-long_axis[1], long_axis[0]])
+            rel = pts - center
+            scaled = center + np.outer(rel @ long_axis * fill_length, long_axis) + np.outer(rel @ short_axis * fill_thickness, short_axis)
+            magnets.append([scaled])
+        return magnets

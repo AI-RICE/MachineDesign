@@ -616,3 +616,52 @@ class MagnetGenerator(BarrierGenerator):
             magnets.append([mag_pts[center_mask]])
 
         return magnets
+
+
+class RectMagnetGenerator(BarrierGenerator):
+    def __init__(self, design, r_stator_end, center=None, spread=0.1, **kwargs):
+        super().__init__(design, r_stator_end, **kwargs)
+        self.half_pole_angle = 180 / (2 * design.geometry.PolePairs)
+        self.rotation = 90 - self.half_pole_angle
+        self.center = None if center is None else np.asarray(center, dtype=float)
+        self.spread = spread
+
+    @property
+    def bounds(self) -> tuple[np.ndarray, np.ndarray]:
+        if self.center is not None:
+            return self.center * (1 - self.spread), self.center * (1 + self.spread)
+        return np.array([0.5, 2.0, 0.7]), np.array([0.95, 8.0, 3.0])
+
+    def random_parameters(self):
+        lb, ub = self.bounds
+        return np.random.uniform(lb, ub)
+
+    def X_to_params(self, X: np.ndarray):
+        return np.asarray(X, dtype=float)
+
+    def set_parameters(self, params) -> None:
+        self.embrace, self.thick_mag, self.bridge = params
+        r_corner = self.r_max - self.bridge
+        angle = np.radians(self.embrace * self.half_pole_angle)
+        self.thickness = self.thick_mag
+        self.y_min = r_corner * np.cos(angle) - self.thick_mag
+        self.width = 2 * r_corner * np.sin(angle)
+
+    def generate_barriers(self) -> list[np.ndarray]:
+        w, y0, t = self.width, self.y_min, self.thickness
+        x = np.array([-w / 2, w / 2, w / 2, -w / 2, -w / 2])
+        y = np.array([y0, y0, y0 + t, y0 + t, y0])
+        x, y = rotate(x, y, -self.rotation)
+        return [np.vstack((x, y)).T]
+
+    def generate_magnets(self, barriers: list[np.ndarray], fill_length: float = 1.0, fill_thickness: float = 1.0) -> list[np.ndarray]:
+        magnets = []
+        for barrier in barriers:
+            pts = barrier[:-1]
+            center = pts.mean(axis=0)
+            long_axis = (pts[1] - pts[0]) / np.linalg.norm(pts[1] - pts[0])
+            short_axis = np.array([-long_axis[1], long_axis[0]])
+            rel = pts - center
+            scaled = center + np.outer(rel @ long_axis * fill_length, long_axis) + np.outer(rel @ short_axis * fill_thickness, short_axis)
+            magnets.append([scaled])
+        return magnets

@@ -9,6 +9,8 @@ from .reserved_variables import check_no_reserved_variable_names
 
 class GeometryBase(ABC):
     def __init__(self) -> None:
+        self.magnet_ids = []
+        self.magnet_cs_ids = []
         self.set_iron()
         self.set_geom_params()
         self.set_slot_params()

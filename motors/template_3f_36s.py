@@ -16,7 +16,6 @@ class Geometry(Geometry3f36s):
         super().__init__()
         self.set_magnets()
         self.set_rotor_params()
-        self.magnet_ids = []
 
     def build_stator(self, m2d: Maxwell2d) -> None:
         super().build_stator(m2d)
@@ -113,15 +112,6 @@ class Geometry(Geometry3f36s):
         if motions:
             m2d.omodelsetup.DeleteMotionSetup(motions)
         self._assign_rotor_motion(m2d)
-
-    def delete_rotor(self, m2d: Maxwell2d) -> None:
-        names = [m.name for m in self.magnet_ids]
-        if names:
-            m2d.modeler.delete(names)
-        super().delete_rotor(m2d)
-        for cs in [cs for cs in m2d.modeler.coordinate_systems if cs.name in {f"CS_{n}" for n in names}]:
-            cs.delete()
-        self.magnet_ids = []
 
 
 class Computation(Computation3f36s):

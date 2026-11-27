@@ -2,6 +2,8 @@ import numpy as np
 from ansys.aedt.core import Maxwell2d
 from ansys.aedt.core.modeler.modeler_2d import Modeler2D
 
+from machine_design.optimization.geometry import rotate
+
 from motors.synrm_3f_36s import Computation as Computation3f36s
 from motors.synrm_3f_36s import Geometry as Geometry3f36s
 
@@ -101,6 +103,11 @@ class Geometry(Geometry3f36s):
         center = pts.mean(axis=0)
         order = np.argsort(np.arctan2(pts[:, 1] - center[1], pts[:, 0] - center[0]))
         return pts[order]
+
+    def read_magnet_rectangle(self) -> np.ndarray:
+        pts = self.read_magnet_points()
+        x_local, y_local = rotate(pts[:, 0], pts[:, 1], 90 - 180 / (2 * self.PolePairs))
+        return np.array([np.min(y_local), np.ptp(y_local), np.ptp(x_local)])
 
     def reassign_motion_setup(self, m2d: Maxwell2d) -> None:
         motions = [b.name for b in m2d.boundaries if b.type == "Band"]

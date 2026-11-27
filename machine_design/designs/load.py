@@ -12,7 +12,7 @@ def load_design(
     aedt_version,
     geometry: GeometryBase,
     computation: ComputationBase,
-    new_desktop=False,
+    new_desktop=True,
     non_graphical=True,
     close_on_exit=True,
     **kwargs,

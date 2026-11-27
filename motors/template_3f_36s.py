@@ -3,7 +3,6 @@ from ansys.aedt.core import Maxwell2d
 from ansys.aedt.core.modeler.modeler_2d import Modeler2D
 
 from machine_design.optimization.geometry import rotate
-
 from motors.synrm_3f_36s import Computation as Computation3f36s
 from motors.synrm_3f_36s import Geometry as Geometry3f36s
 

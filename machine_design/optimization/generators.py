@@ -604,6 +604,7 @@ class MagnetGenerator(BarrierGenerator):
 
         return magnets
 
+
 class RectMagnetGenerator(BarrierGenerator):
     def __init__(self, design, r_stator_end, center=None, spread=0.1, **kwargs):
         super().__init__(design, r_stator_end, **kwargs)

@@ -430,13 +430,23 @@ class HacklGenerator_3BrokenLines(AbstractHacklGenerator):
 
 
 class MagnetGenerator(BarrierGenerator):
-    def __init__(self, design, r_stator_end, der1=1.0, der2=1.0, symmetric=True, **kwargs):
+    def __init__(self, design, r_stator_end, der1=1.0, der2=1.0, symmetric=True, min_bridge=0.0, **kwargs):
         self.n_designs = kwargs.get("n_designs", 1)
         self.der1 = der1
         self.der2 = der2
         self.symmetric = symmetric
         self.n_barriers = kwargs.get("n_barriers", 1)
+        self.sector_angle = np.pi / design.geometry.PolePairs
+        self.min_bridge = min_bridge
         super().__init__(design, r_stator_end, **kwargs)
+
+    def feasible_barriers(self, barriers: list[np.ndarray], tol: float = 1e-8) -> bool:
+        for barrier in barriers:
+            dist_start = barrier[:, 1]
+            dist_end = barrier[:, 0] * np.sin(self.sector_angle) - barrier[:, 1] * np.cos(self.sector_angle)
+            if any(dist_start < self.min_bridge - tol) or any(dist_end < self.min_bridge - tol):
+                return False
+        return super().feasible_barriers(barriers, tol)
 
     def _create_barrier(
         self,
@@ -584,13 +594,16 @@ class MagnetGenerator(BarrierGenerator):
             barriers.append(xy_all)
         return barriers
 
-    def generate_magnets(self, barriers: list[np.ndarray]) -> list[np.ndarray]:
+    def generate_magnets(self, barriers: list[np.ndarray], margin: float = 0.0) -> list[np.ndarray]:
         magnets = []
-        margin = 0.0
 
         for barrier in barriers:
             x, y = barrier[:, 0], barrier[:, 1]
             mag_pts = np.column_stack((x, y))
+
+            if margin <= 0:
+                magnets.append([mag_pts])
+                continue
 
             angles = np.degrees(np.arctan2(mag_pts[:, 1], mag_pts[:, 0]))
 

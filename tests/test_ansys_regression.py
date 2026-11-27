@@ -83,7 +83,7 @@ def _create_design(design_cls, project_name, file_name, extra_args=()):
         *extra_args,
         version=AEDT_VERSION,
         non_graphical=True,
-        new_desktop=False,
+        new_desktop=True,
         close_on_exit=False,
     )
 
@@ -95,7 +95,9 @@ def _compute_torque(design, barriers, add_rotor, setpoint=current_setpoint):
     return torque
 
 
-def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
+def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Legacy transforms InducedVoltage with the unshifted angle; disable the half-step correction to compare like with like.
+    monkeypatch.setattr("motors.synrm_3f_36s.induced_voltage_angle", lambda theta_el: theta_el)
     barrier_sets = [_generate_one_lambda_barriers(seed) for seed in SEEDS]
     LegacyDesign = _load_legacy_design_class()
 
@@ -134,5 +136,5 @@ def test_legacy_and_live_design_match_across_rotor_rebuilds(tmp_path):
     finally:
         if live_design is not None:
             live_design.close_project()
-        elif legacy_design is not None:
+        if legacy_design is not None:
             legacy_design.close_project()

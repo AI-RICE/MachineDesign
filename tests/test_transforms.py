@@ -12,7 +12,7 @@ the same transform as the 5-phase one.
 import numpy as np
 import pytest
 
-from machine_design.generic.transforms import electrical_angle, to_dq, to_phases
+from machine_design.generic.transforms import electrical_angle, induced_voltage_angle, to_dq, to_phases
 
 THETA = np.linspace(0.0, 2.0 * np.pi, 37)
 
@@ -126,3 +126,15 @@ def test_electrical_angle_accepts_degrees_like_ansys_reports_them():
 def test_rejects_too_few_phases():
     with pytest.raises(ValueError, match="at least 3 phases"):
         to_dq(np.zeros((len(THETA), 2)), THETA, 1)
+
+
+def test_induced_voltage_angle_is_backward_midpoint() -> None:
+    theta = np.r_[np.linspace(0.0, 1.0, 11), 1.05]
+    theta_mid = induced_voltage_angle(theta)
+    np.testing.assert_allclose(theta_mid[1:], (theta[1:] + theta[:-1]) / 2)
+
+
+def test_induced_voltage_angle_handles_wrapping() -> None:
+    theta = np.linspace(0.0, 8.0 * np.pi, 201)
+    theta_wrapped = np.mod(theta, 2.0 * np.pi)
+    np.testing.assert_allclose(np.cos(induced_voltage_angle(theta_wrapped)), np.cos(induced_voltage_angle(theta)), atol=1e-12)
